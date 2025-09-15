@@ -1,0 +1,30 @@
+# Core dependencies for the incremental author disambiguation system
+# Основные зависимости для системы инкрементального устранения неоднозначности авторов
+
+# No external dependencies required for the core functionality
+# Для основной функциональности не требуется внешних зависимостей
+
+# All functionality is implemented using Python standard library:
+# Вся функциональность реализована с использованием стандартной библиотеки Python:
+# - dataclasses (Python 3.7+)
+# - typing (Python 3.5+)
+# - unittest (built-in)
+# - json (built-in)
+# - datetime (built-in)
+# - uuid (built-in)
+# - re (built-in)
+# - string (built-in)
+
+# Optional development dependencies (uncomment if needed):
+# Опциональные зависимости для разработки (раскомментируйте при необходимости):
+
+# pytest>=6.0.0          # Alternative testing framework / Альтернативный фреймворк тестирования
+# black>=21.0.0           # Code formatter / Форматтер кода
+# flake8>=3.8.0           # Code linter / Линтер кода
+# mypy>=0.812             # Type checker / Проверка типов
+# coverage>=5.0           # Code coverage / Покрытие кода
+
+# For future database integration with ИСТИНА system:
+# Для будущей интеграции с базой данных системы ИСТИНА:
+# psycopg2-binary>=2.8.0  # PostgreSQL adapter / Адаптер PostgreSQL
+# sqlalchemy>=1.4.0       # ORM / ORM

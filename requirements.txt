@@ -1,11 +1,14 @@
 # Core dependencies for the incremental author disambiguation system
 # Основные зависимости для системы инкрементального устранения неоднозначности авторов
 
-# No external dependencies required for the core functionality
-# Для основной функциональности не требуется внешних зависимостей
+# External API Integration / Интеграция внешних API
+crossrefapi>=1.5.0        # Crossref API client for DOI metadata / Клиент Crossref API для метаданных DOI
 
-# All functionality is implemented using Python standard library:
-# Вся функциональность реализована с использованием стандартной библиотеки Python:
+# Text Similarity / Текстовая схожесть
+python-Levenshtein>=0.12.0  # Fast string similarity / Быстрое вычисление сходства строк
+
+# Python Standard Library (built-in, no installation needed):
+# Стандартная библиотека Python (встроенная, установка не требуется):
 # - dataclasses (Python 3.7+)
 # - typing (Python 3.5+)
 # - unittest (built-in)
@@ -14,6 +17,9 @@
 # - uuid (built-in)
 # - re (built-in)
 # - string (built-in)
+# - argparse (built-in)
+# - logging (built-in)
+# - concurrent.futures (built-in)
 
 # Optional development dependencies (uncomment if needed):
 # Опциональные зависимости для разработки (раскомментируйте при необходимости):

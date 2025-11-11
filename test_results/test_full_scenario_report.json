@@ -1,0 +1,45 @@
+{
+  "test_metadata": {
+    "timestamp": "2025-11-11T17:29:48.218668",
+    "configuration": {
+      "authors_file": "C:\\istina\\materia 材料\\测试表单\\authors.json",
+      "dois_file": "C:\\istina\\materia 材料\\测试表单\\dois.json",
+      "output_file": "test_results/test_full_scenario_report.json",
+      "initial_authors_limit": 100,
+      "dois_limit": 50,
+      "title_threshold": 0.95,
+      "author_threshold": 0.85,
+      "max_workers": 3,
+      "email": "majiaxing@mail.ru",
+      "verbose": false,
+      "debug": false
+    }
+  },
+  "statistics": {
+    "initial_authors": 100,
+    "dois_processed": 50,
+    "dois_failed": 0,
+    "articles_fetched": 50,
+    "articles_deduplicated": 0,
+    "authors_matched": 3,
+    "authors_created": 480,
+    "processing_time_seconds": 52.351378,
+    "final_author_count": 580,
+    "articles_indexed_by_doi": 50,
+    "articles_indexed_by_title": 50
+  },
+  "database_statistics": {
+    "total_authors": 580,
+    "total_publications": 0,
+    "authors_with_orcid": 74,
+    "unique_surnames": 295,
+    "avg_publications_per_author": 0.0
+  },
+  "deduplication_statistics": {
+    "indexed_by_doi": 50,
+    "indexed_by_title": 50,
+    "total_articles": 50
+  },
+  "failed_dois": [],
+  "deduplicated_articles_sample": []
+}

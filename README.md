@@ -94,6 +94,21 @@ pip install -r requirements.txt
 - `crossrefapi>=1.5.0` - Crossref API客户端
 - `python-Levenshtein>=0.12.0` - 快速字符串相似度计算
 
+### 3. 测试数据 / Тестовые данные / Test Data
+
+项目包含完整的测试数据集，位于 `test_data/` 目录：
+
+**数据文件 / Файлы данных / Data Files:**
+- `authors.json` (864KB) - 8,997个初始作者记录
+- `dois.json` (216KB) - 7,723个DOI用于测试
+
+**数据来源 / Источник / Source:**
+- ✅ 所有数据来自公开学术出版物
+- ✅ 不包含个人隐私信息
+- ✅ 用于系统验证和可复现研究
+
+**详细说明：** 查看 [`test_data/README.md`](test_data/README.md) 获取完整的数据说明文档。
+
 ---
 
 ## 快速开始 / Быстрый старт

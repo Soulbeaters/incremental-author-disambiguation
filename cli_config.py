@@ -23,9 +23,11 @@ class CLIConfig:
     """
 
     # 默认文件路径 / Пути по умолчанию / Default file paths
+    # 现在使用项目内test_data目录 / Теперь используем test_data внутри проекта
+    # Now using test_data directory within the project
     DEFAULT_PATHS = {
-        'authors_file': r'C:\istina\materia 材料\测试表单\authors.json',
-        'dois_file': r'C:\istina\materia 材料\测试表单\dois.json',
+        'authors_file': 'test_data/authors.json',
+        'dois_file': 'test_data/dois.json',
         'crossref_authors': r'C:\istina\materia 材料\测试表单\crossref_authors.json',
         'crossref_articles': r'C:\istina\materia 材料\测试表单\crossref.json',
         'output': 'disambiguation_results.json',

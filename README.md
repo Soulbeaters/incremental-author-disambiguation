@@ -109,6 +109,21 @@ pip install -r requirements.txt
 
 **详细说明：** 查看 [`test_data/README.md`](test_data/README.md) 获取完整的数据说明文档。
 
+**完整测试数据集 / Полный набор тестовых данных / Full Test Dataset:**
+
+GitHub仓库包含完整的测试数据（authors.json + dois.json），这些数据也可通过Google Drive访问，便于大规模测试和研究复现：
+
+Репозиторий GitHub содержит полные тестовые данные (authors.json + dois.json), эти данные также доступны через Google Drive для крупномасштабного тестирования и воспроизводимых исследований:
+
+The GitHub repository contains the complete test data (authors.json + dois.json), which is also available via Google Drive for large-scale testing and reproducible research:
+
+🔗 **[访问完整测试数据 / Доступ к полным данным / Access Full Test Data](https://drive.google.com/drive/folders/1BHyZJt8MhTPz6isMRoBIT2NVQuf1H6Eq?usp=sharing)**
+
+**完整数据集 / Полный набор / Full Dataset:**
+- `authors.json` (864 KB) - 8,997个初始作者记录，用于建立基础数据库
+- `dois.json` (216 KB) - 7,723个DOI，用于测试Crossref API集成和作者消歧
+- 其他相关测试数据 / Другие тестовые данные / Other related test data
+
 ---
 
 ## 快速开始 / Быстрый старт

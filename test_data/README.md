@@ -82,6 +82,36 @@ This directory contains real academic datasets required for project testing. The
 
 ---
 
+## 完整数据集下载 / Скачать полный набор / Full Dataset Download
+
+### 🔗 Google Drive访问 / Доступ через Google Drive / Google Drive Access
+
+所有测试数据文件已上传至Google Drive，便于导师和研究者下载和使用：
+
+Все файлы тестовых данных загружены на Google Drive для удобного доступа научного руководителя и исследователей:
+
+All test data files have been uploaded to Google Drive for easy access by advisors and researchers:
+
+**📥 [下载测试数据 / Скачать тестовые данные / Download Test Data](https://drive.google.com/drive/folders/1BHyZJt8MhTPz6isMRoBIT2NVQuf1H6Eq?usp=sharing)**
+
+**Google Drive包含的文件 / Файлы на Google Drive / Files on Google Drive:**
+1. `authors.json` (864 KB) - 8,997条初始作者记录
+2. `dois.json` (216 KB) - 7,723个测试DOI
+3. 其他项目相关数据文件 / Другие файлы данных проекта / Other project data files
+
+**使用说明 / Инструкции / Instructions:**
+1. 点击上方链接访问Google Drive文件夹
+2. 下载所需的数据文件
+3. 将文件放置在 `test_data/` 目录下
+4. 运行测试脚本进行验证
+
+**数据完整性 / Целостность данных / Data Integrity:**
+- ✅ 所有数据经过验证和测试
+- ✅ 与GitHub仓库中的数据完全一致
+- ✅ 适用于所有测试场景和脚本
+
+---
+
 ## 使用方法 / Использование / Usage
 
 ### 快速测试 / Быстрый тест / Quick Test

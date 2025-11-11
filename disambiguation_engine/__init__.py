@@ -9,5 +9,14 @@
 from .similarity_scorer import SimilarityScorer
 from .dependency_graph import DependencyGraph
 from .engine import DisambiguationEngine, DisambiguationResult
+from .article_deduplicator import ArticleDeduplicator
+from .author_merger import AuthorMerger
 
-__all__ = ['SimilarityScorer', 'DependencyGraph', 'DisambiguationEngine', 'DisambiguationResult']
+__all__ = [
+    'SimilarityScorer',
+    'DependencyGraph',
+    'DisambiguationEngine',
+    'DisambiguationResult',
+    'ArticleDeduplicator',
+    'AuthorMerger'
+]

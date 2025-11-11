@@ -4,11 +4,16 @@
 
 完整演示增量消歧流程，不包含交互暂停
 Полная демонстрация процесса инкрементального устранения неоднозначности без интерактивных пауз
+
+中文注释：自动演示脚本，无交互暂停
+Русский комментарий: Автоматический демонстрационный скрипт без интерактивных пауз
 """
 
 import sys
 import os
-from typing import List
+import argparse
+import json
+from typing import List, Optional
 import time
 
 # 添加项目根目录到Python路径 / Добавление корневого каталога проекта в путь Python
@@ -17,6 +22,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from models.author import AuthorRecord
 from disambiguation_engine.engine import DisambiguationEngine
 from config import SIMILARITY_THRESHOLD, SIMILARITY_WEIGHTS
+from cli_config import CLIConfig
 
 
 def create_representative_test_cases() -> List[AuthorRecord]:
@@ -236,37 +242,69 @@ def demonstrate_incremental_disambiguation():
     return engine, final_stats
 
 
-def main():
+def main(args: Optional[argparse.Namespace] = None):
     """
-    主函数（自动模式）/ Главная функция (автоматический режим)
+    主函数（自动模式）/ Главная функция (автоматический режим) / Main function (auto mode)
+
+    参数 / Параметры / Parameters:
+        args: CLI参数（可选）/ Аргументы CLI (опционально) / CLI arguments (optional)
     """
     try:
-        # 运行完整演示 / Запуск полной демонстрации
+        # 打印配置（如果verbose）/ Вывод конфигурации / Print configuration
+        if args and args.verbose:
+            CLIConfig.print_config(args)
+
+        # 运行完整演示 / Запуск полной демонстрации / Run full demonstration
         engine, stats = demonstrate_incremental_disambiguation()
 
         print(f"\n{'='*80}")
         print("*** 增量消歧系统原型演示完成！(自动模式) ***")
         print("*** Демонстрация прототипа системы инкрементального устранения неоднозначности завершена! (автоматический режим) ***")
+        print("*** Incremental Disambiguation System Demo Complete! (Auto Mode) ***")
         print(f"{'='*80}")
 
-        # 自动导出结果 / Автоматический экспорт результатов
+        # 自动导出结果 / Автоматический экспорт результатов / Auto export results
         results = engine.export_results()
-        import json
-        output_file = "incremental_disambiguation_results_auto.json"
+
+        # 使用CLI参数中的输出文件或默认值 / Использовать выходной файл из CLI или по умолчанию
+        output_file = args.output if args else "incremental_disambiguation_results_auto.json"
+
         with open(output_file, 'w', encoding='utf-8') as f:
             json.dump(results, f, ensure_ascii=False, indent=2, default=str)
-        print(f"\n[+] 结果已自动导出到: {output_file}")
-        print(f"[+] Результаты автоматически экспортированы в: {output_file}")
+
+        print(f"\n[+] 结果已自动导出到 / Результаты автоматически экспортированы в / Results exported to: {output_file}")
 
     except KeyboardInterrupt:
-        print("\n\n[!] 演示被用户中断")
-        print("[!] Демонстрация прервана пользователем")
+        print("\n\n[!] 演示被用户中断 / Демонстрация прервана пользователем / Demo interrupted by user")
     except Exception as e:
-        print(f"\n[ERROR] 演示过程中发生错误: {e}")
-        print(f"[ERROR] Ошибка во время демонстрации: {e}")
-        import traceback
-        traceback.print_exc()
+        print(f"\n[ERROR] 演示过程中发生错误 / Ошибка во время демонстрации / Error during demo: {e}")
+        if args and args.debug:
+            import traceback
+            traceback.print_exc()
 
 
 if __name__ == "__main__":
-    main()
+    # 创建CLI参数解析器 / Создание парсера CLI / Create CLI parser
+    parser = CLIConfig.create_base_parser(
+        description=(
+            '增量消歧系统自动演示（无交互）\n'
+            'Автоматическая демонстрация системы инкрементального устранения неоднозначности (без взаимодействия)\n'
+            'Automatic demonstration of incremental disambiguation system (no interaction)'
+        ),
+        add_data_files=False,  # 此演示使用硬编码数据 / Эта демонстрация использует захардкоженные данные
+        add_output_files=True,
+        add_config=True
+    )
+
+    # 解析参数 / Парсинг аргументов / Parse arguments
+    args = parser.parse_args()
+
+    # 验证参数 / Валидация аргументов / Validate arguments
+    try:
+        CLIConfig.validate_args(args)
+    except ValueError as e:
+        print(f"\n[ERROR / ОШИБКА] {e}")
+        sys.exit(1)
+
+    # 运行演示 / Запуск демонстрации / Run demonstration
+    main(args)

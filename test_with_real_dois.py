@@ -1,19 +1,41 @@
 # -*- coding: utf-8 -*-
 """
-使用真实DOI数据测试增量消歧系统
+使用真实DOI数据测试增量消歧系统 / Тест системы с реальными DOI
 Test incremental disambiguation system with real DOI data
+
+中文注释：真实DOI数据测试脚本
+Русский комментарий: Скрипт тестирования с реальными данными DOI
 """
 
 import json
 import sys
+import argparse
+from pathlib import Path
 from models.author import AuthorRecord
 from disambiguation_engine.engine import DisambiguationEngine
+from cli_config import CLIConfig
 
-def load_dois(file_path: str, limit: int = 10):
-    """加载真实DOI数据 / Load real DOI data"""
+def load_dois(file_path: str, limit: int = None):
+    """
+    加载真实DOI数据 / Загрузка реальных DOI / Load real DOI data
+
+    参数 / Параметры / Parameters:
+        file_path: DOI文件路径 / Путь к файлу DOI
+        limit: 加载数量限制 / Лимит загрузки / Load limit
+
+    返回 / Возвращает / Returns:
+        DOI列表 / Список DOI / List of DOIs
+    """
     with open(file_path, 'r', encoding='utf-8') as f:
         dois = json.load(f)
-    return dois[1:limit+1]  # 跳过第一个空字符串 Skip first empty string
+
+    # 跳过第一个空字符串 / Пропускаем первую пустую строку / Skip first empty string
+    dois = dois[1:]
+
+    if limit:
+        dois = dois[:limit]
+
+    return dois
 
 def create_test_records_from_dois(dois: list):
     """从DOI创建测试记录（模拟真实数据）"""
@@ -81,17 +103,38 @@ def create_test_records_from_dois(dois: list):
 
     return test_records
 
-def main():
-    """主测试函数"""
+def main(args):
+    """
+    主测试函数 / Основная тестовая функция / Main test function
+
+    参数 / Параметры / Parameters:
+        args: 命令行参数 / Аргументы CLI / CLI arguments
+    """
     print("="*80)
-    print("真实DOI数据增量消歧测试 / Incremental Disambiguation Test")
+    print("真实DOI数据增量消歧测试 / Тест дезамбигуации с реальными DOI")
+    print("Incremental Disambiguation Test with Real DOI Data")
     print("="*80)
 
-    # 加载真实DOI
-    dois_file = r"C:\istina\materia 材料\测试表单\dois.json"
-    dois = load_dois(dois_file, limit=5)
-    print(f"\n[+] 加载了 {len(dois)} 个真实DOI")
-    print(f"[+] Sample DOIs: {dois[:3]}...")
+    # 打印配置（如果verbose）/ Вывод конфигурации / Print configuration
+    if args.verbose:
+        CLIConfig.print_config(args)
+
+    # 加载真实DOI / Загрузка реальных DOI / Load real DOIs
+    dois_file = args.dois_file
+    limit = args.limit if args.limit else 5  # 默认5个 / По умолчанию 5 / Default 5
+
+    print(f"\n[+] 加载DOI文件 / Загрузка файла DOI / Loading DOI file: {dois_file}")
+
+    try:
+        dois = load_dois(dois_file, limit=limit)
+        print(f"[+] 加载了 {len(dois)} 个真实DOI / Загружено DOI: {len(dois)}")
+        print(f"[+] Sample DOIs: {dois[:min(3, len(dois))]}...")
+    except FileNotFoundError:
+        print(f"[ERROR] DOI文件不存在 / Файл DOI не найден / DOI file not found: {dois_file}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"[ERROR] 加载DOI失败 / Ошибка загрузки DOI / Failed to load DOIs: {e}")
+        sys.exit(1)
 
     # 创建测试记录
     test_records = create_test_records_from_dois(dois)
@@ -162,10 +205,34 @@ def main():
     return engine, stats
 
 if __name__ == "__main__":
+    # 创建CLI参数解析器 / Создание парсера CLI / Create CLI parser
+    parser = CLIConfig.create_base_parser(
+        description=(
+            '使用真实DOI数据测试增量消歧系统\n'
+            'Тест системы инкрементной дезамбигуации с реальными данными DOI\n'
+            'Test incremental disambiguation system with real DOI data'
+        ),
+        add_data_files=True,
+        add_output_files=True,
+        add_config=True
+    )
+
+    # 解析参数 / Парсинг аргументов / Parse arguments
+    args = parser.parse_args()
+
+    # 验证参数 / Валидация аргументов / Validate arguments
     try:
-        engine, stats = main()
+        CLIConfig.validate_args(args)
+    except ValueError as e:
+        print(f"\n[ERROR / ОШИБКА] {e}")
+        sys.exit(1)
+
+    # 运行测试 / Запуск теста / Run test
+    try:
+        engine, stats = main(args)
     except Exception as e:
-        print(f"\n[ERROR] 测试失败: {e}")
-        import traceback
-        traceback.print_exc()
+        print(f"\n[ERROR / ОШИБКА] 测试失败 / Тест провален / Test failed: {e}")
+        if args.debug:
+            import traceback
+            traceback.print_exc()
         sys.exit(1)

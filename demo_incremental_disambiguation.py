@@ -4,13 +4,17 @@
 
 展示完整的增量消歧流程，包括数据建模、依赖图构建和消歧决策
 Демонстрирует полный процесс инкрементального устранения неоднозначности, включая моделирование данных, построение графа зависимостей и принятие решений по устранению неоднозначности
+
+中文注释：增量消歧系统演示脚本
+Русский комментарий: Демонстрационный скрипт системы инкрементальной дезамбигуации
 """
 
 import sys
 import os
 import json
+import argparse
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
 # 添加项目根目录到Python路径 / Добавление корневого каталога проекта в путь Python
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -18,6 +22,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from models.author import AuthorRecord, Publication
 from disambiguation_engine.engine import DisambiguationEngine
 from config import SIMILARITY_THRESHOLD
+from cli_config import CLIConfig
 
 
 def create_realistic_dataset() -> List[AuthorRecord]:
@@ -252,23 +257,30 @@ def demonstrate_incremental_processing():
     return engine, results
 
 
-def export_demonstration_results(engine: DisambiguationEngine, output_file: str = "disambiguation_results.json"):
+def export_demonstration_results(
+    engine: DisambiguationEngine,
+    output_file: Optional[str] = None
+):
     """
     导出演示结果 / Экспорт результатов демонстрации
 
-    Args:
+    参数 / Параметры / Args:
         engine: 消歧引擎实例 / Экземпляр движка устранения неоднозначности
-        output_file: 输出文件名 / Имя выходного файла
+        output_file: 输出文件名 / Имя выходного файла / Output file name
     """
     print(f"\n7. 导出结果到文件 / Экспорт результатов в файл")
     print("-" * 80)
+
+    # 默认输出文件 / Файл вывода по умолчанию / Default output file
+    if not output_file:
+        output_file = "disambiguation_results.json"
 
     results = engine.export_results()
 
     # 添加时间戳和元数据 / Добавление временной метки и метаданных
     results['export_metadata'] = {
         'timestamp': datetime.now().isoformat(),
-        'system_version': '1.0.0',
+        'system_version': '2.0.0',
         'description': '增量作者消歧系统演示结果 / Результаты демонстрации системы инкрементального устранения неоднозначности авторов'
     }
 
@@ -277,11 +289,11 @@ def export_demonstration_results(engine: DisambiguationEngine, output_file: str 
     with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(results, f, ensure_ascii=False, indent=2, default=str)
 
-    print(f"结果已导出到: {output_path}")
-    print(f"导出数据包含:")
-    print(f"  - {len(results['authors'])} 个作者的完整信息")
-    print(f"  - 系统处理统计信息")
-    print(f"  - 合作关系图统计")
+    print(f"结果已导出到 / Результаты экспортированы в / Results exported to: {output_path}")
+    print(f"导出数据包含 / Экспортированные данные содержат:")
+    print(f"  - {len(results['authors'])} 个作者的完整信息 / авторов с полной информацией")
+    print(f"  - 系统处理统计信息 / статистику обработки системы")
+    print(f"  - 合作关系图统计 / статистику графа сотрудничества")
 
 
 def run_comprehensive_tests():
@@ -322,43 +334,77 @@ def run_comprehensive_tests():
         print("测试跳过 / Тесты пропущены")
 
 
-def main():
+def main(args: Optional[argparse.Namespace] = None):
     """
-    主演示程序 / Главная демонстрационная программа
+    主演示程序 / Главная демонстрационная программа / Main demonstration program
+
+    参数 / Параметры / Parameters:
+        args: CLI参数（可选）/ Аргументы CLI (опционально) / CLI arguments (optional)
     """
     try:
         print("启动增量作者消歧系统演示...")
         print("Запуск демонстрации системы инкрементального устранения неоднозначности авторов...")
+        print("Starting Incremental Author Disambiguation System Demonstration...")
 
-        # 运行主要演示 / Запуск основной демонстрации
+        # 打印配置 / Вывод конфигурации / Print configuration
+        if args and args.verbose:
+            CLIConfig.print_config(args)
+
+        # 运行主要演示 / Запуск основной демонстрации / Run main demonstration
         engine, results = demonstrate_incremental_processing()
 
-        # 导出结果 / Экспорт результатов
-        export_demonstration_results(engine)
+        # 导出结果 / Экспорт результатов / Export results
+        output_file = args.output if args else None
+        export_demonstration_results(engine, output_file)
 
-        # 运行测试 / Запуск тестов
-        run_comprehensive_tests()
+        # 运行测试（如果verbose）/ Запуск тестов (если verbose) / Run tests (if verbose)
+        if not args or args.verbose:
+            run_comprehensive_tests()
 
         print("\n" + "=" * 80)
-        print("[+] 演示完成!")
-        print("[+] Демонстрация завершена!")
-        print("\n核心成果 / Ключевые достижения:")
+        print("[+] 演示完成! / Демонстрация завершена! / Demonstration Complete!")
+        print("\n核心成果 / Ключевые достижения / Key Achievements:")
         print("✅ 实现了基于加权相似度的白盒消歧模型")
         print("✅ 构建了支持增量计算的依赖关系图")
         print("✅ 创建了完整的增量消歧处理流程")
         print("✅ 验证了系统在真实场景下的有效性")
-        print("\n✅ Реализована модель устранения неоднозначности белой коробки на основе взвешенного сходства")
+        print()
+        print("✅ Реализована модель устранения неоднозначности белой коробки на основе взвешенного сходства")
         print("✅ Построен граф зависимостей с поддержкой инкрементальных вычислений")
         print("✅ Создан полный процесс инкрементальной обработки устранения неоднозначности")
         print("✅ Подтверждена эффективность системы в реальных сценариях")
 
     except KeyboardInterrupt:
-        print("\n\n演示被用户中断 / Демонстрация прервана пользователем")
+        print("\n\n演示被用户中断 / Демонстрация прервана пользователем / Demonstration interrupted by user")
     except Exception as e:
-        print(f"\n演示过程中发生错误 / Ошибка во время демонстрации: {e}")
-        import traceback
-        traceback.print_exc()
+        print(f"\n演示过程中发生错误 / Ошибка во время демонстрации / Error during demonstration: {e}")
+        if args and args.debug:
+            import traceback
+            traceback.print_exc()
 
 
 if __name__ == "__main__":
-    main()
+    # 创建CLI参数解析器 / Создание парсера CLI / Create CLI parser
+    parser = CLIConfig.create_base_parser(
+        description=(
+            '增量作者消歧系统综合演示\n'
+            'Комплексная демонстрация системы инкрементального устранения неоднозначности авторов\n'
+            'Comprehensive demonstration of incremental author disambiguation system'
+        ),
+        add_data_files=False,  # 此演示使用硬编码数据 / Эта демонстрация использует захардкоженные данные
+        add_output_files=True,
+        add_config=True
+    )
+
+    # 解析参数 / Парсинг аргументов / Parse arguments
+    args = parser.parse_args()
+
+    # 验证参数 / Валидация аргументов / Validate arguments
+    try:
+        CLIConfig.validate_args(args)
+    except ValueError as e:
+        print(f"\n[ERROR / ОШИБКА] {e}")
+        sys.exit(1)
+
+    # 运行演示 / Запуск демонстрации / Run demonstration
+    main(args)

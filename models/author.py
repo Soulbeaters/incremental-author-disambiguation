@@ -121,6 +121,7 @@ class Author:
         publications (Set[str]): 出版物ID集合 / Множество ID публикаций
         linked_records (Set[str]): 关联的原始记录ID集合 / Множество ID связанных исходных записей
         alternate_names (Set[str]): 备选姓名集合 / Множество альтернативных имён
+        orcid (Optional[str]): ORCID标识符 / Идентификатор ORCID / ORCID identifier
         coauthor_ids (Set[str]): 合著者ID集合 / Множество ID соавторов
         journals (Set[str]): 发表期刊集合 / Множество журналов публикаций
         affiliations (Set[str]): 机构集合 / Множество аффилиаций
@@ -142,6 +143,7 @@ class Author:
 
     # 合并的属性信息（从关联记录中聚合）/ Агрегированная информация атрибутов (из связанных записей)
     alternate_names: Set[str] = field(default_factory=set)  # 备选姓名集合 / Множество альтернативных имён
+    orcid: Optional[str] = None  # ORCID标识符 / Идентификатор ORCID / ORCID identifier
     coauthor_ids: Set[str] = field(default_factory=set)  # 合著者ID集合 / Множество ID соавторов
     journals: Set[str] = field(default_factory=set)  # 发表期刊集合 / Множество журналов публикаций
     affiliations: Set[str] = field(default_factory=set)  # 机构集合 / Множество аффилиаций

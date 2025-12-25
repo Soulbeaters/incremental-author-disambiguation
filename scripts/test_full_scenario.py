@@ -74,19 +74,46 @@ class TestScenario:
         self.deduplicator = ArticleDeduplicator(
             title_similarity_threshold=config.get('title_threshold', 0.95)
         )
+
+        # 初始化AuthorMerger（新三分决策架构）/ Инициализация AuthorMerger (новая архитектура)
+        # 从config获取模式和阈值，默认使用fs模式 / Получение режима и порогов из config
+        from disambiguation_engine.decision_trace import DecisionTraceLogger
+        from config import ACCEPT_THRESHOLD, REJECT_THRESHOLD
+
+        mode = config.get('mode', 'fs')  # 默认使用Fellegi-Sunter模式
+        accept_threshold = config.get('accept_threshold', ACCEPT_THRESHOLD)
+        reject_threshold = config.get('reject_threshold', REJECT_THRESHOLD)
+
+        # 可选：创建trace logger / Опционально: создать логгер трассировки
+        trace_logger = None
+        if config.get('enable_trace'):
+            trace_path = config.get('trace_path', 'runs/test_trace.jsonl')
+            review_path = config.get('review_path', 'runs/test_review.jsonl')
+            trace_logger = DecisionTraceLogger(trace_path=trace_path, review_path=review_path)
+
         self.merger = AuthorMerger(
-            similarity_threshold=config.get('author_threshold', 0.85)
+            database=self.db,
+            mode=mode,
+            accept_threshold=accept_threshold,
+            reject_threshold=reject_threshold,
+            trace_logger=trace_logger,
+            run_id=config.get('run_id', f"test_{datetime.now().strftime('%Y%m%d_%H%M%S')}"),
+            topk=config.get('topk', 5)
         )
 
-        # 统计信息 / Статистика / Statistics
+        # 统计信息（新增三分决策统计）/ Статистика (добавлена статистика тройного решения)
         self.stats = {
             'initial_authors': 0,
             'dois_processed': 0,
             'dois_failed': 0,
             'articles_fetched': 0,
             'articles_deduplicated': 0,
-            'authors_matched': 0,
-            'authors_created': 0,
+            # 三分决策统计 / Статистика тройного решения / Three-way decision stats
+            'decisions_merge': 0,       # MERGE决策数 / Решений MERGE
+            'decisions_new': 0,          # NEW决策数 / Решений NEW
+            'decisions_unknown': 0,      # UNKNOWN决策数 / Решений UNKNOWN
+            'authors_matched': 0,        # 保留兼容性 / для совместимости (=decisions_merge)
+            'authors_created': 0,        # 保留兼容性 / для совместимости (=decisions_new)
             'processing_time': 0.0
         }
 
@@ -275,17 +302,29 @@ class TestScenario:
                 'affiliation': author_info.get('affiliation', [])  # affiliation is a list
             }
 
-            # 尝试匹配现有作者 / Попытка сопоставления с существующим автором
-            # AuthorMerger需要作者列表，不是数据库对象 / AuthorMerger нужен список авторов, не объект БД
-            existing_authors = self.db.get_all_authors()
-            matched_author, similarity = self.merger.find_matching_author(candidate, existing_authors)
+            # 使用新的三分决策引擎 / Использование нового движка тройного решения
+            # 构建metadata用于trace / Построение метаданных для трассировки
+            metadata = {
+                'doi': article_data.get('DOI'),
+                'article_title': article_data.get('title'),
+                'journal': article_data.get('journal')
+            }
 
-            if matched_author:
-                # 匹配成功 / Сопоставление успешно / Match found
-                self.stats['authors_matched'] += 1
+            # 调用三分决策 / Вызов тройного решения
+            decision_result = self.merger.make_decision(candidate, metadata=metadata)
+
+            # 根据决策类型处理 / Обработка по типу решения
+            if decision_result.is_merge():
+                # MERGE决策：合并到现有作者 / Решение MERGE: слияние с существующим автором
+                self.stats['decisions_merge'] += 1
+                self.stats['authors_matched'] += 1  # 向后兼容 / обратная совместимость
+
+                # 从database获取matched author对象 / Получить объект matched author из БД
+                matched_author = self.db.get_author(decision_result.best_author_id)
+
                 self.logger.debug(
-                    f"作者匹配 / Сопоставлен автор: {author_name} -> {matched_author.canonical_name} "
-                    f"(相似度 / сходство: {similarity:.2f})"
+                    f"[MERGE] {author_name} -> {matched_author.canonical_name} "
+                    f"(score: {decision_result.score_total:.3f})"
                 )
 
                 # 更新作者信息 / Обновление информации автора
@@ -293,21 +332,39 @@ class TestScenario:
                     for journal in candidate['journals']:
                         matched_author.add_journal(journal)
 
-                # affiliation是列表，需要遍历添加 / affiliation это список, нужно добавлять по одному
                 if candidate.get('affiliation'):
                     affiliations = candidate['affiliation']
                     if isinstance(affiliations, list):
                         for aff in affiliations:
-                            if aff:  # 跳过空字符串 / пропускаем пустые строки
+                            if aff:
                                 matched_author.add_affiliation(aff)
                     elif isinstance(affiliations, str):
                         matched_author.add_affiliation(affiliations)
 
-            else:
-                # 创建新作者 / Создание нового автора / Create new author
-                self.stats['authors_created'] += 1
+            elif decision_result.is_new():
+                # NEW决策：创建新作者 / Решение NEW: создать нового автора
+                self.stats['decisions_new'] += 1
+                self.stats['authors_created'] += 1  # 向后兼容 / обратная совместимость
+
                 new_author = self.db.add_author(candidate)
-                self.logger.debug(f"创建新作者 / Создан новый автор: {new_author.canonical_name}")
+                self.logger.debug(
+                    f"[NEW] 创建新作者 / Создан новый автор: {new_author.canonical_name} "
+                    f"(score: {decision_result.score_total:.3f})"
+                )
+
+            else:  # is_unknown()
+                # UNKNOWN决策：需要人工审核 / Решение UNKNOWN: требуется ручная проверка
+                self.stats['decisions_unknown'] += 1
+
+                # 暂时创建新作者（保守策略）/ Временно создать нового автора (консервативная стратегия)
+                # 或者可以选择跳过，等待人工审核 / Или можно пропустить, ожидая ручной проверки
+                new_author = self.db.add_author(candidate)
+
+                self.logger.warning(
+                    f"[UNKNOWN] 不确定决策，创建新作者 / Неопределённое решение, создан новый автор: "
+                    f"{new_author.canonical_name} (score: {decision_result.score_total:.3f}, "
+                    f"需要人工审核 / требуется ручная проверка)"
+                )
 
     def generate_report(self, output_file: Optional[str] = None) -> None:
         """
@@ -334,6 +391,11 @@ class TestScenario:
                 'dois_failed': self.stats['dois_failed'],
                 'articles_fetched': self.stats['articles_fetched'],
                 'articles_deduplicated': self.stats['articles_deduplicated'],
+                # 三分决策统计 / Статистика тройного решения / Three-way decision stats
+                'decisions_merge': self.stats['decisions_merge'],
+                'decisions_new': self.stats['decisions_new'],
+                'decisions_unknown': self.stats['decisions_unknown'],
+                # 向后兼容字段 / Поля обратной совместимости / Backward compatibility
                 'authors_matched': self.stats['authors_matched'],
                 'authors_created': self.stats['authors_created'],
                 'processing_time_seconds': self.stats['processing_time'],
@@ -389,8 +451,16 @@ class TestScenario:
         print(f"  按标题索引 / Индексировано по заголовкам: {stats['articles_indexed_by_title']}")
 
         print(f"\n【作者消歧 / Устранение неоднозначности авторов / Author Disambiguation】")
-        print(f"  匹配现有作者 / Сопоставлено существующих: {stats['authors_matched']}")
-        print(f"  创建新作者 / Создано новых: {stats['authors_created']}")
+        print(f"  三分决策统计 / Статистика тройного решения / Three-way Decision Stats:")
+        print(f"    - MERGE决策 / Решений MERGE: {stats['decisions_merge']}")
+        print(f"    - NEW决策 / Решений NEW: {stats['decisions_new']}")
+        print(f"    - UNKNOWN决策 / Решений UNKNOWN: {stats['decisions_unknown']}")
+        total_decisions = stats['decisions_merge'] + stats['decisions_new'] + stats['decisions_unknown']
+        if total_decisions > 0:
+            print(f"  决策分布 / Распределение решений:")
+            print(f"    - MERGE比例 / Доля MERGE: {stats['decisions_merge']/total_decisions:.1%}")
+            print(f"    - NEW比例 / Доля NEW: {stats['decisions_new']/total_decisions:.1%}")
+            print(f"    - UNKNOWN比例 / Доля UNKNOWN: {stats['decisions_unknown']/total_decisions:.1%}")
         print(f"  最终作者总数 / Итоговое количество авторов: {stats['final_author_count']}")
 
         print(f"\n【性能 / Производительность / Performance】")

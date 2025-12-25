@@ -2,12 +2,18 @@
 """
 相似度评分器 / Модуль расчёта сходства
 
-实现基于加权相似度的"白盒"模型，用于作者记录的相似度计算
-Реализует "белую коробку" модель на основе взвешенного сходства для расчёта сходства записей авторов
+实现多种评分模式的作者相似度计算：
+1. Baseline模式：加权相似度（原有方法）
+2. Fellegi-Sunter模式：证据聚合 + log-likelihood ratio
+
+Реализует несколько режимов оценки сходства авторов
+Implements multiple scoring modes for author similarity
 """
 
 import re
 import string
+import math
+import logging
 from typing import Dict, Set, Tuple, Any, Optional
 from models.author import Author
 
@@ -50,18 +56,47 @@ class SimilarityScorer:
             from config import (
                 SIMILARITY_WEIGHTS,
                 NAME_SIMILARITY_CONFIG,
-                SET_SIMILARITY_CONFIG
+                SET_SIMILARITY_CONFIG,
+                COMPARISON_BINS,
+                MU_TABLE,
+                ENABLE_CHINESE_NAME_NORMALIZATION
             )
             self.weights = SIMILARITY_WEIGHTS.copy()
             self.name_config = NAME_SIMILARITY_CONFIG.copy()
             self.set_config = SET_SIMILARITY_CONFIG.copy()
+            self.comparison_bins = COMPARISON_BINS.copy()
+            self.mu_table = MU_TABLE  # 深拷贝在外部load_mu_table中完成
+            self.enable_chinese_name = ENABLE_CHINESE_NAME_NORMALIZATION
         else:
             self.weights = config.get('weights', {})
             self.name_config = config.get('name_config', {})
             self.set_config = config.get('set_config', {})
+            self.comparison_bins = config.get('comparison_bins', {})
+            self.mu_table = config.get('mu_table', {})
+            self.enable_chinese_name = config.get('enable_chinese_name', False)
 
         # 验证权重配置 / Проверка конфигурации весов
         self._validate_weights()
+
+        # 初始化日志 / Инициализация логирования
+        self.logger = logging.getLogger(__name__)
+
+        # 尝试导入Chinese-name模块（懒加载）/ Попытка импорта модуля китайских имён
+        self.chinese_name_module = None
+        if self.enable_chinese_name:
+            try:
+                # TODO: 实际路径根据一号项目部署调整
+                # Фактический путь зависит от развёртывания проекта №1
+                import sys
+                from pathlib import Path
+                # 尝试导入（暂时fallback）
+                # self.chinese_name_module = ...
+                self.logger.info("Chinese-name module integration enabled (stub)")
+            except ImportError:
+                self.logger.warning(
+                    "Chinese-name module not available, falling back to standard name processing"
+                )
+                self.enable_chinese_name = False
 
     def _validate_weights(self) -> None:
         """验证权重配置的有效性 / Проверка валидности конфигурации весов"""
@@ -334,3 +369,371 @@ class SimilarityScorer:
             previous_row = current_row
 
         return previous_row[-1]
+
+    # ========================================================================
+    # 三层输出接口 / Трёхуровневый интерфейс / Three-layer output interface
+    # ========================================================================
+
+    def compute_comparisons(
+        self,
+        mention: Dict[str, Any],
+        author: Author
+    ) -> Dict[str, Any]:
+        """
+        第1层：计算比较结果（raw值 + bin）/ Уровень 1: Вычисление сравнений
+        Layer 1: Compute comparisons (raw values + bins)
+
+        为每个特征计算原始相似度值，并分配到对应的bin
+        Вычисляет сырые значения сходства для каждого признака и назначает в бины
+        Computes raw similarity values for each feature and assigns to bins
+
+        Args:
+            mention: 候选作者mention（字典格式）/ Упоминание кандидата
+            author: 现有作者对象 / Существующий объект автора
+
+        Returns:
+            Dict包含每个特征的comparison结果：
+            {
+                "name_sim": 0.85,  # 原始相似度 / сырое значение
+                "name_bin": "high",  # 分箱结果 / результат биннинга
+                "orcid_match": True/False,
+                "orcid_bin": "match"/"missing",
+                "coauthor_sim": 0.30,
+                "coauthor_bin": "medium",
+                ...
+            }
+        """
+        comparisons = {}
+
+        # 1. 姓名相似度（含Chinese-name增强）/ Сходство имён (с китайским усилением)
+        mention_name = mention.get('name', '')
+        author_name = author.canonical_name
+
+        if mention_name and author_name:
+            # Chinese-name增强（如果启用）/ Усиление китайских имён
+            normalized_mention_name = mention_name
+            chinese_name_confidence = "unknown"
+
+            if self.enable_chinese_name and self.chinese_name_module:
+                # TODO: 调用一号项目模块
+                # normalized_mention_name, confidence = self.chinese_name_module.normalize(mention_name)
+                # chinese_name_confidence = self._bin_chinese_name_confidence(confidence)
+                pass
+
+            # 计算姓名相似度 / Вычисление сходства имён
+            name_sim = self._calculate_name_similarity(normalized_mention_name, author_name)
+            comparisons['name_sim'] = name_sim
+            comparisons['name_bin'] = self._bin_name_similarity(name_sim)
+
+            # Chinese-name特征（独立）/ Признак китайского имени
+            if self.enable_chinese_name:
+                comparisons['chinese_name_confidence'] = chinese_name_confidence
+                comparisons['chinese_name_bin'] = chinese_name_confidence
+        else:
+            comparisons['name_sim'] = 0.0
+            comparisons['name_bin'] = "none"
+
+        # 2. ORCID匹配 / Совпадение ORCID
+        mention_orcid = mention.get('orcid', '')
+        if mention_orcid and author.orcid:
+            orcid_match = (self._clean_orcid(mention_orcid) == self._clean_orcid(author.orcid))
+            comparisons['orcid_match'] = orcid_match
+            comparisons['orcid_bin'] = "match" if orcid_match else "missing"
+        else:
+            comparisons['orcid_match'] = False
+            comparisons['orcid_bin'] = "missing"
+
+        # 3. 合著者重叠 / Пересечение соавторов
+        mention_coauthors = set(mention.get('coauthors', []))
+        author_coauthors = author.coauthor_ids
+        if mention_coauthors and author_coauthors:
+            coauthor_sim = self._calculate_jaccard_similarity(mention_coauthors, author_coauthors)
+            comparisons['coauthor_sim'] = coauthor_sim
+            comparisons['coauthor_bin'] = self._bin_coauthor_similarity(coauthor_sim)
+        else:
+            comparisons['coauthor_sim'] = 0.0
+            comparisons['coauthor_bin'] = "none"
+
+        # 4. 期刊重叠 / Пересечение журналов
+        mention_journals = set(mention.get('journals', []))
+        author_journals = author.journals
+        if mention_journals and author_journals:
+            journal_sim = self._calculate_journal_similarity(mention_journals, author_journals)
+            comparisons['journal_sim'] = journal_sim
+            comparisons['journal_bin'] = self._bin_journal_similarity(journal_sim)
+        else:
+            comparisons['journal_sim'] = 0.0
+            comparisons['journal_bin'] = "none"
+
+        # 5. 机构相似度 / Сходство аффилиаций
+        mention_affiliations = mention.get('affiliation', [])
+        if isinstance(mention_affiliations, str):
+            mention_affiliations = [mention_affiliations]
+        author_affiliations = list(author.affiliations)
+
+        if mention_affiliations and author_affiliations:
+            affiliation_sim = self._calculate_affiliation_similarity_max(
+                mention_affiliations, author_affiliations
+            )
+            comparisons['affiliation_sim'] = affiliation_sim
+            comparisons['affiliation_bin'] = self._bin_affiliation_similarity(affiliation_sim)
+        else:
+            comparisons['affiliation_sim'] = 0.0
+            comparisons['affiliation_bin'] = "none"
+
+        return comparisons
+
+    def score_baseline(self, comparisons: Dict[str, Any]) -> Tuple[float, Dict[str, float]]:
+        """
+        第2层：Baseline评分（加权相似度）/ Уровень 2: Базовая оценка
+        Layer 2: Baseline scoring (weighted similarity)
+
+        使用SIMILARITY_WEIGHTS对原始相似度加权求和
+        Использует SIMILARITY_WEIGHTS для взвешенной суммы сырых значений
+        Uses SIMILARITY_WEIGHTS to compute weighted sum of raw similarities
+
+        Args:
+            comparisons: compute_comparisons的输出 / Выход из compute_comparisons
+
+        Returns:
+            (total_score, components):
+                - total_score: 总分 [0.0-1.0] / Общий балл
+                - components: 各特征贡献 / Вклад каждого признака
+        """
+        components = {}
+        total_score = 0.0
+
+        # 姓名 / Имя
+        if "name" in self.weights and self.weights["name"] > 0:
+            name_contrib = comparisons.get('name_sim', 0.0) * self.weights["name"]
+            components['name'] = name_contrib
+            total_score += name_contrib
+
+        # 合著者 / Соавторы
+        if "coauthors" in self.weights and self.weights["coauthors"] > 0:
+            coauthor_contrib = comparisons.get('coauthor_sim', 0.0) * self.weights["coauthors"]
+            components['coauthors'] = coauthor_contrib
+            total_score += coauthor_contrib
+
+        # 期刊 / Журналы
+        if "journals" in self.weights and self.weights["journals"] > 0:
+            journal_contrib = comparisons.get('journal_sim', 0.0) * self.weights["journals"]
+            components['journals'] = journal_contrib
+            total_score += journal_contrib
+
+        # 可扩展其他维度 / Расширяемые другие измерения
+        # (机构、研究领域等，如果在weights中定义)
+
+        return total_score, components
+
+    def score_fellegi_sunter(
+        self,
+        comparisons: Dict[str, Any],
+        mu_table: Optional[Dict[str, Dict[str, Dict[str, float]]]] = None
+    ) -> Tuple[float, Dict[str, float]]:
+        """
+        第3层：Fellegi-Sunter评分（证据聚合）/ Уровень 3: Оценка Fellegi-Sunter
+        Layer 3: Fellegi-Sunter scoring (evidence aggregation)
+
+        使用m/u参数计算log-likelihood ratio (LLR)并求和
+        Использует параметры m/u для вычисления log-likelihood ratio и суммирования
+        Uses m/u parameters to compute log-likelihood ratio and aggregate
+
+        公式 / Формула / Formula:
+            S = Σ w_i = Σ log(m_i / u_i)
+            其中 m_i = P(feature=bin | match), u_i = P(feature=bin | non-match)
+
+        Args:
+            comparisons: compute_comparisons的输出 / Выход из compute_comparisons
+            mu_table: m/u参数表（可选，默认使用self.mu_table）
+
+        Returns:
+            (total_score, components_llr):
+                - total_score: 总log-likelihood ratio / Общий LLR
+                - components_llr: 各特征的LLR贡献 / Вклад LLR каждого признака
+        """
+        if mu_table is None:
+            mu_table = self.mu_table
+
+        components_llr = {}
+        total_score = 0.0
+
+        # 定义特征映射：(comparison_bin_key, mu_table_feature_key)
+        # Определение сопоставления признаков
+        feature_mappings = [
+            ('name_bin', 'name'),
+            ('orcid_bin', 'orcid'),
+            ('coauthor_bin', 'coauthor'),
+            ('journal_bin', 'journal'),
+            ('affiliation_bin', 'affiliation'),
+        ]
+
+        # 如果启用Chinese-name，添加该特征 / Если включено, добавить признак
+        if self.enable_chinese_name and 'chinese_name_bin' in comparisons:
+            feature_mappings.append(('chinese_name_bin', 'chinese_name'))
+
+        for comp_key, mu_key in feature_mappings:
+            if comp_key in comparisons:
+                bin_value = comparisons[comp_key]
+
+                # 查找m/u参数 / Поиск параметров m/u
+                if mu_key in mu_table and bin_value in mu_table[mu_key]:
+                    m = mu_table[mu_key][bin_value]['m']
+                    u = mu_table[mu_key][bin_value]['u']
+
+                    # 计算log-likelihood ratio / Вычисление LLR
+                    # 处理极端情况 / Обработка крайних случаев
+                    if u == 0:
+                        # 避免除零 / Избегание деления на ноль
+                        llr = math.log(m / 1e-10) if m > 0 else 0.0
+                    elif m == 0:
+                        llr = math.log(1e-10 / u)
+                    else:
+                        llr = math.log(m / u)
+
+                    components_llr[mu_key] = llr
+                    total_score += llr
+                else:
+                    # bin或特征未在mu_table中定义，跳过
+                    # Бин или признак не определён в mu_table
+                    self.logger.debug(
+                        f"Feature {mu_key} or bin {bin_value} not found in MU table, skipping"
+                    )
+
+        return total_score, components_llr
+
+    # ========================================================================
+    # Binning辅助方法 / Вспомогательные методы биннинга / Binning helpers
+    # ========================================================================
+
+    def _bin_name_similarity(self, sim: float) -> str:
+        """将姓名相似度分箱 / Биннинг сходства имён / Bin name similarity"""
+        if sim >= 0.95:
+            return "exact"
+        elif sim >= 0.75:
+            return "high"
+        elif sim >= 0.50:
+            return "medium"
+        elif sim > 0.0:
+            return "low"
+        else:
+            return "none"
+
+    def _bin_coauthor_similarity(self, sim: float) -> str:
+        """将合著者相似度分箱 / Биннинг сходства соавторов"""
+        if sim >= 0.50:
+            return "high"
+        elif sim >= 0.20:
+            return "medium"
+        elif sim > 0.0:
+            return "low"
+        else:
+            return "none"
+
+    def _bin_journal_similarity(self, sim: float) -> str:
+        """将期刊相似度分箱 / Биннинг сходства журналов"""
+        if sim >= 0.50:
+            return "high"
+        elif sim >= 0.20:
+            return "medium"
+        elif sim > 0.0:
+            return "low"
+        else:
+            return "none"
+
+    def _bin_affiliation_similarity(self, sim: float) -> str:
+        """将机构相似度分箱 / Биннинг сходства аффилиаций"""
+        if sim >= 0.90:
+            return "exact"
+        elif sim >= 0.70:
+            return "high"
+        elif sim >= 0.40:
+            return "medium"
+        elif sim > 0.0:
+            return "low"
+        else:
+            return "none"
+
+    def _calculate_affiliation_similarity_max(
+        self,
+        affiliations1: list,
+        affiliations2: list
+    ) -> float:
+        """
+        计算机构相似度（最大值策略）/ Расчёт сходства аффилиаций (макс)
+        Calculate affiliation similarity (max strategy)
+
+        Args:
+            affiliations1: 候选机构列表 / Список аффилиаций кандидата
+            affiliations2: 作者机构列表 / Список аффилиаций автора
+
+        Returns:
+            float: 最高的机构相似度 / Максимальное сходство
+        """
+        if not affiliations1 or not affiliations2:
+            return 0.0
+
+        max_sim = 0.0
+        for aff1 in affiliations1:
+            for aff2 in affiliations2:
+                # 使用Levenshtein相似度 / Использование сходства Левенштейна
+                norm_aff1 = self._normalize_affiliation(aff1)
+                norm_aff2 = self._normalize_affiliation(aff2)
+
+                if norm_aff1 == norm_aff2:
+                    return 1.0  # 完全匹配 / Точное совпадение
+
+                # 计算相似度 / Вычисление сходства
+                lev_dist = self._levenshtein_distance(norm_aff1, norm_aff2)
+                max_len = max(len(norm_aff1), len(norm_aff2))
+                if max_len > 0:
+                    sim = 1.0 - (lev_dist / max_len)
+                    max_sim = max(max_sim, sim)
+
+        return max_sim
+
+    def _normalize_affiliation(self, affiliation: str) -> str:
+        """
+        标准化机构名称 / Нормализация названия учреждения
+
+        Args:
+            affiliation: 原始机构名 / Исходное название
+
+        Returns:
+            str: 标准化后的机构名 / Нормализованное название
+        """
+        if not affiliation:
+            return ''
+
+        # 转小写 / Нижний регистр
+        aff = affiliation.lower().strip()
+
+        # 移除常见后缀 / Удаление распространённых суффиксов
+        aff = re.sub(r'\buniversity\b', 'univ', aff)
+        aff = re.sub(r'\binstitute\b', 'inst', aff)
+        aff = re.sub(r'\bdepartment\b', 'dept', aff)
+
+        # 移除标点和多余空格 / Удаление пунктуации и лишних пробелов
+        aff = re.sub(r'[^\w\s]', '', aff)
+        aff = ' '.join(aff.split())
+
+        return aff
+
+    def _clean_orcid(self, orcid: str) -> str:
+        """
+        清理ORCID格式 / Очистка формата ORCID
+
+        Args:
+            orcid: 原始ORCID / Исходный ORCID
+
+        Returns:
+            str: 清理后的ORCID / Очищенный ORCID
+        """
+        if not orcid:
+            return ''
+
+        # 移除URL前缀 / Удаление URL префикса
+        orcid = orcid.replace('http://orcid.org/', '')
+        orcid = orcid.replace('https://orcid.org/', '')
+
+        return orcid.strip()

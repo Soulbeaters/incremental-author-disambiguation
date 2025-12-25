@@ -37,6 +37,11 @@ class AuthorDatabase:
         # Индекс по фамилии: surname -> List[Author]
         self.surname_index: Dict[str, List[Author]] = defaultdict(list)
 
+        # 姓氏+首字母索引：surname_initial -> List[Author]
+        # Индекс фамилия+инициал: surname_initial -> List[Author]
+        # 例如 "smith_j" -> [Author(...), ...]
+        self.surname_initial_index: Dict[str, List[Author]] = defaultdict(list)
+
         # ORCID索引：orcid -> Author
         # Индекс ORCID: orcid -> Author
         self.orcid_index: Dict[str, Author] = {}
@@ -44,6 +49,11 @@ class AuthorDatabase:
         # 作者ID索引：author_id -> Author
         # Индекс ID автора: author_id -> Author
         self.id_index: Dict[str, Author] = {}
+
+        # 通用blocking键索引：blocking_key -> List[Author]
+        # Универсальный индекс ключей блокировки
+        # 支持多种键类型（中文姓氏、机构、期刊等）
+        self.blocking_key_index: Dict[str, List[Author]] = defaultdict(list)
 
         self.logger = logging.getLogger(__name__)
 
@@ -94,12 +104,22 @@ class AuthorDatabase:
         if surname:
             self.surname_index[surname.lower()].append(author)
 
+        # 更新姓氏+首字母索引 / Обновление индекса фамилия+инициал
+        surname_initial_key = self._extract_surname_initial(author.canonical_name)
+        if surname_initial_key:
+            self.surname_initial_index[surname_initial_key].append(author)
+
         # 更新ORCID索引 / Обновление индекса ORCID
         if author.orcid:
             self.orcid_index[author.orcid] = author
 
         # 更新ID索引 / Обновление индекса ID
         self.id_index[author.author_id] = author
+
+        # 更新blocking键索引 / Обновление индекса ключей блокировки
+        blocking_keys = self._generate_blocking_keys(author)
+        for key in blocking_keys:
+            self.blocking_key_index[key].append(author)
 
         self.logger.debug(f"Added author: {author.canonical_name} (ID: {author.author_id})")
         return author
@@ -139,6 +159,18 @@ class AuthorDatabase:
             Author对象或None / Объект Author или None
         """
         return self.id_index.get(author_id)
+
+    def get_author(self, author_id: str) -> Optional[Author]:
+        """
+        获取作者对象（find_by_id的别名）/ Получить объект автора (псевдоним find_by_id)
+
+        参数 / Параметры / Parameters:
+            author_id: 作者ID / ID автора
+
+        返回 / Возвращает / Returns:
+            Author对象或None / Объект Author или None
+        """
+        return self.find_by_id(author_id)
 
     def update_author(self, author: Author) -> None:
         """
@@ -266,14 +298,184 @@ class AuthorDatabase:
         # Возврат последней части как фамилии
         return parts[-1]
 
+    def _extract_surname_initial(self, full_name: str) -> str:
+        """
+        提取姓氏+首字母 / Извлечение фамилии+инициал / Extract surname + first initial
+
+        例如 "John Smith" -> "smith_j"
+        Например "John Smith" -> "smith_j"
+
+        Args:
+            full_name: 全名 / Полное имя / Full name
+
+        Returns:
+            str: 姓氏+首字母（小写）/ Фамилия+инициал / surname_initial
+        """
+        if not full_name:
+            return ''
+
+        parts = full_name.strip().split()
+        if not parts:
+            return ''
+
+        if len(parts) == 1:
+            # 只有一个词，可能是单名或姓氏
+            # Только одно слово
+            return parts[0].lower()
+
+        # 提取姓氏（最后一个词）和名字首字母（第一个词的首字母）
+        # Фамилия (последнее слово) + первый инициал (первая буква первого слова)
+        surname = parts[-1].lower()
+        first_initial = parts[0][0].lower() if parts[0] else ''
+
+        if first_initial:
+            return f"{surname}_{first_initial}"
+        else:
+            return surname
+
+    def _generate_blocking_keys(self, author: Author) -> List[str]:
+        """
+        生成作者的blocking键 / Генерация ключей блокировки для автора
+
+        生成多种类型的blocking键以支持多策略候选检索
+        Генерирует несколько типов ключей для мультистратегического поиска кандидатов
+
+        Args:
+            author: 作者对象 / Объект автора
+
+        Returns:
+            List[str]: blocking键列表 / Список ключей блокировки
+        """
+        keys = []
+
+        # 1. ORCID键（最可靠）/ Ключ ORCID (самый надёжный)
+        if author.orcid:
+            keys.append(f"orcid:{author.orcid}")
+
+        # 2. 姓氏键 / Ключ фамилии
+        surname = self._extract_surname(author.canonical_name)
+        if surname:
+            keys.append(f"surname:{surname.lower()}")
+
+        # 3. 姓氏+首字母键 / Ключ фамилия+инициал
+        surname_initial = self._extract_surname_initial(author.canonical_name)
+        if surname_initial:
+            keys.append(f"surname_init:{surname_initial}")
+
+        # 4. 机构键（如果有）/ Ключи аффилиаций
+        for affiliation in list(author.affiliations)[:2]:  # 限制前2个机构 / первые 2
+            if affiliation:
+                # 简化机构名称 / Упрощение названия
+                aff_normalized = affiliation.lower().replace(' ', '_')[:30]
+                keys.append(f"affil:{aff_normalized}")
+
+        # 5. 期刊键（如果有）/ Ключи журналов
+        for journal in list(author.journals)[:3]:  # 限制前3个期刊 / первые 3
+            if journal:
+                journal_normalized = journal.lower().replace(' ', '_')[:30]
+                keys.append(f"journal:{journal_normalized}")
+
+        # TODO: 6. 中文姓氏键（待一号项目集成）/ Ключи китайских фамилий
+
+        return keys
+
+    def get_candidates(
+        self,
+        mention: Dict[str, Any],
+        max_candidates: int = 100
+    ) -> List[Author]:
+        """
+        获取候选作者（blocking策略）/ Получение кандидатов (стратегия блокировки)
+
+        使用多键blocking策略检索候选作者，避免全库扫描
+        Использует мультиключевую блокировку для избежания полного сканирования
+
+        Args:
+            mention: 作者mention数据（包含name, orcid, affiliation等）
+                    Данные упоминания автора
+            max_candidates: 最大候选数量限制 / Максимальное количество кандидатов
+
+        Returns:
+            List[Author]: 候选作者列表（去重且稳定排序）
+                         Список кандидатов (дедупликация и стабильная сортировка)
+        """
+        # 使用字典去重（author_id -> Author）/ Используем словарь для дедупликации
+        candidates_dict = {}
+        blocking_keys_used = []
+
+        # 策略1：ORCID精确匹配（优先级最高）/ Стратегия 1: точное совпадение ORCID
+        mention_orcid = mention.get('orcid', '')
+        if mention_orcid:
+            orcid_key = f"orcid:{mention_orcid}"
+            blocking_keys_used.append(orcid_key)
+            candidates_from_orcid = self.blocking_key_index.get(orcid_key, [])
+            for author in candidates_from_orcid:
+                candidates_dict[author.author_id] = author
+
+            # 如果通过ORCID找到了，同时获取同姓候选作为容错
+            # Если найдено по ORCID, также получить кандидатов с той же фамилией
+
+        # 策略2：姓氏匹配 / Стратегия 2: совпадение фамилии
+        mention_name = mention.get('name', '')
+        if mention_name:
+            surname = self._extract_surname(mention_name)
+            if surname:
+                surname_key = f"surname:{surname.lower()}"
+                blocking_keys_used.append(surname_key)
+                candidates_from_surname = self.blocking_key_index.get(surname_key, [])
+                for author in candidates_from_surname:
+                    candidates_dict[author.author_id] = author
+
+        # 策略3：姓氏+首字母匹配（更精确）/ Стратегия 3: фамилия+инициал
+        if mention_name:
+            surname_initial = self._extract_surname_initial(mention_name)
+            if surname_initial:
+                surname_init_key = f"surname_init:{surname_initial}"
+                blocking_keys_used.append(surname_init_key)
+                candidates_from_init = self.blocking_key_index.get(surname_init_key, [])
+                for author in candidates_from_init:
+                    candidates_dict[author.author_id] = author
+
+        # 策略4：机构匹配（弱信号）/ Стратегия 4: совпадение аффилиации
+        mention_affiliation = mention.get('affiliation', [])
+        if isinstance(mention_affiliation, str):
+            mention_affiliation = [mention_affiliation]
+        for affiliation in mention_affiliation[:1]:  # 只用第一个机构 / только первая
+            if affiliation:
+                aff_normalized = affiliation.lower().replace(' ', '_')[:30]
+                aff_key = f"affil:{aff_normalized}"
+                candidates_from_aff = self.blocking_key_index.get(aff_key, [])
+                for author in candidates_from_aff[:20]:  # 限制机构候选数 / лимит
+                    candidates_dict[author.author_id] = author
+
+        # 转换为列表并按author_id排序（确保确定性）/ Преобразование в список
+        candidates_list = list(candidates_dict.values())
+        candidates_list.sort(key=lambda a: a.author_id)  # 稳定排序 / стабильная сортировка
+
+        # 限制候选数量 / Ограничение количества
+        if len(candidates_list) > max_candidates:
+            self.logger.warning(
+                f"Candidate set size ({len(candidates_list)}) exceeds max_candidates "
+                f"({max_candidates}), truncating"
+            )
+            candidates_list = candidates_list[:max_candidates]
+
+        self.logger.debug(
+            f"Retrieved {len(candidates_list)} candidates using keys: {blocking_keys_used}"
+        )
+
+        return candidates_list
+
     def clear(self) -> None:
         """
         清空数据库 / Очистка базы данных
         """
         self.authors.clear()
         self.surname_index.clear()
+        self.surname_initial_index.clear()
         self.orcid_index.clear()
         self.id_index.clear()
+        self.blocking_key_index.clear()
         self.logger.info("Database cleared")
 
 

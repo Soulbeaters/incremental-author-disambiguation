@@ -148,6 +148,27 @@ class CLIConfig:
                 'Параметры настройки системы'
             )
 
+            # 消歧模式选择（互斥）/ Выбор режима дезамбигуации / Disambiguation mode selection
+            mode_group = config_group.add_mutually_exclusive_group()
+            mode_group.add_argument(
+                '--baseline-mode',
+                action='store_true',
+                help=(
+                    'Baseline模式：单阈值加权相似度 / Режим базовой линии / '
+                    'Baseline mode: single-threshold weighted similarity (original method)'
+                )
+            )
+            mode_group.add_argument(
+                '--fs-mode',
+                action='store_true',
+                default=True,
+                help=(
+                    'Fellegi-Sunter模式：证据聚合+双阈值三分决策（默认）/ '
+                    'Режим Fellegi-Sunter / '
+                    'Fellegi-Sunter mode: evidence aggregation + dual-threshold (default)'
+                )
+            )
+
             config_group.add_argument(
                 '--threshold',
                 '-t',
@@ -155,8 +176,109 @@ class CLIConfig:
                 default=0.85,
                 metavar='FLOAT',
                 help=(
-                    '相似度阈值 [0.0-1.0] / Порог сходства / '
-                    'Similarity threshold for author merging (default: 0.85)'
+                    '相似度阈值 [0.0-1.0] (baseline模式) / Порог сходства / '
+                    'Similarity threshold for baseline mode (default: 0.85)'
+                )
+            )
+
+            # Fellegi-Sunter双阈值 / Двойной порог Fellegi-Sunter
+            config_group.add_argument(
+                '--accept-threshold',
+                type=float,
+                default=0.90,
+                metavar='FLOAT',
+                help=(
+                    '接受阈值 [0.0-1.0] (FS模式) / Порог принятия / '
+                    'Accept threshold for FS mode: score >= accept -> MERGE (default: 0.90)'
+                )
+            )
+            config_group.add_argument(
+                '--reject-threshold',
+                type=float,
+                default=0.20,
+                metavar='FLOAT',
+                help=(
+                    '拒绝阈值 [0.0-1.0] (FS模式) / Порог отклонения / '
+                    'Reject threshold for FS mode: score <= reject -> NEW (default: 0.20)'
+                )
+            )
+
+            # Decision trace与审核输出 / Трейс решений и вывод для проверки
+            config_group.add_argument(
+                '--trace-jsonl',
+                type=str,
+                default=None,
+                metavar='PATH',
+                help=(
+                    '决策trace输出路径（JSONL格式，脱敏）/ '
+                    'Путь к трейсу решений / '
+                    'Decision trace output path (JSONL, redacted)'
+                )
+            )
+            config_group.add_argument(
+                '--review-jsonl',
+                type=str,
+                default=None,
+                metavar='PATH',
+                help=(
+                    'UNKNOWN决策待审核池输出路径（JSONL格式）/ '
+                    'Путь к пулу решений UNKNOWN / '
+                    'UNKNOWN decisions review pool output path (JSONL)'
+                )
+            )
+
+            # MU表与一号项目增强 / Таблица MU и усиление проекта №1
+            config_group.add_argument(
+                '--mu-table',
+                type=str,
+                default=None,
+                metavar='PATH',
+                help=(
+                    '自定义MU参数表路径（JSON格式）/ '
+                    'Путь к таблице MU / '
+                    'Custom MU parameter table path (JSON, overrides built-in)'
+                )
+            )
+            config_group.add_argument(
+                '--enable-chinese-name',
+                action='store_true',
+                default=True,
+                help=(
+                    '启用一号项目中文姓名规范化增强（默认开启）/ '
+                    'Включить нормализацию китайских имён / '
+                    'Enable Chinese-name normalization enhancement (default: on)'
+                )
+            )
+            config_group.add_argument(
+                '--disable-chinese-name',
+                action='store_true',
+                help=(
+                    '禁用一号项目中文姓名规范化（用于消融实验）/ '
+                    'Отключить нормализацию китайских имён / '
+                    'Disable Chinese-name normalization (for ablation study)'
+                )
+            )
+
+            # 实验可复现性参数 / Параметры воспроизводимости эксперимента
+            config_group.add_argument(
+                '--run-id',
+                type=str,
+                default=None,
+                metavar='ID',
+                help=(
+                    '运行ID（用于trace标识，默认自动生成）/ '
+                    'ID запуска / '
+                    'Run ID for trace identification (default: auto-generated)'
+                )
+            )
+            config_group.add_argument(
+                '--seed',
+                type=int,
+                default=42,
+                metavar='N',
+                help=(
+                    '随机种子（确保确定性执行）/ Зерно / '
+                    'Random seed for deterministic execution (default: 42)'
                 )
             )
 
@@ -267,7 +389,7 @@ class CLIConfig:
         抛出 / Исключения / Raises:
             ValueError: 参数无效时 / При невалидных аргументах / On invalid arguments
         """
-        # 检查阈值范围 / Проверка порога / Check threshold range
+        # 检查baseline模式阈值范围 / Проверка порога базовой линии
         if hasattr(args, 'threshold'):
             if not 0.0 <= args.threshold <= 1.0:
                 raise ValueError(
@@ -275,6 +397,38 @@ class CLIConfig:
                     f"Порог сходства должен быть в диапазоне [0.0, 1.0] / "
                     f"Threshold must be in range [0.0, 1.0], got {args.threshold}"
                 )
+
+        # 检查Fellegi-Sunter双阈值 / Проверка двойного порога Fellegi-Sunter
+        if hasattr(args, 'accept_threshold') and hasattr(args, 'reject_threshold'):
+            if not 0.0 <= args.accept_threshold <= 1.0:
+                raise ValueError(
+                    f"接受阈值必须在 [0.0, 1.0] 范围内 / "
+                    f"Порог принятия должен быть в диапазоне [0.0, 1.0] / "
+                    f"Accept threshold must be in [0.0, 1.0], got {args.accept_threshold}"
+                )
+            if not 0.0 <= args.reject_threshold <= 1.0:
+                raise ValueError(
+                    f"拒绝阈值必须在 [0.0, 1.0] 范围内 / "
+                    f"Порог отклонения должен быть в диапазоне [0.0, 1.0] / "
+                    f"Reject threshold must be in [0.0, 1.0], got {args.reject_threshold}"
+                )
+            if args.reject_threshold >= args.accept_threshold:
+                raise ValueError(
+                    f"拒绝阈值必须小于接受阈值 / "
+                    f"Порог отклонения должен быть меньше порога принятия / "
+                    f"Reject threshold must be < accept threshold, "
+                    f"got reject={args.reject_threshold}, accept={args.accept_threshold}"
+                )
+
+        # 处理中文姓名开关互斥逻辑 / Обработка взаимоисключающих флагов китайских имён
+        if hasattr(args, 'enable_chinese_name') and hasattr(args, 'disable_chinese_name'):
+            if args.disable_chinese_name:
+                args.enable_chinese_name = False
+
+        # 处理模式选择默认值 / Обработка значения по умолчанию для режима
+        if hasattr(args, 'baseline_mode') and hasattr(args, 'fs_mode'):
+            if not args.baseline_mode and not args.fs_mode:
+                args.fs_mode = True  # 默认使用FS模式 / По умолчанию режим FS
 
         # 检查文件存在性 / Проверка существования файлов / Check file existence
         file_attrs = ['authors_file', 'dois_file', 'crossref_authors', 'crossref_articles']

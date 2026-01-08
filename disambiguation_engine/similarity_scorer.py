@@ -85,16 +85,24 @@ class SimilarityScorer:
         self.chinese_name_module = None
         if self.enable_chinese_name:
             try:
-                # TODO: 实际路径根据一号项目部署调整
-                # Фактический путь зависит от развёртывания проекта №1
+                # 导入一号项目模块 / Импорт модуля проекта №1
                 import sys
                 from pathlib import Path
-                # 尝试导入（暂时fallback）
-                # self.chinese_name_module = ...
-                self.logger.info("Chinese-name module integration enabled (stub)")
-            except ImportError:
+                from config import CHINESE_NAME_MODULE_PATH
+                
+                # 添加一号项目路径到sys.path
+                if CHINESE_NAME_MODULE_PATH:
+                    module_path = Path(CHINESE_NAME_MODULE_PATH)
+                    if module_path.exists() and str(module_path) not in sys.path:
+                        sys.path.insert(0, str(module_path))
+                
+                # 导入ChineseNameProcessor
+                from chinese_name_processor import ChineseNameProcessor
+                self.chinese_name_module = ChineseNameProcessor()
+                self.logger.info("Chinese-name module loaded from Project One successfully")
+            except ImportError as e:
                 self.logger.warning(
-                    "Chinese-name module not available, falling back to standard name processing"
+                    f"Chinese-name module not available: {e}, falling back to standard name processing"
                 )
                 self.enable_chinese_name = False
 
@@ -415,10 +423,33 @@ class SimilarityScorer:
             chinese_name_confidence = "unknown"
 
             if self.enable_chinese_name and self.chinese_name_module:
-                # TODO: 调用一号项目模块
-                # normalized_mention_name, confidence = self.chinese_name_module.normalize(mention_name)
-                # chinese_name_confidence = self._bin_chinese_name_confidence(confidence)
-                pass
+                try:
+                    # 调用一号项目模块处理姓名 / Вызов модуля проекта №1
+                    result = self.chinese_name_module.process_name(mention_name)
+                    
+                    # 提取置信度 / Извлечение уверенности
+                    confidence_score = getattr(result, 'confidence_score', 0.7)
+                    
+                    # 映射置信度到bin / Маппинг уверенности в бин
+                    if confidence_score >= 0.85:
+                        chinese_name_confidence = "high"
+                    elif confidence_score >= 0.6:
+                        chinese_name_confidence = "medium"
+                    elif confidence_score >= 0.3:
+                        chinese_name_confidence = "low"
+                    else:
+                        chinese_name_confidence = "unknown"
+                    
+                    # 检查是否为已知中文姓氏 / Проверка известной китайской фамилии
+                    mention_surname = mention.get('surname', '')
+                    if mention_surname and self.chinese_name_module.is_known_surname(mention_surname):
+                        # 已知中文姓氏，提升置信度 / Известная фамилия, повысить уверенность
+                        if chinese_name_confidence == "medium":
+                            chinese_name_confidence = "high"
+                        elif chinese_name_confidence == "low":
+                            chinese_name_confidence = "medium"
+                except Exception as e:
+                    self.logger.debug(f"Chinese name processing failed for '{mention_name}': {e}")
 
             # 计算姓名相似度 / Вычисление сходства имён
             name_sim = self._calculate_name_similarity(normalized_mention_name, author_name)

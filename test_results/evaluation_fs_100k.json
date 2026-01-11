@@ -1,0 +1,44 @@
+{
+  "metadata": {
+    "timestamp": "2026-01-07T21:15:26.057738",
+    "data_file": "C:\\istina\\materia 材料\\测试表单\\crossref.json",
+    "limit": 100000,
+    "min_mentions": 2,
+    "mode": "fs",
+    "accept_threshold": 0.9,
+    "reject_threshold": 0.2,
+    "elapsed_seconds": 3.276518
+  },
+  "gold_set_stats": {
+    "total_mentions": 100000,
+    "mentions_with_orcid": 45690,
+    "unique_orcids": 16995,
+    "filtered_orcids": 5042,
+    "mentions_in_gold_set": 33737
+  },
+  "disambiguation_stats": {
+    "total_processed": 33737,
+    "merge_decisions": 0,
+    "new_decisions": 33737,
+    "unknown_decisions": 0,
+    "predicted_clusters": 33737
+  },
+  "evaluation": {
+    "bcubed": {
+      "precision": 1.0,
+      "recall": 0.14945015857960497,
+      "f1": 0.26003764924315304,
+      "evaluated_mentions": 33737
+    },
+    "pairwise": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 489507,
+      "gold_pairs": 489507,
+      "pred_pairs": 0
+    }
+  }
+}

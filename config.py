@@ -99,8 +99,9 @@ MU_TABLE = {
 }
 
 # 中文姓名规范化模块配置 / Конфигурация модуля нормализации китайских имен
-ENABLE_CHINESE_NAME_NORMALIZATION = True   # 是否启用一号项目增强 / включить усиление проекта №1
-CHINESE_NAME_MODULE_PATH = r'C:\program 1 in 2025\src'  # 一号项目模块路径 / путь к модулю проекта №1
+# 默认关闭，需显式启用 / По умолчанию выключено, требует явного включения
+ENABLE_CHINESE_NAME_NORMALIZATION = os.environ.get('ENABLE_CHINESE_NAME', 'false').lower() == 'true'
+CHINESE_NAME_MODULE_PATH = os.environ.get('CHINESE_NAME_MODULE_PATH')  # 从环境变量读取 / из переменной окружения
 
 # Decision trace 脱敏配置 / Конфигурация редакции трейса решений
 # 用于生成可审计但保护隐私的决策日志 / для генерации аудируемых, но приватных логов решений

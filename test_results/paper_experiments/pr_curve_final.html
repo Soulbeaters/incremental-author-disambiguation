@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PR Curve - Project Two Disambiguation</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; border-radius: 16px; padding: 40px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+        h1 { color: #333; text-align: center; margin-bottom: 10px; }
+        h2 { color: #666; text-align: center; font-weight: normal; margin-top: 0; }
+        .chart-container { margin: 30px 0; }
+        canvas { max-height: 500px; }
+        .stats { display: flex; gap: 20px; justify-content: center; margin: 30px 0; flex-wrap: wrap; }
+        .stat-box { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 25px 35px; border-radius: 12px; text-align: center; color: white; min-width: 140px; }
+        .stat-value { font-size: 32px; font-weight: bold; }
+        .stat-label { font-size: 14px; opacity: 0.9; margin-top: 5px; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background: #f8f9fa; font-weight: 600; }
+        .highlight { background: #e8f4f8; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Precision-Recall Curve</h1>
+        <h2>二号项目: 增量作者消歧系统 / Project Two: Incremental Author Disambiguation</h2>
+        
+        <div class="stats">
+            <div class="stat-box">
+                <div class="stat-value" id="best-f1">-</div>
+                <div class="stat-label">Best F1 Score</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value" id="best-precision">-</div>
+                <div class="stat-label">Precision</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value" id="best-recall">-</div>
+                <div class="stat-label">Recall</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value" id="best-unknown">-</div>
+                <div class="stat-label">Unknown Rate</div>
+            </div>
+        </div>
+        
+        <div class="chart-container">
+            <canvas id="prChart"></canvas>
+        </div>
+        
+        <h3>Baseline Mode Results</h3>
+        <table>
+            <tr><th>Accept Threshold</th><th>Precision</th><th>Recall</th><th>F1</th><th>Unknown</th></tr>
+            <tbody id="baseline-table"></tbody>
+        </table>
+        
+        <h3>Fellegi-Sunter Mode Results</h3>
+        <table>
+            <tr><th>Accept / Reject</th><th>Precision</th><th>Recall</th><th>F1</th><th>Unknown</th></tr>
+            <tbody id="fs-table"></tbody>
+        </table>
+    </div>
+    
+    <script>
+        const baselineData = [{"mode": "baseline", "accept_threshold": 0.95, "reject_threshold": 0.2, "precision": 0.0, "recall": 0.0, "f1": 0, "unknown_rate": 0.9898765432098765, "merge": 0, "new": 82, "unknown": 8018, "correct": 0, "wrong": 82, "total": 8100}, {"mode": "baseline", "accept_threshold": 0.9, "reject_threshold": 0.2, "precision": 0.0, "recall": 0.0, "f1": 0, "unknown_rate": 0.9898765432098765, "merge": 0, "new": 82, "unknown": 8018, "correct": 0, "wrong": 82, "total": 8100}, {"mode": "baseline", "accept_threshold": 0.85, "reject_threshold": 0.2, "precision": 0.0, "recall": 0.0, "f1": 0, "unknown_rate": 0.9898765432098765, "merge": 0, "new": 82, "unknown": 8018, "correct": 0, "wrong": 82, "total": 8100}, {"mode": "baseline", "accept_threshold": 0.8, "reject_threshold": 0.2, "precision": 0.0, "recall": 0.0, "f1": 0, "unknown_rate": 0.9898765432098765, "merge": 0, "new": 82, "unknown": 8018, "correct": 0, "wrong": 82, "total": 8100}, {"mode": "baseline", "accept_threshold": 0.75, "reject_threshold": 0.2, "precision": 0.0, "recall": 0.0, "f1": 0, "unknown_rate": 0.9898765432098765, "merge": 0, "new": 82, "unknown": 8018, "correct": 0, "wrong": 82, "total": 8100}, {"mode": "baseline", "accept_threshold": 0.7, "reject_threshold": 0.2, "precision": 0.0, "recall": 0.0, "f1": 0, "unknown_rate": 0.9898765432098765, "merge": 0, "new": 82, "unknown": 8018, "correct": 0, "wrong": 82, "total": 8100}, {"mode": "baseline", "accept_threshold": 0.65, "reject_threshold": 0.2, "precision": 0.0, "recall": 0.0, "f1": 0, "unknown_rate": 0.9898765432098765, "merge": 0, "new": 82, "unknown": 8018, "correct": 0, "wrong": 82, "total": 8100}, {"mode": "baseline", "accept_threshold": 0.6, "reject_threshold": 0.2, "precision": 0.0, "recall": 0.0, "f1": 0, "unknown_rate": 0.9898765432098765, "merge": 0, "new": 82, "unknown": 8018, "correct": 0, "wrong": 82, "total": 8100}, {"mode": "baseline", "accept_threshold": 0.55, "reject_threshold": 0.2, "precision": 0.0, "recall": 0.0, "f1": 0, "unknown_rate": 0.9898765432098765, "merge": 0, "new": 82, "unknown": 8018, "correct": 0, "wrong": 82, "total": 8100}, {"mode": "baseline", "accept_threshold": 0.5, "reject_threshold": 0.2, "precision": 0.9775191748214758, "recall": 0.9125925925925926, "f1": 0.9439407483080066, "unknown_rate": 0.06641975308641976, "merge": 7480, "new": 82, "unknown": 538, "correct": 7392, "wrong": 170, "total": 8100}, {"mode": "baseline", "accept_threshold": 0.45, "reject_threshold": 0.2, "precision": 0.978651392866441, "recall": 0.9281481481481482, "f1": 0.9527309593207453, "unknown_rate": 0.051604938271604936, "merge": 7600, "new": 82, "unknown": 418, "correct": 7518, "wrong": 164, "total": 8100}, {"mode": "baseline", "accept_threshold": 0.4, "reject_threshold": 0.2, "precision": 0.9716019104169356, "recall": 0.9292592592592592, "f1": 0.9499589827727645, "unknown_rate": 0.04358024691358025, "merge": 7665, "new": 82, "unknown": 353, "correct": 7527, "wrong": 220, "total": 8100}, {"mode": "baseline", "accept_threshold": 0.35, "reject_threshold": 0.2, "precision": 0.9701017811704835, "recall": 0.941358024691358, "f1": 0.9555137844611529, "unknown_rate": 0.02962962962962963, "merge": 7778, "new": 82, "unknown": 240, "correct": 7625, "wrong": 235, "total": 8100}, {"mode": "baseline", "accept_threshold": 0.3, "reject_threshold": 0.2, "precision": 0.964312546957175, "recall": 0.9507407407407408, "f1": 0.9574785527788139, "unknown_rate": 0.014074074074074074, "merge": 7904, "new": 82, "unknown": 114, "correct": 7701, "wrong": 285, "total": 8100}];
+        const fsData = [{"mode": "fs", "accept_threshold": -1.0, "reject_threshold": -4.0, "precision": 0.0, "recall": 0.0, "f1": 0, "unknown_rate": 0.9538271604938272, "merge": 0, "new": 374, "unknown": 7726, "correct": 0, "wrong": 374, "total": 8100}, {"mode": "fs", "accept_threshold": -0.5, "reject_threshold": -4.0, "precision": 0.0, "recall": 0.0, "f1": 0, "unknown_rate": 0.9538271604938272, "merge": 0, "new": 374, "unknown": 7726, "correct": 0, "wrong": 374, "total": 8100}, {"mode": "fs", "accept_threshold": 0.0, "reject_threshold": -4.0, "precision": 0.0, "recall": 0.0, "f1": 0, "unknown_rate": 0.9538271604938272, "merge": 0, "new": 374, "unknown": 7726, "correct": 0, "wrong": 374, "total": 8100}, {"mode": "fs", "accept_threshold": 0.5, "reject_threshold": -4.0, "precision": 0.0, "recall": 0.0, "f1": 0, "unknown_rate": 0.9538271604938272, "merge": 0, "new": 374, "unknown": 7726, "correct": 0, "wrong": 374, "total": 8100}, {"mode": "fs", "accept_threshold": 1.0, "reject_threshold": -4.0, "precision": 0.0, "recall": 0.0, "f1": 0, "unknown_rate": 0.9538271604938272, "merge": 0, "new": 374, "unknown": 7726, "correct": 0, "wrong": 374, "total": 8100}, {"mode": "fs", "accept_threshold": -1.0, "reject_threshold": -3.0, "precision": 0.0, "recall": 0.0, "f1": 0, "unknown_rate": 0.9235802469135802, "merge": 0, "new": 619, "unknown": 7481, "correct": 0, "wrong": 619, "total": 8100}, {"mode": "fs", "accept_threshold": -0.5, "reject_threshold": -3.0, "precision": 0.0, "recall": 0.0, "f1": 0, "unknown_rate": 0.9235802469135802, "merge": 0, "new": 619, "unknown": 7481, "correct": 0, "wrong": 619, "total": 8100}, {"mode": "fs", "accept_threshold": 0.0, "reject_threshold": -3.0, "precision": 0.0, "recall": 0.0, "f1": 0, "unknown_rate": 0.9235802469135802, "merge": 0, "new": 619, "unknown": 7481, "correct": 0, "wrong": 619, "total": 8100}, {"mode": "fs", "accept_threshold": 0.5, "reject_threshold": -3.0, "precision": 0.0, "recall": 0.0, "f1": 0, "unknown_rate": 0.9235802469135802, "merge": 0, "new": 619, "unknown": 7481, "correct": 0, "wrong": 619, "total": 8100}, {"mode": "fs", "accept_threshold": 1.0, "reject_threshold": -3.0, "precision": 0.0, "recall": 0.0, "f1": 0, "unknown_rate": 0.9235802469135802, "merge": 0, "new": 619, "unknown": 7481, "correct": 0, "wrong": 619, "total": 8100}, {"mode": "fs", "accept_threshold": -1.5, "reject_threshold": -5.0, "precision": 0.0, "recall": 0.0, "f1": 0, "unknown_rate": 0.9538271604938272, "merge": 0, "new": 374, "unknown": 7726, "correct": 0, "wrong": 374, "total": 8100}, {"mode": "fs", "accept_threshold": -2.0, "reject_threshold": -5.0, "precision": 0.9383831954169319, "recall": 0.91, "f1": 0.9239736759636478, "unknown_rate": 0.030246913580246913, "merge": 7481, "new": 374, "unknown": 245, "correct": 7371, "wrong": 484, "total": 8100}, {"mode": "fs", "accept_threshold": -2.5, "reject_threshold": -5.0, "precision": 0.9360916613621897, "recall": 0.9077777777777778, "f1": 0.9217173299905986, "unknown_rate": 0.030246913580246913, "merge": 7481, "new": 374, "unknown": 245, "correct": 7353, "wrong": 502, "total": 8100}, {"mode": "fs", "accept_threshold": -3.0, "reject_threshold": -6.0, "precision": 0.9713871308016878, "recall": 0.9095061728395062, "f1": 0.9394287171639888, "unknown_rate": 0.0637037037037037, "merge": 7481, "new": 103, "unknown": 516, "correct": 7367, "wrong": 217, "total": 8100}];
+        
+        // 找最优
+        const best = baselineData.reduce((a, b) => a.f1 > b.f1 ? a : b, {f1: 0});
+        document.getElementById('best-f1').textContent = (best.f1 * 100).toFixed(1) + '%';
+        document.getElementById('best-precision').textContent = (best.precision * 100).toFixed(1) + '%';
+        document.getElementById('best-recall').textContent = (best.recall * 100).toFixed(1) + '%';
+        document.getElementById('best-unknown').textContent = (best.unknown_rate * 100).toFixed(1) + '%';
+        
+        // 填充表格
+        const blTable = document.getElementById('baseline-table');
+        baselineData.sort((a,b) => b.f1 - a.f1).forEach((r, i) => {
+            const tr = document.createElement('tr');
+            if (i === 0) tr.className = 'highlight';
+            tr.innerHTML = `<td>${r.accept_threshold}</td><td>${(r.precision*100).toFixed(1)}%</td><td>${(r.recall*100).toFixed(1)}%</td><td>${(r.f1*100).toFixed(1)}%</td><td>${(r.unknown_rate*100).toFixed(1)}%</td>`;
+            blTable.appendChild(tr);
+        });
+        
+        const fsTable = document.getElementById('fs-table');
+        fsData.sort((a,b) => b.f1 - a.f1).forEach((r, i) => {
+            const tr = document.createElement('tr');
+            if (i === 0) tr.className = 'highlight';
+            tr.innerHTML = `<td>${r.accept_threshold} / ${r.reject_threshold}</td><td>${(r.precision*100).toFixed(1)}%</td><td>${(r.recall*100).toFixed(1)}%</td><td>${(r.f1*100).toFixed(1)}%</td><td>${(r.unknown_rate*100).toFixed(1)}%</td>`;
+            fsTable.appendChild(tr);
+        });
+        
+        // 绘制图表
+        const ctx = document.getElementById('prChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                datasets: [
+                    {
+                        label: 'Baseline Mode',
+                        data: baselineData.map(p => ({x: p.recall * 100, y: p.precision * 100})),
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 6,
+                        pointHoverRadius: 10,
+                        borderWidth: 3
+                    },
+                    {
+                        label: 'Fellegi-Sunter Mode',
+                        data: fsData.filter(p => p.precision > 0 || p.recall > 0).map(p => ({x: p.recall * 100, y: p.precision * 100})),
+                        borderColor: '#f5576c',
+                        backgroundColor: 'rgba(245, 87, 108, 0.1)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 6,
+                        pointHoverRadius: 10,
+                        borderWidth: 3
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    title: { display: true, text: 'Precision vs Recall Curve', font: { size: 20, weight: 'bold' } },
+                    legend: { position: 'bottom', labels: { font: { size: 14 } } }
+                },
+                scales: {
+                    x: { type: 'linear', min: 0, max: 100, title: { display: true, text: 'Recall (%)', font: { size: 14 } } },
+                    y: { type: 'linear', min: 0, max: 100, title: { display: true, text: 'Precision (%)', font: { size: 14 } } }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

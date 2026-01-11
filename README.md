@@ -208,7 +208,15 @@ from disambiguation_engine.author_merger import AuthorMerger
 
 # 创建数据库和合并引擎 / Создание БД и движка слияния
 db = AuthorDatabase()
-merger = AuthorMerger(similarity_threshold=0.85)
+
+# 使用双阈值三分决策 / Двухпороговое тройное решение
+# mode: "baseline"（加权相似度）或 "fs"（Fellegi-Sunter）
+merger = AuthorMerger(
+    database=db,
+    mode="fs",                    # Fellegi-Sunter模式
+    accept_threshold=0.90,        # MERGE阈值（分数>=此值判定为MERGE）
+    reject_threshold=0.20         # NEW阈值（分数<=此值判定为NEW）
+)
 
 # 添加初始作者 / Добавление начальных авторов
 author1_data = {
@@ -219,25 +227,24 @@ author1_data = {
 }
 db.add_author(author1_data)
 
-# 新作者候选 / Новый кандидат в авторы
-candidate = {
+# 新记录候选 / Новый кандидат
+mention = {
     'name': 'J. Smith',
-    'orcid': '0000-0001-2345-6789',
+    'orcid': '',
     'coauthors': ['Jane Doe'],
-    'journals': ['Nature']
+    'journals': ['Nature'],
+    'surname': 'Smith'
 }
 
-# 查找匹配 / Поиск совпадения
-existing_authors = db.get_all_authors()
-matched_author, similarity = merger.find_matching_author(candidate, existing_authors)
+# 进行消歧决策 / Принятие решения о дизамбигуации
+result = merger.make_decision(mention)
 
-if matched_author:
-    print(f"Matched with: {matched_author.canonical_name}")
-    print(f"Similarity: {similarity:.3f}")
-else:
-    # 创建新作者 / Создание нового автора
-    new_author = db.add_author(candidate)
-    print(f"Created new author: {new_author.canonical_name}")
+# 决策结果 / Результат решения
+# result.decision: Decision.MERGE / Decision.NEW / Decision.UNKNOWN
+# result.score_total: 相似度分数
+# result.best_author_id: 最匹配的作者ID（如果MERGE）
+print(f"Decision: {result.decision.name}")
+print(f"Score: {result.score_total:.3f}")
 ```
 
 ### 2. CLI参数说明 / Описание параметров CLI
@@ -248,10 +255,10 @@ python scripts/test_full_scenario.py [OPTIONS]
 ```
 
 **数据文件 / Файлы данных:**
-- `--authors-file PATH` - 初始作者数据文件路径 / Путь к файлу начальных авторов
-  - 默认 / По умолчанию: `C:\istina\materia 材料\测试表单\authors.json`
-- `--dois-file PATH` - DOI列表文件路径 / Путь к файлу списка DOI
-  - 默认 / По умолчанию: `C:\istina\materia 材料\测试表单\dois.json`
+- `--authors-file PATH` - 初始作者数据文件路径（必填）/ Путь к файлу начальных авторов (обязательно)
+  - 示例 / Пример: `test_data/authors.json`
+- `--dois-file PATH` - DOI列表文件路径（必填）/ Путь к файлу списка DOI (обязательно)
+  - 示例 / Пример: `test_data/dois.json`
 
 **输出配置 / Конфигурация вывода:**
 - `--output PATH` - 测试报告输出路径 / Путь для вывода отчёта

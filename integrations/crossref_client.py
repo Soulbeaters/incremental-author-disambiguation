@@ -10,6 +10,7 @@ Retrieve academic article metadata via DOI
 Русский комментарий: Интеграция Crossref API для получения информации о статьях и авторах
 """
 
+import os
 import logging
 from typing import Dict, List, Optional, Any
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -25,30 +26,46 @@ class CrossrefClient:
     Fetch article metadata by DOI with batch query support
     """
 
-    def __init__(self, email: str = 'majiaxing@mail.ru'):
+    def __init__(self, email: Optional[str] = None):
         """
         初始化Crossref客户端 / Инициализация клиента Crossref
 
         参数 / Параметры / Parameters:
-            email: 联系邮箱（Crossref礼仪要求，可提高API优先级）
-                   Email контакт (требование Crossref, повышает приоритет API)
-                   Contact email (Crossref etiquette, improves API priority)
+            email: 联系邮箱（如不提供，从环境变量CROSSREF_EMAIL读取）
+                   Email контакт (если не указан, читается из CROSSREF_EMAIL)
+                   Contact email (if not provided, reads from CROSSREF_EMAIL)
+        
+        Raises:
+            ValueError: 如果没有提供email / если email не указан
         """
+        # 从参数或环境变量获取email
+        self.email = email or os.environ.get('CROSSREF_EMAIL')
+        if not self.email:
+            raise ValueError(
+                "CROSSREF_EMAIL is required. "
+                "Set via 'email' parameter or CROSSREF_EMAIL environment variable. "
+                "See .env.example for configuration."
+            )
+        
         # 设置礼仪信息以提高API请求优先级
         # Установка этикета для повышения приоритета запросов API
         self.etiquette = Etiquette(
             application_name='ISTINA-Author-Disambiguation',
-            application_version='1.0',
+            application_version='2.0',
             application_url='https://github.com/Soulbeaters/incremental-author-disambiguation',
-            contact_email=email
+            contact_email=self.email
         )
 
         self.works = Works(etiquette=self.etiquette)
         self.logger = logging.getLogger(__name__)
+        
+        # P1-2: 重试配置 / Retry configuration
+        self.max_retries = 3
+        self.base_delay = 0.5  # 初始延迟（秒）/ Initial delay (seconds)
 
     def get_work_by_doi(self, doi: str) -> Optional[Dict[str, Any]]:
         """
-        通过DOI获取单篇文章信息 / Получение информации о статье по DOI
+        通过DOI获取单篇文章信息（带重试）/ Получение информации о статье по DOI (с повтором)
 
         参数 / Параметры / Parameters:
             doi: 数字对象标识符 / Цифровой идентификатор объекта / Digital Object Identifier
@@ -58,23 +75,37 @@ class CrossrefClient:
             Словарь метаданных статьи или None (при ошибке)
             Article metadata dictionary or None (on failure)
         """
-        try:
-            # 清理DOI格式（移除可能的URL前缀）
-            # Очистка формата DOI (удаление возможного URL префикса)
-            clean_doi = doi.replace('https://doi.org/', '').replace('http://dx.doi.org/', '').strip()
+        import time
+        
+        # 清理DOI格式（移除可能的URL前缀）
+        # Очистка формата DOI (удаление возможного URL префикса)
+        clean_doi = doi.replace('https://doi.org/', '').replace('http://dx.doi.org/', '').strip()
+        
+        # P1-2: 带指数退避的重试逻辑 / Retry with exponential backoff
+        for attempt in range(self.max_retries):
+            try:
+                # 查询Crossref API
+                # Запрос к Crossref API
+                work = self.works.doi(clean_doi)
 
-            # 查询Crossref API
-            # Запрос к Crossref API
-            work = self.works.doi(clean_doi)
+                if work:
+                    return self._parse_work(work)
+                else:
+                    self.logger.warning(f"DOI not found: {clean_doi}")
+                    return None
 
-            if work:
-                return self._parse_work(work)
-            else:
-                self.logger.warning(f"DOI not found: {clean_doi}")
-                return None
-
-        except Exception as e:
-            self.logger.error(f"Error fetching DOI {doi}: {e}")
+            except Exception as e:
+                error_str = str(e).lower()
+                # 检查是否是可重试的错误（429, 503, 504）
+                # Проверка, является ли ошибка повторяемой (429, 503, 504)
+                is_retryable = any(code in error_str for code in ['429', '503', '504', 'rate limit', 'temporarily'])
+                
+                if is_retryable and attempt < self.max_retries - 1:
+                    delay = self.base_delay * (2 ** attempt)  # 指数退避 / Exponential backoff
+                    self.logger.warning(f"Retryable error for {clean_doi}: {e}. Retrying in {delay}s...")
+                    time.sleep(delay)
+                else:
+                    self.logger.error(f"Error fetching DOI {doi}: {e}")
             return None
 
     def _parse_work(self, work: Dict) -> Dict[str, Any]:

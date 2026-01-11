@@ -50,30 +50,40 @@ class SimilarityScorer:
 
         Args:
             config: 配置字典，包含权重和参数设置 / Словарь конфигурации с настройками весов и параметров
+                   如为None或不包含某项，使用默认值 / Если None или отсутствует параметр, используются значения по умолчанию
         """
-        # 导入默认配置 / Импорт конфигурации по умолчанию
-        if config is None:
-            from config import (
-                SIMILARITY_WEIGHTS,
-                NAME_SIMILARITY_CONFIG,
-                SET_SIMILARITY_CONFIG,
-                COMPARISON_BINS,
-                MU_TABLE,
-                ENABLE_CHINESE_NAME_NORMALIZATION
-            )
-            self.weights = SIMILARITY_WEIGHTS.copy()
-            self.name_config = NAME_SIMILARITY_CONFIG.copy()
-            self.set_config = SET_SIMILARITY_CONFIG.copy()
-            self.comparison_bins = COMPARISON_BINS.copy()
-            self.mu_table = MU_TABLE  # 深拷贝在外部load_mu_table中完成
-            self.enable_chinese_name = ENABLE_CHINESE_NAME_NORMALIZATION
-        else:
-            self.weights = config.get('weights', {})
-            self.name_config = config.get('name_config', {})
-            self.set_config = config.get('set_config', {})
-            self.comparison_bins = config.get('comparison_bins', {})
-            self.mu_table = config.get('mu_table', {})
-            self.enable_chinese_name = config.get('enable_chinese_name', False)
+        # 始终先加载默认配置 / Всегда сначала загружаем конфигурацию по умолчанию
+        from config import (
+            SIMILARITY_WEIGHTS,
+            NAME_SIMILARITY_CONFIG,
+            SET_SIMILARITY_CONFIG,
+            COMPARISON_BINS,
+            MU_TABLE,
+            ENABLE_CHINESE_NAME_NORMALIZATION
+        )
+        
+        # 使用默认值初始化 / Инициализация значениями по умолчанию
+        self.weights = SIMILARITY_WEIGHTS.copy()
+        self.name_config = NAME_SIMILARITY_CONFIG.copy()
+        self.set_config = SET_SIMILARITY_CONFIG.copy()
+        self.comparison_bins = COMPARISON_BINS.copy()
+        self.mu_table = MU_TABLE  # 深拷贝在外部load_mu_table中完成
+        self.enable_chinese_name = ENABLE_CHINESE_NAME_NORMALIZATION
+        
+        # 如果提供了config，用其中的值覆盖默认值 / Если предоставлен config, перезаписываем значения
+        if config:
+            if 'weights' in config and config['weights']:
+                self.weights.update(config['weights'])
+            if 'name_config' in config and config['name_config']:
+                self.name_config.update(config['name_config'])
+            if 'set_config' in config and config['set_config']:
+                self.set_config.update(config['set_config'])
+            if 'comparison_bins' in config and config['comparison_bins']:
+                self.comparison_bins.update(config['comparison_bins'])
+            if 'mu_table' in config and config['mu_table']:
+                self.mu_table = config['mu_table']
+            if 'enable_chinese_name' in config:
+                self.enable_chinese_name = config['enable_chinese_name']
 
         # 验证权重配置 / Проверка конфигурации весов
         self._validate_weights()

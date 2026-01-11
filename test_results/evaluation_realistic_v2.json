@@ -1,0 +1,32 @@
+{
+  "metadata": {
+    "timestamp": "2026-01-07T21:23:45.743148",
+    "data_file": "C:\\istina\\materia 材料\\测试表单\\crossref.json",
+    "limit": 100000,
+    "init_ratio": 0.5,
+    "mode": "baseline",
+    "accept_threshold": 0.6,
+    "reject_threshold": 0.35,
+    "elapsed_seconds": 132.331153
+  },
+  "data_stats": {
+    "total_records": 100000,
+    "valid_orcids": 5042,
+    "init_mentions": 15999,
+    "eval_mentions": 17738,
+    "database_authors": 5042
+  },
+  "decision_stats": {
+    "total": 17738,
+    "merge": 0,
+    "new": 17738,
+    "unknown": 0,
+    "correct_merge": 0,
+    "wrong_merge": 0
+  },
+  "metrics": {
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0
+  }
+}

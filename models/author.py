@@ -251,6 +251,13 @@ class Author:
         if record.affiliation:
             self.add_affiliation(record.affiliation)
 
+        # 添加合著者信息（P0-2修复）/ Добавление информации о соавторах (P0-2 fix)
+        if record.coauthors:
+            for coauthor in record.coauthors:
+                if coauthor and coauthor.strip():
+                    self.coauthor_ids.add(coauthor.strip())
+            self.collaboration_count = len(self.coauthor_ids)
+
         # 更新置信度（简单平均）/ Обновление уверенности (простое усреднение)
         record_count = len(self.linked_records)
         if record_count > 1:

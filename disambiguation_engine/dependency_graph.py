@@ -22,8 +22,19 @@ class DependencyGraph:
     поддерживает анализ области влияния в инкрементальных вычислениях
     """
 
-    def __init__(self):
-        """初始化依赖关系图 / Инициализация графа зависимостей"""
+    def __init__(self, full_scan_threshold: int = 0):
+        """
+        初始化依赖关系图 / Инициализация графа зависимостей
+        
+        Args:
+            full_scan_threshold: 全扫描阈值。当作者数<=此值时返回全体作者。
+                               设为0则禁用全扫描（默认）。
+                               Порог полного сканирования. При количестве авторов <= 
+                               этого значения возвращаются все авторы. 0 = отключено.
+        """
+        # P1-1修复：可配置的全扫描阈值 / P1-1 fix: configurable full scan threshold
+        self.full_scan_threshold = full_scan_threshold
+        
         # 邻接表：author_id -> set of connected author_ids / Список смежности: author_id -> множество связанных author_ids
         self.graph: Dict[str, Set[str]] = defaultdict(set)
 
@@ -243,16 +254,17 @@ class DependencyGraph:
         """
         potential_matches = set()
 
-        # 这里简化实现，实际中需要更复杂的姓名匹配逻辑 / Упрощённая реализация, в реальности нужна более сложная логика сопоставления имён
-        # 可以根据记录中的合著者信息找到图中的相关作者 / Можно найти соответствующих авторов в графе на основе информации о соавторах в записи
-
-        # 目前返回图中的所有作者作为潜在匹配（简化版本）/ Пока возвращаем всех авторов в графе как потенциальные совпадения (упрощённая версия)
-        # 在实际实现中，这里应该使用更智能的匹配策略 / В реальной реализации здесь должна использоваться более интеллектуальная стратегия сопоставления
-        if len(self.authors) <= 50:  # 小规模图时返回所有作者 / При небольшом графе возвращаем всех авторов
+        # P1-1修复：使用可配置的全扫描阈值 / P1-1 fix: use configurable full_scan_threshold
+        # 默认为0时禁用全扫描 / По умолчанию 0 = отключено
+        if self.full_scan_threshold > 0 and len(self.authors) <= self.full_scan_threshold:
+            # 小规模图且显式启用全扫描时返回所有作者
+            # При небольшом графе и явно включённом полном сканировании возвращаем всех авторов
             potential_matches = self.authors.copy()
-        else:  # 大规模图时使用启发式方法 / При большом графе используем эвристические методы
-            # 可以基于期刊、机构等信息进行预筛选 / Можно выполнить предварительную фильтрацию на основе информации о журналах, учреждениях и т.д.
-            potential_matches = set(list(self.authors)[:50])  # 简化：取前50个作者 / Упрощение: берём первых 50 авторов
+            self.logger.debug(f"Full scan: returning all {len(self.authors)} authors (threshold={self.full_scan_threshold})")
+        else:
+            # 使用blocking策略：返回空集（由外层blocking机制提供候选）
+            # Использование blocking стратегии: возврат пустого множества (кандидаты предоставляются внешним механизмом blocking)
+            self.logger.debug(f"Using blocking strategy (authors={len(self.authors)}, threshold={self.full_scan_threshold})")
 
         return potential_matches
 

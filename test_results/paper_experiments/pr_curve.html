@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PR Curve - Project Two</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { color: #333; text-align: center; }
+        .chart-container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin: 20px 0; }
+        canvas { max-height: 500px; }
+        .stats { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; margin-top: 20px; }
+        .stat-box { background: white; padding: 20px; border-radius: 8px; text-align: center; min-width: 150px; }
+        .stat-value { font-size: 24px; font-weight: bold; color: #2196F3; }
+        .stat-label { color: #666; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>二号项目 Precision-Recall 曲线</h1>
+        <h2 style="text-align:center;color:#666;">Project Two: Author Disambiguation</h2>
+        
+        <div class="chart-container">
+            <canvas id="prChart"></canvas>
+        </div>
+        
+        <div class="stats">
+            <div class="stat-box">
+                <div class="stat-value" id="best-f1">-</div>
+                <div class="stat-label">Best F1 (Baseline)</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value" id="best-precision">-</div>
+                <div class="stat-label">Best Precision</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value" id="best-recall">-</div>
+                <div class="stat-label">Best Recall</div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const baselineData = [{"precision": 0.969188045490611, "recall": 0.9048148148148148, "f1": 0.9358957987485634, "threshold": 0.5, "unknown_rate": 0.06641975308641976}, {"precision": 0.9694090080708149, "recall": 0.9193827160493827, "f1": 0.9437333671271069, "threshold": 0.45, "unknown_rate": 0.051604938271604936}, {"precision": 0.9701820059377824, "recall": 0.9279012345679012, "f1": 0.9485707073894113, "threshold": 0.4, "unknown_rate": 0.04358024691358025}, {"precision": 0.9702290076335878, "recall": 0.9414814814814815, "f1": 0.955639097744361, "threshold": 0.35, "unknown_rate": 0.02962962962962963}, {"precision": 0.9683195592286501, "recall": 0.9546913580246914, "f1": 0.9614571677234863, "threshold": 0.3, "unknown_rate": 0.014074074074074074}];
+        const fsData = [];
+        
+        // Find best F1
+        const bestBaseline = baselineData.reduce((a, b) => a.f1 > b.f1 ? a : b, {f1: 0});
+        document.getElementById('best-f1').textContent = (bestBaseline.f1 * 100).toFixed(1) + '%';
+        document.getElementById('best-precision').textContent = (bestBaseline.precision * 100).toFixed(1) + '%';
+        document.getElementById('best-recall').textContent = (bestBaseline.recall * 100).toFixed(1) + '%';
+        
+        const ctx = document.getElementById('prChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                datasets: [
+                    {
+                        label: 'Baseline Mode',
+                        data: baselineData.map(p => ({x: p.recall * 100, y: p.precision * 100})),
+                        borderColor: '#2196F3',
+                        backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 5,
+                        pointHoverRadius: 8
+                    },
+                    {
+                        label: 'Fellegi-Sunter Mode',
+                        data: fsData.map(p => ({x: p.recall * 100, y: p.precision * 100})),
+                        borderColor: '#FF5722',
+                        backgroundColor: 'rgba(255, 87, 34, 0.1)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 5,
+                        pointHoverRadius: 8
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    title: { display: true, text: 'Precision-Recall Curve', font: { size: 18 } },
+                    legend: { position: 'bottom' }
+                },
+                scales: {
+                    x: { type: 'linear', min: 0, max: 100, title: { display: true, text: 'Recall (%)' } },
+                    y: { type: 'linear', min: 0, max: 100, title: { display: true, text: 'Precision (%)' } }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

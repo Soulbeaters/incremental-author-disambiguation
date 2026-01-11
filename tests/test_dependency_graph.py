@@ -150,13 +150,16 @@ class TestDependencyGraph(unittest.TestCase):
         测试：基于新记录获取受影响的作者
         Тест: получение затронутых авторов на основе новой записи
         """
+        # 使用启用全扫描的图进行测试 / Использование графа с включённым полным сканированием
+        graph = DependencyGraph(full_scan_threshold=50)  # P1-1: 显式启用全扫描
+        
         # 建立基础图 / Построение базового графа
         authors = ["au_001", "au_002", "au_003"]
         for author in authors:
-            self.graph.add_author(author)
+            graph.add_author(author)
 
-        self.graph.add_coauthor_relationship("au_001", "au_002")
-        self.graph.add_coauthor_relationship("au_002", "au_003")
+        graph.add_coauthor_relationship("au_001", "au_002")
+        graph.add_coauthor_relationship("au_002", "au_003")
 
         # 创建新记录 / Создание новой записи
         new_record = AuthorRecord(
@@ -167,9 +170,9 @@ class TestDependencyGraph(unittest.TestCase):
         )
 
         # 获取受影响的作者 / Получение затронутых авторов
-        affected = self.graph.get_affected_authors(new_record=new_record, max_depth=1)
+        affected = graph.get_affected_authors(new_record=new_record, max_depth=1)
 
-        # 小图情况下应该返回所有作者 / В случае малого графа должны возвращаться все авторы
+        # 启用全扫描后小图应该返回所有作者 / С включённым полным сканированием малый граф возвращает всех авторов
         self.assertTrue(len(affected) > 0)
 
         print(f"记录影响分析测试通过，受影响作者: {len(affected)}")

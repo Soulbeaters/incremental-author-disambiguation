@@ -1,0 +1,53 @@
+calibration_date: '2026-01-12'
+calibration_params:
+  laplace_alpha: 1.0
+  num_negative_pairs: 4414
+  num_positive_pairs: 3537
+  seed: 42
+calibration_source: orcid_dev_pairs
+features:
+  affiliation_similarity:
+    exact:
+      m: 0.153911
+      u: 0.002943
+    high:
+      m: 0.268286
+      u: 0.079448
+    none:
+      m: 0.481502
+      u: 0.497057
+    partial:
+      m: 0.0963
+      u: 0.420552
+  name_similarity:
+    exact:
+      m: 0.98786
+      u: 0.000226
+    high:
+      m: 0.000565
+      u: 0.00181
+    low:
+      m: 0.010728
+      u: 0.455986
+    medium:
+      m: 0.000282
+      u: 0.019009
+    none:
+      m: 0.000565
+      u: 0.522969
+  orcid_match:
+    exact:
+      m: 0.999717
+      u: 0.000226
+    none:
+      m: 0.000283
+      u: 0.999774
+  venue_similarity:
+    different:
+      m: 1.0
+      u: 1.0
+prior_odds: 0.001
+thresholds:
+  accept: 8.0
+  reject: -3.0
+version: '1.0'

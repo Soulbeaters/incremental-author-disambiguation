@@ -139,6 +139,40 @@ python scripts/demo_incremental_disambiguation.py
 python scripts/demo_auto.py
 ```
 
+### 3. 一键评估实验 / Запуск экспериментов одной командой / One-Command Evaluation
+
+**数据准备 (首次运行) / Data Preparation (First Run):**
+```bash
+# 从Crossref数据构建mentions
+python data/build_mentions.py --input <crossref.json> --output data/mentions.jsonl
+
+# 构建ORCID金标准聚类
+python data/build_orcid_gold.py --input data/mentions.jsonl --output data/gold_clusters.json
+
+# 创建dev/test划分
+python data/build_splits.py --gold data/gold_clusters.json --output data/splits.json
+```
+
+**运行所有基线实验 / Run All Baseline Experiments:**
+```bash
+python experiments/run_all.py --seed 42 --out results
+```
+
+输出 / Output:
+- `results/experiment_summary.json` - 详细结果
+- `results/baselines.csv` - 基线比较表
+- `results/*_clusters.json` - 各方法的聚类结果
+
+**评估指标 / Metrics:**
+- B³ Precision/Recall/F1 (聚类质量)
+- Pairwise Precision/Recall/F1 (配对质量)
+- ORCID Conflict Rate (错误合并率)
+
+### 4. 生成LaTeX表格 / Generate LaTeX Tables
+```bash
+python scripts/make_results_tables.py --input results/baselines.csv --type baselines
+```
+
 ### 3. 真实DOI测试 / Тест с реальными DOI
 ```bash
 python scripts/test_with_real_dois.py --dois-limit 100 --max-workers 5

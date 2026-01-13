@@ -1,0 +1,118 @@
+{
+  "authors": {
+    "au_a98aa059": {
+      "canonical_name": "John Smith",
+      "alternate_names": [
+        "John Smith"
+      ],
+      "linked_records": [
+        "R001"
+      ],
+      "publication_count": 0,
+      "confidence_score": 1.0
+    },
+    "au_554f3e86": {
+      "canonical_name": "J. Smith",
+      "alternate_names": [
+        "J. Smith"
+      ],
+      "linked_records": [
+        "R002"
+      ],
+      "publication_count": 0,
+      "confidence_score": 1.0
+    },
+    "au_c729e3c8": {
+      "canonical_name": "Li Wei",
+      "alternate_names": [
+        "Li Wei"
+      ],
+      "linked_records": [
+        "R003"
+      ],
+      "publication_count": 0,
+      "confidence_score": 1.0
+    },
+    "au_1611d51f": {
+      "canonical_name": "Maria Garcia",
+      "alternate_names": [
+        "Maria Garcia"
+      ],
+      "linked_records": [
+        "R004"
+      ],
+      "publication_count": 0,
+      "confidence_score": 1.0
+    },
+    "au_b6f1dfe5": {
+      "canonical_name": "Robert Wilson",
+      "alternate_names": [
+        "Robert Wilson"
+      ],
+      "linked_records": [
+        "R005"
+      ],
+      "publication_count": 0,
+      "confidence_score": 1.0
+    },
+    "au_be6482fb": {
+      "canonical_name": "R. Wilson",
+      "alternate_names": [
+        "R. Wilson"
+      ],
+      "linked_records": [
+        "R006"
+      ],
+      "publication_count": 0,
+      "confidence_score": 1.0
+    },
+    "au_922a90c2": {
+      "canonical_name": "Robert Wilson",
+      "alternate_names": [
+        "Robert Wilson"
+      ],
+      "linked_records": [
+        "R007"
+      ],
+      "publication_count": 0,
+      "confidence_score": 1.0
+    },
+    "au_a9ea6a56": {
+      "canonical_name": "David Chen",
+      "alternate_names": [
+        "David Chen"
+      ],
+      "linked_records": [
+        "R008"
+      ],
+      "publication_count": 0,
+      "confidence_score": 1.0
+    }
+  },
+  "statistics": {
+    "total_processed": 8,
+    "merged_records": 0,
+    "new_authors_created": 8,
+    "rejected_records": 0,
+    "processing_time_total": 0.002006,
+    "error_count": 0,
+    "warning_count": 0,
+    "total_authors": 8,
+    "total_publications": 0,
+    "graph_stats": {
+      "node_count": 8,
+      "edge_count": 2,
+      "average_degree": 0.5,
+      "collaboration_relationships": 2,
+      "cache_size": 6
+    },
+    "avg_processing_time": 0.00025075
+  },
+  "graph_info": {
+    "node_count": 8,
+    "edge_count": 2,
+    "average_degree": 0.5,
+    "collaboration_relationships": 2,
+    "cache_size": 6
+  }
+}

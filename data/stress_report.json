@@ -1,0 +1,116 @@
+{
+  "timestamp": "2026-01-13T11:15:36.081836",
+  "seed": 42,
+  "target_rate": 0.3,
+  "total_mentions": 10000,
+  "chinese_mentions_count": 6291,
+  "stressed_mentions_count": 1887,
+  "stressed_ratio_actual": 0.2999523128278493,
+  "intersection_with_eval_labeled_count": 869,
+  "stressed_in_gold_count": 869,
+  "stressed_ids_sample": [
+    "622d4cb809d6",
+    "022813bbb25f",
+    "ddea79797ff7",
+    "ad76645e508c",
+    "83adcdc6aee7",
+    "bd91094f3a1a",
+    "a5271ba55254",
+    "beb6fd5e8c47",
+    "b22fed31c9a7",
+    "2442302dfc12",
+    "38c2a7e7edaa",
+    "31a1048c4ce8",
+    "6f1f493ba4bc",
+    "c4942f1a3dc4",
+    "93633e7135b8",
+    "41611edd03dd",
+    "16b577abf0c6",
+    "8dc8c1852274",
+    "5be6f5362cbc",
+    "d9c388c47cd3"
+  ],
+  "ops_distribution": {
+    "punctuation": 402,
+    "swap_order": 743,
+    "initialize_given": 351,
+    "remove_space": 391
+  },
+  "verification": {
+    "samples_checked": 50,
+    "actually_changed": 50,
+    "change_ratio": 1.0,
+    "samples": [
+      {
+        "mention_id": "622d4cb809d6",
+        "original": "Xuan Chen",
+        "perturbed": "Xuan, Chen",
+        "op": "punctuation",
+        "changed": true
+      },
+      {
+        "mention_id": "022813bbb25f",
+        "original": "Wei-Hua Li",
+        "perturbed": "Wei-Hua, Li",
+        "op": "punctuation",
+        "changed": true
+      },
+      {
+        "mention_id": "ddea79797ff7",
+        "original": "Jing‐De Chen",
+        "perturbed": "Chen Jing‐De",
+        "op": "swap_order",
+        "changed": true
+      },
+      {
+        "mention_id": "ad76645e508c",
+        "original": "Jian‐Xin Tang",
+        "perturbed": "Tang Jian‐Xin",
+        "op": "swap_order",
+        "changed": true
+      },
+      {
+        "mention_id": "83adcdc6aee7",
+        "original": "Rui Chen",
+        "perturbed": "Chen Rui",
+        "op": "swap_order",
+        "changed": true
+      },
+      {
+        "mention_id": "bd91094f3a1a",
+        "original": "Yiqiang Zhang",
+        "perturbed": "Yiqiang, Zhang",
+        "op": "punctuation",
+        "changed": true
+      },
+      {
+        "mention_id": "a5271ba55254",
+        "original": "Wei Chen",
+        "perturbed": "Wei, Chen",
+        "op": "punctuation",
+        "changed": true
+      },
+      {
+        "mention_id": "beb6fd5e8c47",
+        "original": "Ziming Chen",
+        "perturbed": "Ziming C.",
+        "op": "initialize_given",
+        "changed": true
+      },
+      {
+        "mention_id": "b22fed31c9a7",
+        "original": "Chaohao Hu",
+        "perturbed": "Chaohao-Hu",
+        "op": "remove_space",
+        "changed": true
+      },
+      {
+        "mention_id": "2442302dfc12",
+        "original": "Qifan Xue",
+        "perturbed": "Xue Qifan",
+        "op": "swap_order",
+        "changed": true
+      }
+    ]
+  }
+}

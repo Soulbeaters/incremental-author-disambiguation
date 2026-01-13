@@ -1,0 +1,109 @@
+# Fellegi-Sunter m/u Probability Table
+# FS m/u概率表 / Таблица m/u вероятностей FS
+
+# m: P(feature_value | match) - probability of observing this value given a true match
+# u: P(feature_value | non-match) - probability given a non-match
+# weight = log2(m/u) for matches, log2((1-m)/(1-u)) for non-matches
+
+version: "1.0"
+calibration_source: "manual_defaults"
+calibration_date: "2026-01-12"
+
+features:
+  name_similarity:
+    exact:
+      m: 0.85
+      u: 0.02
+    high:
+      m: 0.10
+      u: 0.05
+    medium:
+      m: 0.03
+      u: 0.15
+    low:
+      m: 0.015
+      u: 0.30
+    none:
+      m: 0.005
+      u: 0.48
+
+  orcid_match:
+    exact:
+      m: 0.98
+      u: 0.0001
+    none:
+      m: 0.02
+      u: 0.9999
+
+  affiliation_similarity:
+    exact:
+      m: 0.60
+      u: 0.05
+    high:
+      m: 0.25
+      u: 0.10
+    partial:
+      m: 0.10
+      u: 0.25
+    none:
+      m: 0.05
+      u: 0.60
+
+  coauthor_overlap:
+    high:
+      m: 0.40
+      u: 0.01
+    medium:
+      m: 0.30
+      u: 0.05
+    low:
+      m: 0.20
+      u: 0.14
+    none:
+      m: 0.10
+      u: 0.80
+
+  venue_similarity:
+    same:
+      m: 0.50
+      u: 0.08
+    similar:
+      m: 0.35
+      u: 0.22
+    different:
+      m: 0.15
+      u: 0.70
+
+  year_difference:
+    same:
+      m: 0.20
+      u: 0.10
+    close:
+      m: 0.40
+      u: 0.25
+    medium:
+      m: 0.30
+      u: 0.35
+    far:
+      m: 0.10
+      u: 0.30
+
+  chinese_name_match:
+    pinyin_exact:
+      m: 0.90
+      u: 0.05
+    pinyin_high:
+      m: 0.08
+      u: 0.15
+    no_match:
+      m: 0.02
+      u: 0.80
+
+# Thresholds for decision making
+thresholds:
+  accept: 8.0    # log-odds score above this -> MERGE
+  reject: -3.0   # log-odds score below this -> NEW
+  # Between reject and accept -> UNKNOWN
+
+# Prior odds of a random pair being a match (estimated from data)
+prior_odds: 0.001

@@ -1,0 +1,99 @@
+# Fellegi-Sunter Feature Binning Configuration
+# FS特征分箱配置 / Конфигурация разбиения признаков FS
+
+# Each feature defines bins (thresholds) for categorizing similarity scores
+# into discrete levels for the m/u probability lookup.
+
+name_similarity:
+  description: "Jaro-Winkler or similar string similarity for names"
+  bins:
+    - name: exact
+      min: 0.95
+      max: 1.0
+    - name: high
+      min: 0.85
+      max: 0.95
+    - name: medium
+      min: 0.7
+      max: 0.85
+    - name: low
+      min: 0.5
+      max: 0.7
+    - name: none
+      min: 0.0
+      max: 0.5
+
+orcid_match:
+  description: "ORCID identifier match"
+  bins:
+    - name: exact
+      value: true
+    - name: none
+      value: false
+
+affiliation_similarity:
+  description: "Normalized affiliation string similarity"
+  bins:
+    - name: exact
+      min: 0.95
+      max: 1.0
+    - name: high
+      min: 0.7
+      max: 0.95
+    - name: partial
+      min: 0.4
+      max: 0.7
+    - name: none
+      min: 0.0
+      max: 0.4
+
+coauthor_overlap:
+  description: "Jaccard similarity of coauthor sets"
+  bins:
+    - name: high
+      min: 0.5
+      max: 1.0
+    - name: medium
+      min: 0.2
+      max: 0.5
+    - name: low
+      min: 0.05
+      max: 0.2
+    - name: none
+      min: 0.0
+      max: 0.05
+
+venue_similarity:
+  description: "Journal/venue overlap"
+  bins:
+    - name: same
+      min: 0.8
+      max: 1.0
+    - name: similar
+      min: 0.4
+      max: 0.8
+    - name: different
+      min: 0.0
+      max: 0.4
+
+year_difference:
+  description: "Publication year proximity"
+  bins:
+    - name: same
+      max_diff: 0
+    - name: close
+      max_diff: 2
+    - name: medium
+      max_diff: 5
+    - name: far
+      max_diff: 999
+
+chinese_name_match:
+  description: "Chinese name special matching (Project 1 module)"
+  bins:
+    - name: pinyin_exact
+      value: 2
+    - name: pinyin_high
+      value: 1
+    - name: no_match
+      value: 0

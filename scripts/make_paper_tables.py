@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Generate Paper Tables with Hard-Fail Validation
-从结果生成论文表格（含硬失败校验）
+从结果生成论文表格（含硬失败校验）/ Генерация таблиц статьи (с валидацией)
 
 Reads from run_metadata.jsonl and validates:
 - S0.1: FINI != SYSTEM_CN_OFF
@@ -30,7 +30,7 @@ from utils.run_registry import (
 
 
 def load_csv(path: str):
-    """Load data from CSV file."""
+    """Load data from CSV file. / Загрузка данных из CSV."""
     rows = []
     with open(path, 'r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
@@ -45,7 +45,7 @@ def load_csv(path: str):
 
 
 def load_run_metadata(results_dir: Path):
-    """Load all runs from run_metadata.jsonl."""
+    """Load all runs from run_metadata.jsonl. / Загрузка всех запусков."""
     runs = []
     metadata_path = results_dir / 'run_metadata.jsonl'
     if metadata_path.exists():

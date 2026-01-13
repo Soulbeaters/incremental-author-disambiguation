@@ -25,7 +25,7 @@ sys.path.insert(0, str(project_root))
 
 
 def load_mentions_jsonl(path: str) -> List[Dict[str, Any]]:
-    """Load mentions from JSONL file."""
+    """Загрузка упоминаний из JSONL. / 加载JSONL文件中的mentions."""
     mentions = []
     with open(path, 'r', encoding='utf-8') as f:
         for line in f:
@@ -36,7 +36,7 @@ def load_mentions_jsonl(path: str) -> List[Dict[str, Any]]:
 
 
 def load_chinese_ids(path: str) -> Set[str]:
-    """Load Chinese subset IDs."""
+    """Загрузка ID китайского подмножества. / 加载中文子集ID."""
     ids = set()
     if not Path(path).exists():
         return ids
@@ -49,7 +49,7 @@ def load_chinese_ids(path: str) -> Set[str]:
 
 
 def verify_orcid_blind(mentions: List[Dict]) -> bool:
-    """Verify that mentions are ORCID-blind."""
+    """Проверка ORCID-blind режима. / 验证ORCID-blind模式."""
     for m in mentions:
         if m.get('orcid', '').strip():
             return False

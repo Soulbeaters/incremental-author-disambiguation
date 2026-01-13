@@ -16,7 +16,7 @@ import subprocess
 
 
 def generate_run_id() -> str:
-    """Generate unique run ID."""
+    """Генерация уникального run_id. / 生成唯一run_id."""
     return str(uuid.uuid4())[:8]
 
 
@@ -47,7 +47,7 @@ def get_git_commit() -> Optional[str]:
 
 
 class RunRegistry:
-    """Registry for tracking experiment runs."""
+    """Реестр запусков для отслеживания экспериментов. / 实验追踪注册表."""
     
     def __init__(self, metadata_path: str = 'results/run_metadata.jsonl'):
         self.metadata_path = Path(metadata_path)
@@ -105,7 +105,7 @@ class RunRegistry:
         return entry
     
     def load_all_runs(self) -> list:
-        """Load all registered runs."""
+        """Загрузка всех зарегистрированных запусков. / 加载所有已注册的运行记录."""
         runs = []
         if self.metadata_path.exists():
             with open(self.metadata_path, 'r', encoding='utf-8') as f:
@@ -122,7 +122,7 @@ class RunRegistry:
         enable_cn_name: bool,
         eval_mode: str = 'ORCID_BLIND'
     ) -> Optional[Dict]:
-        """Find a specific run by criteria."""
+        """Поиск конкретного запуска по критериям. / 按条件查找特定运行."""
         for run in self.load_all_runs():
             if (run['method_id'] == method_id and 
                 run['dataset_id'] == dataset_id and

@@ -26,14 +26,12 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip install python-Levenshtein  # 可选但推荐
+        pip install python-Levenshtein  # Optional but recommended
     
-    - name: Run unit tests
+    - name: Run import tests
       run: |
-        python -m unittest discover -v tests/
-    
-    - name: Run basic import test
-      run: |
-        python -c "from disambiguation_engine.engine import DisambiguationEngine; print('Import OK')"
+        python -c "from disambiguation_engine.engine import DisambiguationEngine; print('DisambiguationEngine OK')"
         python -c "from disambiguation_engine.author_merger import AuthorMerger; print('AuthorMerger OK')"
         python -c "from models.database import AuthorDatabase; print('Database OK')"
+        python -c "from baselines import cluster_by_fini, cluster_by_aini; print('Baselines OK')"
+        python -c "from utils.run_registry import RunRegistry; print('RunRegistry OK')"

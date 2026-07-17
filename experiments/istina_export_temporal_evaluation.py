@@ -271,6 +271,7 @@ def evaluate_local_framework(
             "year": mention.get("year"),
         })
         records.append({
+            "article_index": mention.get("article_index"),
             "article_id": mention.get("article_id"),
             "year": mention.get("year"),
             "position": mention.get("position"),
@@ -406,6 +407,130 @@ def evaluate_service(
     }
 
 
+def evaluate_service_papers(
+    service_mentions: List[Dict[str, Any]],
+    all_mentions: List[Dict[str, Any]],
+    args: argparse.Namespace,
+    client: Optional[IstinaDisambiguationClient] = None,
+) -> Dict[str, Any]:
+    """Query the legacy service with complete paper author lists.
+
+    The legacy hypergraph model selects an author combination for a paper, so
+    this is the fair comparison mode.  Metrics are still counted only for the
+    selected target mentions.
+    """
+
+    client = client or IstinaDisambiguationClient(
+        args.service_url,
+        timeout=args.service_timeout,
+    )
+    context_by_article: Dict[int, List[Dict[str, Any]]] = defaultdict(list)
+    targets_by_article: Dict[int, List[Dict[str, Any]]] = defaultdict(list)
+    for mention in all_mentions:
+        context_by_article[int(mention["article_index"])].append(mention)
+    for mention in service_mentions:
+        targets_by_article[int(mention["article_index"])].append(mention)
+
+    stats = {
+        "attempted": 0,
+        "ok": 0,
+        "errors": 0,
+        "requests": 0,
+        "nonzero_result": 0,
+        "result_matches_gold": 0,
+        "gold_in_candidates": 0,
+    }
+    records: List[Dict[str, Any]] = []
+
+    for article_index, targets in sorted(targets_by_article.items()):
+        context = context_by_article[article_index]
+        context_index = {
+            mention_identity(mention): index for index, mention in enumerate(context)
+        }
+        queries = [
+            client.from_exported_author(mention["author"], repair_short_family=True)
+            for mention in context
+        ]
+        stats["attempted"] += len(targets)
+        stats["requests"] += 1
+        try:
+            response = client.request_candidates(queries, man_id=args.man_id)
+        except Exception as exc:
+            stats["errors"] += len(targets)
+            for target in targets:
+                target_index = context_index[mention_identity(target)]
+                records.append({
+                    "article_index": article_index,
+                    "article_id": target.get("article_id"),
+                    "year": target.get("year"),
+                    "position": target.get("position"),
+                    "name": target.get("name"),
+                    "gold_author_id": target.get("gold_author_id"),
+                    "query": queries[target_index].as_payload(),
+                    "error": f"{type(exc).__name__}: {exc}",
+                })
+            continue
+
+        candidate_groups = response.get("authors") or []
+        parsed_names = response.get("authors_names") or []
+        result_ids = response.get("result_id") or []
+        for target in targets:
+            target_index = context_index[mention_identity(target)]
+            if target_index >= len(result_ids):
+                stats["errors"] += 1
+                records.append({
+                    "article_index": article_index,
+                    "article_id": target.get("article_id"),
+                    "year": target.get("year"),
+                    "position": target.get("position"),
+                    "name": target.get("name"),
+                    "gold_author_id": target.get("gold_author_id"),
+                    "query": queries[target_index].as_payload(),
+                    "error": "service_response_missing_result_position",
+                })
+                continue
+
+            candidates = candidate_groups[target_index] if target_index < len(candidate_groups) else []
+            candidate_ids = [str(candidate.get("id")) for candidate in candidates]
+            result_id = str(result_ids[target_index])
+            gold = target.get("gold_author_id")
+            stats["ok"] += 1
+            stats["nonzero_result"] += int(result_id not in ("0", "", "None"))
+            stats["result_matches_gold"] += int(result_id == gold)
+            stats["gold_in_candidates"] += int(gold in candidate_ids)
+            records.append({
+                "article_index": article_index,
+                "article_id": target.get("article_id"),
+                "year": target.get("year"),
+                "position": target.get("position"),
+                "name": target.get("name"),
+                "gold_author_id": gold,
+                "query": queries[target_index].as_payload(),
+                "parsed": parsed_names[target_index] if target_index < len(parsed_names) else None,
+                "result_id": result_id,
+                "result_matches_gold": result_id == gold,
+                "gold_in_candidates": gold in candidate_ids,
+                "candidate_count": len(candidates),
+                "top_candidate": candidates[0] if candidates else None,
+                "candidates": candidates,
+            })
+        if args.service_sleep:
+            time.sleep(args.service_sleep)
+
+    return {
+        "stats": stats,
+        "metrics": {
+            "result_match_rate": (
+                stats["result_matches_gold"] / stats["ok"] if stats["ok"] else 0.0
+            ),
+            "gold_candidate_recall": (
+                stats["gold_in_candidates"] / stats["ok"] if stats["ok"] else 0.0
+            ),
+        },
+        "records": records,
+    }
+
+
 def evaluate_known_author_unknown_fallback(
     service_result: Dict[str, Any],
     known_author_ids: Iterable[str],
@@ -514,11 +639,13 @@ def select_service_mentions(
     return eligible
 
 
-def mention_identity(mention: Dict[str, Any]) -> Tuple[str, str, str]:
+def mention_identity(mention: Dict[str, Any]) -> Tuple[str, str, str, str, str]:
     return (
+        str(mention.get("article_index")),
         str(mention.get("article_id")),
         str(mention.get("position")),
         str(mention.get("gold_author_id")),
+        str(mention.get("name")),
     )
 
 
@@ -629,6 +756,11 @@ def main() -> None:
         choices=["shared-existing", "local-unknown"],
         default="shared-existing",
     )
+    parser.add_argument(
+        "--service-request-mode",
+        choices=["paper", "mention"],
+        default="paper",
+    )
     parser.add_argument("--service-url", default=DEFAULT_ISTINA_DISAMBIGUATION_URL)
     parser.add_argument("--man-id", type=int, default=4705445)
     parser.add_argument("--service-limit", type=int, default=20)
@@ -672,7 +804,13 @@ def main() -> None:
         if args.compare_service
         else None
     )
-    service_result = evaluate_service(service_mentions, args) if args.compare_service else None
+    service_result = None
+    if args.compare_service:
+        service_result = (
+            evaluate_service_papers(service_mentions, mentions, args)
+            if args.service_request_mode == "paper"
+            else evaluate_service(service_mentions, args)
+        )
     service_fallback_result = (
         evaluate_known_author_unknown_fallback(
             service_result,
@@ -704,6 +842,7 @@ def main() -> None:
             "compare_service": args.compare_service,
             "service_limit": args.service_limit if args.compare_service else 0,
             "service_subset": args.service_subset,
+            "service_request_mode": args.service_request_mode,
             "service_fallback_min_name_similarity": args.service_fallback_min_name_similarity,
         },
         "dataset_summary": dataset_summary(mentions, args.train_through_year),

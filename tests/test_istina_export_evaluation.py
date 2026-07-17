@@ -1,8 +1,10 @@
 import unittest
+from types import SimpleNamespace
 
 from experiments.istina_export_temporal_evaluation import (
     combine_local_with_unknown_fallback,
     evaluate_known_author_unknown_fallback,
+    evaluate_service_papers,
     select_local_decision_mentions,
     select_service_mentions,
     split_mentions,
@@ -118,6 +120,57 @@ class IstinaExportEvaluationTests(unittest.TestCase):
         self.assertEqual(result["stats"]["unknown"], 5)
         self.assertEqual(result["metrics"]["precision"], 1.0)
         self.assertEqual(result["metrics"]["existing_recall"], 0.75)
+
+    def test_paper_service_mode_sends_full_context_and_scores_targets_only(self):
+        mentions = [
+            {
+                "article_index": 1,
+                "article_id": "p",
+                "position": position,
+                "gold_author_id": str(position),
+                "name": f"Author {position}",
+                "author": {"lastname": "Author", "firstname": str(position)},
+            }
+            for position in (1, 2, 3)
+        ]
+
+        class FakeClient:
+            def __init__(self):
+                self.request_sizes = []
+
+            @staticmethod
+            def from_exported_author(author, repair_short_family=True):
+                from integrations.istina_disambiguation_client import IstinaServiceAuthor
+                return IstinaServiceAuthor(author["lastname"], author["firstname"])
+
+            def request_candidates(self, authors, man_id):
+                authors = list(authors)
+                self.request_sizes.append(len(authors))
+                return {
+                    "authors": [[{
+                        "id": index,
+                        "last_name": "author",
+                        "first_name": str(index),
+                        "middle_name": "",
+                        "name_similarity": 1.0,
+                    }] for index in (1, 2, 3)],
+                    "authors_names": [{}, {}, {}],
+                    "result_id": ["1", "2", "3"],
+                }
+
+        client = FakeClient()
+        args = SimpleNamespace(man_id=1, service_sleep=0)
+
+        result = evaluate_service_papers(
+            service_mentions=[dict(mentions[0]), dict(mentions[2])],
+            all_mentions=mentions,
+            args=args,
+            client=client,
+        )
+
+        self.assertEqual(client.request_sizes, [3])
+        self.assertEqual(result["stats"]["attempted"], 2)
+        self.assertEqual(result["stats"]["result_matches_gold"], 2)
 
 
 if __name__ == "__main__":

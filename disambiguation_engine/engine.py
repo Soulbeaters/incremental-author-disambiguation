@@ -8,6 +8,7 @@
 
 from typing import Dict, List, Set, Optional, Tuple, Any
 import logging
+import time
 import warnings
 from datetime import datetime
 
@@ -272,7 +273,7 @@ class DisambiguationEngine:
             SimilarityCalculationError: 相似度计算失败时 / При неудаче расчёта сходства
             GraphUpdateError: 图更新失败时 / При неудаче обновления графа
         """
-        start_time = datetime.now()
+        start_time = time.perf_counter()
 
         self.logger.info(f"开始处理记录: {record.record_id} ({record.name}) / Начинаем обработку записи: {record.record_id} ({record.name})")
 
@@ -308,7 +309,7 @@ class DisambiguationEngine:
             # 更新统计信息 / Обновление статистики
             self._update_statistics(decision_result, start_time)
 
-            processing_time = (datetime.now() - start_time).total_seconds()
+            processing_time = max(time.perf_counter() - start_time, 1e-9)
             self.logger.info(f"记录 {record.record_id} 处理完成，耗时 {processing_time:.4f}s / Запись {record.record_id} обработана за {processing_time:.4f}s")
 
             return decision_result
@@ -577,7 +578,7 @@ class DisambiguationEngine:
 
         return temp_author
 
-    def _update_statistics(self, result: DisambiguationResult, start_time: datetime) -> None:
+    def _update_statistics(self, result: DisambiguationResult, start_time: float) -> None:
         """
         更新统计信息 / Обновление статистики
 
@@ -595,7 +596,7 @@ class DisambiguationEngine:
             self.stats['rejected_records'] += 1
 
         # 计算处理时间 / Расчёт времени обработки
-        processing_time = (datetime.now() - start_time).total_seconds()
+        processing_time = max(time.perf_counter() - start_time, 1e-9)
         self.stats['processing_time_total'] += processing_time
 
     def get_author_by_id(self, author_id: str) -> Optional[Author]:

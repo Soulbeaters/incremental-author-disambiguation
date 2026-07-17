@@ -7,6 +7,26 @@
 External API integrations including Crossref and other services
 """
 
-from .crossref_client import CrossrefClient
+try:
+    from .crossref_client import CrossrefClient
+except ModuleNotFoundError:
+    CrossrefClient = None
 
-__all__ = ['CrossrefClient']
+from .istina_disambiguation_client import (
+    IstinaDisambiguationClient,
+    IstinaServiceAuthor,
+    IstinaServiceCandidate,
+    IstinaServiceDecision,
+    istina_author_record_from_export,
+    iter_istina_author_records,
+)
+
+__all__ = [
+    'CrossrefClient',
+    'IstinaDisambiguationClient',
+    'IstinaServiceAuthor',
+    'IstinaServiceCandidate',
+    'IstinaServiceDecision',
+    'istina_author_record_from_export',
+    'iter_istina_author_records',
+]

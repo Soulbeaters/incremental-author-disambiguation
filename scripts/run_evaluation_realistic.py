@@ -43,14 +43,40 @@ def setup_logging(debug: bool = False) -> logging.Logger:
 
 
 def load_crossref_data(file_path: str, limit: int = None) -> List[Dict[str, Any]]:
-    with open(file_path, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-    
-    authors = data.get('authors', [])
+    path = Path(file_path)
+
+    if path.suffix.lower() == '.jsonl':
+        authors = []
+        with open(path, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    authors.append(json.loads(line))
+    else:
+        with open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        authors = data.get('authors', data if isinstance(data, list) else [])
+
+    for author in authors:
+        if not author.get('original_name') and author.get('raw_name'):
+            author['original_name'] = author['raw_name']
+        if not author.get('surname') and author.get('lastname'):
+            author['surname'] = author['lastname']
+        if not author.get('journal') and author.get('venue'):
+            author['journal'] = author['venue']
+
     if limit:
         authors = authors[:limit]
     
     return authors
+
+
+def visible_orcid(author_data: Dict[str, Any], hide_orcid_feature: bool) -> str:
+    """Return ORCID as an algorithm feature, or hide it for ORCID-blind tests."""
+
+    if hide_orcid_feature:
+        return ""
+    return author_data.get('orcid', '')
 
 
 def main():
@@ -106,6 +132,22 @@ def main():
         default='test_results/evaluation_realistic.json',
         help='输出结果文件'
     )
+    parser.add_argument(
+        '--hide-orcid-feature',
+        action='store_true',
+        help='Use ORCID only as gold labels, not as an algorithm feature'
+    )
+    parser.add_argument(
+        '--min-accept-margin',
+        type=float,
+        default=0.0,
+        help='Require this top-1 vs top-2 score margin before automatic MERGE'
+    )
+    parser.add_argument(
+        '--require-context-for-low-name-accept',
+        action='store_true',
+        help='Downgrade MERGE to UNKNOWN when name evidence is low and coauthor/journal evidence is absent'
+    )
     parser.add_argument('--debug', action='store_true')
     
     args = parser.parse_args()
@@ -160,7 +202,7 @@ def main():
             # 首次见到此ORCID，创建新作者
             new_author = database.add_author({
                 'name': author_data.get('original_name', ''),
-                'orcid': orcid,
+                'orcid': visible_orcid(author_data, args.hide_orcid_feature),
                 'affiliation': [author_data.get('affiliation', '')] if author_data.get('affiliation') else [],
                 'journals': [author_data.get('journal', '')] if author_data.get('journal') else [],
             })
@@ -184,7 +226,9 @@ def main():
         database=database,
         accept_threshold=args.accept_threshold,
         reject_threshold=args.reject_threshold,
-        mode=args.mode
+        mode=args.mode,
+        min_accept_margin=args.min_accept_margin,
+        require_context_for_low_name_accept=args.require_context_for_low_name_accept
     )
     
     stats = {
@@ -204,9 +248,9 @@ def main():
         
         mention = {
             'name': author_data.get('original_name', ''),
-            'surname': author_data.get('lastname', ''),
+            'surname': author_data.get('lastname', '') or author_data.get('surname', ''),
             'firstname': author_data.get('firstname', ''),
-            'orcid': author_data.get('orcid', ''),
+            'orcid': visible_orcid(author_data, args.hide_orcid_feature),
             'affiliation': [author_data.get('affiliation', '')] if author_data.get('affiliation') else [],
             'journals': [author_data.get('journal', '')] if author_data.get('journal') else [],
         }
@@ -267,6 +311,9 @@ def main():
             'mode': args.mode,
             'accept_threshold': args.accept_threshold,
             'reject_threshold': args.reject_threshold,
+            'hide_orcid_feature': args.hide_orcid_feature,
+            'min_accept_margin': args.min_accept_margin,
+            'require_context_for_low_name_accept': args.require_context_for_low_name_accept,
             'elapsed_seconds': elapsed,
         },
         'data_stats': {

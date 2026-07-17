@@ -77,7 +77,9 @@ class AuthorMerger:
         scorer_config: Optional[Dict[str, Any]] = None,
         trace_logger: Optional[DecisionTraceLogger] = None,
         run_id: Optional[str] = None,
-        topk: int = 5
+        topk: int = 5,
+        min_accept_margin: float = 0.0,
+        require_context_for_low_name_accept: bool = False
     ):
         """
         初始化作者消歧引擎 / Инициализация движка дизамбигуации
@@ -95,6 +97,9 @@ class AuthorMerger:
             trace_logger: 决策追踪日志器（可选）/ Логгер трассировки решений
             run_id: 运行ID（用于trace）/ ID запуска (для трассировки)
             topk: 返回前k个候选（用于UNKNOWN决策）/ Топ-k кандидатов
+            min_accept_margin: 最佳候选与第二候选的最小分差。默认0表示关闭。
+            require_context_for_low_name_accept: 若姓名证据低且无合作者/期刊证据，
+                不允许仅靠弱上下文自动MERGE。默认关闭。
         """
         # 验证模式 / Проверка режима
         if mode not in ["baseline", "fs"]:
@@ -105,12 +110,16 @@ class AuthorMerger:
             raise ValueError(
                 f"reject_threshold ({reject_threshold}) must be < accept_threshold ({accept_threshold})"
             )
+        if min_accept_margin < 0:
+            raise ValueError("min_accept_margin must be >= 0")
 
         self.database = database
         self.mode = mode
         self.accept_threshold = accept_threshold
         self.reject_threshold = reject_threshold
         self.topk = topk
+        self.min_accept_margin = min_accept_margin
+        self.require_context_for_low_name_accept = require_context_for_low_name_accept
         self.run_id = run_id
         self.trace_logger = trace_logger
 
@@ -204,6 +213,33 @@ class AuthorMerger:
             decision = Decision.NEW
         else:
             decision = Decision.UNKNOWN
+        decision_reason = ""
+
+        # Production risk controls. They are optional and default to off to
+        # preserve historical behavior.
+        if decision == Decision.MERGE and self.min_accept_margin > 0 and len(scored_candidates) > 1:
+            second_score = scored_candidates[1]["score"]
+            score_margin = best_score - second_score
+            if score_margin < self.min_accept_margin:
+                decision = Decision.UNKNOWN
+                decision_reason = (
+                    f"Risk control: best-vs-second margin {score_margin:.6f} "
+                    f"< min_accept_margin {self.min_accept_margin}, requires review"
+                )
+
+        if decision == Decision.MERGE and self.require_context_for_low_name_accept:
+            comparisons = best_candidate["comparisons"]
+            if (
+                comparisons.get("name_bin") in {"low", "none"}
+                and comparisons.get("orcid_bin") != "match"
+                and comparisons.get("coauthor_bin") == "none"
+                and comparisons.get("journal_bin") == "none"
+            ):
+                decision = Decision.UNKNOWN
+                decision_reason = (
+                    "Risk control: low name evidence without coauthor or journal "
+                    "support, requires review"
+                )
 
         # 6. 构建topk列表 / Построение списка топ-k
         topk_list = [
@@ -224,10 +260,12 @@ class AuthorMerger:
             comparisons=best_candidate["comparisons"],
             thresholds={
                 "accept": self.accept_threshold,
-                "reject": self.reject_threshold
+                "reject": self.reject_threshold,
+                "min_accept_margin": self.min_accept_margin
             },
             mode=self.mode,
             topk=topk_list,
+            reason=decision_reason,
             run_id=self.run_id,
             candidate_count=len(candidates),
             blocking_keys=blocking_keys_used
@@ -452,6 +490,8 @@ class AuthorMerger:
             'accept_threshold': self.accept_threshold,
             'reject_threshold': self.reject_threshold,
             'topk': self.topk,
+            'min_accept_margin': self.min_accept_margin,
+            'require_context_for_low_name_accept': self.require_context_for_low_name_accept,
             'run_id': self.run_id,
             'trace_enabled': self.trace_logger is not None
         }

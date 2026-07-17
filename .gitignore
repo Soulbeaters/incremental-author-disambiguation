@@ -83,6 +83,9 @@ results/
 runs/
 tables/
 
+# Local ISTINA exports from advisor/internal services
+istina test/
+
 # Test results (generated)
 test_results/
 

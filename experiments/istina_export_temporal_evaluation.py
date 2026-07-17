@@ -406,6 +406,89 @@ def evaluate_service(
     }
 
 
+def evaluate_known_author_unknown_fallback(
+    service_result: Dict[str, Any],
+    known_author_ids: Iterable[str],
+    min_name_similarity: float,
+) -> Dict[str, Any]:
+    stats = {
+        "attempted": 0,
+        "accepted": 0,
+        "correct": 0,
+        "wrong": 0,
+        "rejected": 0,
+        "service_errors": 0,
+    }
+    records: List[Dict[str, Any]] = []
+    for record in service_result.get("records") or []:
+        stats["attempted"] += 1
+        if record.get("error"):
+            stats["service_errors"] += 1
+            records.append({
+                "article_id": record.get("article_id"),
+                "name": record.get("name"),
+                "accepted": False,
+                "reason": "service_error",
+            })
+            continue
+
+        response = {
+            "authors": [record.get("candidates") or []],
+            "result_id": [record.get("result_id")],
+        }
+        decision = IstinaDisambiguationClient.known_author_unknown_fallback(
+            response,
+            known_author_ids=known_author_ids,
+            min_name_similarity=min_name_similarity,
+        )
+        correct = bool(
+            decision.accepted
+            and decision.candidate
+            and decision.candidate.id == str(record.get("gold_author_id"))
+        )
+        stats["accepted"] += int(decision.accepted)
+        stats["correct"] += int(correct)
+        stats["wrong"] += int(decision.accepted and not correct)
+        stats["rejected"] += int(not decision.accepted)
+        records.append({
+            "article_id": record.get("article_id"),
+            "name": record.get("name"),
+            "gold_author_id": record.get("gold_author_id"),
+            "accepted": decision.accepted,
+            "correct": correct,
+            "reason": decision.reason,
+            "candidate_id": decision.candidate.id if decision.candidate else None,
+        })
+
+    return {
+        "stats": stats,
+        "metrics": {
+            "precision": stats["correct"] / stats["accepted"] if stats["accepted"] else 0.0,
+            "coverage": stats["accepted"] / stats["attempted"] if stats["attempted"] else 0.0,
+        },
+        "records": records,
+    }
+
+
+def combine_local_with_unknown_fallback(
+    local_result: Dict[str, Any],
+    fallback_result: Dict[str, Any],
+) -> Dict[str, Any]:
+    stats = dict(local_result["stats"])
+    fallback_stats = fallback_result["stats"]
+    accepted = fallback_stats["accepted"]
+    if accepted > stats["unknown"]:
+        raise ValueError("Fallback accepted more mentions than the local UNKNOWN pool")
+
+    stats["unknown"] -= accepted
+    stats["merge"] += accepted
+    stats["correct_merge"] += fallback_stats["correct"]
+    stats["wrong_merge"] += fallback_stats["wrong"]
+    metrics = finalize_metrics(stats, elapsed_seconds=0.0)
+    metrics.pop("mentions_per_second")
+    return {"stats": stats, "metrics": metrics}
+
+
 def select_service_mentions(
     test_mentions: List[Dict[str, Any]],
     history_gold_ids: Iterable[str],
@@ -429,6 +512,33 @@ def select_service_mentions(
     if limit:
         return eligible[:limit]
     return eligible
+
+
+def mention_identity(mention: Dict[str, Any]) -> Tuple[str, str, str]:
+    return (
+        str(mention.get("article_id")),
+        str(mention.get("position")),
+        str(mention.get("gold_author_id")),
+    )
+
+
+def select_local_decision_mentions(
+    test_mentions: List[Dict[str, Any]],
+    local_records: List[Dict[str, Any]],
+    decision: str,
+    limit: int,
+) -> List[Dict[str, Any]]:
+    selected_keys = {
+        mention_identity(record)
+        for record in local_records
+        if record.get("decision") == decision
+    }
+    eligible = [
+        mention
+        for mention in test_mentions
+        if mention_identity(mention) in selected_keys
+    ]
+    return eligible[:limit] if limit else eligible
 
 
 def dataset_summary(mentions: List[Dict[str, Any]], train_through_year: int) -> Dict[str, Any]:
@@ -514,11 +624,17 @@ def main() -> None:
     parser.add_argument("--topk", type=int, default=5)
     parser.add_argument("--error-sample-limit", type=int, default=25)
     parser.add_argument("--compare-service", action="store_true")
+    parser.add_argument(
+        "--service-subset",
+        choices=["shared-existing", "local-unknown"],
+        default="shared-existing",
+    )
     parser.add_argument("--service-url", default=DEFAULT_ISTINA_DISAMBIGUATION_URL)
     parser.add_argument("--man-id", type=int, default=4705445)
     parser.add_argument("--service-limit", type=int, default=20)
     parser.add_argument("--service-timeout", type=float, default=20.0)
     parser.add_argument("--service-sleep", type=float, default=0.05)
+    parser.add_argument("--service-fallback-min-name-similarity", type=float, default=0.85)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     args = parser.parse_args()
 
@@ -536,17 +652,41 @@ def main() -> None:
         index_aliases=not args.disable_alias_index,
     )
     local_result = evaluate_local_framework(database, gold_to_db_author_id, test_mentions, args)
-    service_mentions = (
-        select_service_mentions(test_mentions, gold_to_db_author_id, args.service_limit)
-        if args.compare_service
-        else []
-    )
+    service_mentions: List[Dict[str, Any]] = []
+    if args.compare_service:
+        if args.service_subset == "shared-existing":
+            service_mentions = select_service_mentions(
+                test_mentions,
+                gold_to_db_author_id,
+                args.service_limit,
+            )
+        else:
+            service_mentions = select_local_decision_mentions(
+                test_mentions,
+                local_result["records"],
+                Decision.UNKNOWN.value,
+                args.service_limit,
+            )
     local_service_subset_result = (
         evaluate_local_framework(database, gold_to_db_author_id, service_mentions, args)
         if args.compare_service
         else None
     )
     service_result = evaluate_service(service_mentions, args) if args.compare_service else None
+    service_fallback_result = (
+        evaluate_known_author_unknown_fallback(
+            service_result,
+            known_author_ids=gold_to_db_author_id,
+            min_name_similarity=args.service_fallback_min_name_similarity,
+        )
+        if service_result and args.service_subset == "local-unknown"
+        else None
+    )
+    combined_result = (
+        combine_local_with_unknown_fallback(local_result, service_fallback_result)
+        if service_fallback_result
+        else None
+    )
 
     result = {
         "metadata": {
@@ -563,7 +703,8 @@ def main() -> None:
             "include_singleton_new_gold": not args.exclude_singleton_new_gold,
             "compare_service": args.compare_service,
             "service_limit": args.service_limit if args.compare_service else 0,
-            "service_subset": "gold authors present in local history",
+            "service_subset": args.service_subset,
+            "service_fallback_min_name_similarity": args.service_fallback_min_name_similarity,
         },
         "dataset_summary": dataset_summary(mentions, args.train_through_year),
         "split": {
@@ -575,6 +716,8 @@ def main() -> None:
         "local_framework": local_result,
         "local_framework_service_subset": local_service_subset_result,
         "istina_service": service_result,
+        "known_author_unknown_fallback": service_fallback_result,
+        "combined_local_and_unknown_fallback": combined_result,
     }
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -596,6 +739,11 @@ def main() -> None:
             "stats": service_result["stats"],
             "metrics": service_result["metrics"],
         } if service_result else None,
+        "known_author_unknown_fallback": {
+            "stats": service_fallback_result["stats"],
+            "metrics": service_fallback_result["metrics"],
+        } if service_fallback_result else None,
+        "combined_local_and_unknown_fallback": combined_result,
         "output": str(args.output),
     }, ensure_ascii=False, indent=2))
 

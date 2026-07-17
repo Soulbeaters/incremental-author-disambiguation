@@ -11,6 +11,7 @@ step for the local risk-control layer.
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional
 
@@ -214,6 +215,46 @@ class IstinaDisambiguationClient:
             return IstinaServiceDecision(False, "service_result_disagrees")
 
         return IstinaServiceDecision(True, "service_agrees_with_unique_exact_candidate", candidate)
+
+    @staticmethod
+    def known_author_unknown_fallback(
+        response: Dict[str, Any],
+        known_author_ids: Iterable[str],
+        min_name_similarity: float = 0.85,
+    ) -> IstinaServiceDecision:
+        """Validate a service fallback after the local layer returns UNKNOWN.
+
+        The service result is accepted only when it refers to an author already
+        present in the caller's local history, the same ID is present in the
+        returned candidate group, and its service name similarity is high.
+        This prevents the remote service from turning a locally unseen author
+        into an unsafe merge.
+        """
+
+        known_ids = {str(author_id) for author_id in known_author_ids}
+        service_result_ids = [str(value) for value in response.get("result_id") or []]
+        service_result_id = service_result_ids[0] if service_result_ids else "0"
+        if service_result_id in {"0", "", "None"}:
+            return IstinaServiceDecision(False, "service_has_no_result")
+        if service_result_id not in known_ids:
+            return IstinaServiceDecision(False, "service_result_not_in_local_history")
+
+        candidate_groups = IstinaDisambiguationClient.parse_candidate_groups(response)
+        first_group = candidate_groups[0] if candidate_groups else []
+        result_candidates = [
+            candidate for candidate in first_group if candidate.id == service_result_id
+        ]
+        if len(result_candidates) != 1:
+            return IstinaServiceDecision(False, "service_result_not_unique_in_candidates")
+
+        candidate = result_candidates[0]
+        if (
+            not math.isfinite(candidate.name_similarity)
+            or candidate.name_similarity < min_name_similarity
+        ):
+            return IstinaServiceDecision(False, "service_name_similarity_below_threshold")
+
+        return IstinaServiceDecision(True, "known_author_service_fallback", candidate)
 
 
 def istina_author_record_from_export(

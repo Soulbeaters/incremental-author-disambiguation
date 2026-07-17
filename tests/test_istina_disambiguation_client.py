@@ -288,6 +288,87 @@ class TestIstinaDisambiguationClient(unittest.TestCase):
         self.assertFalse(decision.accepted)
         self.assertEqual(decision.reason, "not_unique_exact_candidate")
 
+    def test_known_author_unknown_fallback_accepts_known_high_similarity_result(self):
+        response = {
+            "authors": [[{
+                "id": 1758243,
+                "last_name": "roberts",
+                "first_name": "c",
+                "middle_name": "",
+                "name_similarity": 0.85,
+            }]],
+            "result_id": ["1758243"],
+        }
+
+        decision = IstinaDisambiguationClient.known_author_unknown_fallback(
+            response,
+            known_author_ids={"1758243"},
+        )
+
+        self.assertTrue(decision.accepted)
+        self.assertEqual(decision.reason, "known_author_service_fallback")
+        self.assertEqual(decision.candidate.id, "1758243")
+
+    def test_known_author_unknown_fallback_rejects_unseen_result(self):
+        response = {
+            "authors": [[{
+                "id": 233942680,
+                "last_name": "volchugov",
+                "first_name": "p",
+                "middle_name": "",
+                "name_similarity": 0.85,
+            }]],
+            "result_id": ["233942680"],
+        }
+
+        decision = IstinaDisambiguationClient.known_author_unknown_fallback(
+            response,
+            known_author_ids={"1758243"},
+        )
+
+        self.assertFalse(decision.accepted)
+        self.assertEqual(decision.reason, "service_result_not_in_local_history")
+
+    def test_known_author_unknown_fallback_rejects_low_similarity(self):
+        response = {
+            "authors": [[{
+                "id": 1078148,
+                "last_name": "mu",
+                "first_name": "l",
+                "middle_name": "",
+                "name_similarity": 0.602083,
+            }]],
+            "result_id": ["1078148"],
+        }
+
+        decision = IstinaDisambiguationClient.known_author_unknown_fallback(
+            response,
+            known_author_ids={"1078148"},
+        )
+
+        self.assertFalse(decision.accepted)
+        self.assertEqual(decision.reason, "service_name_similarity_below_threshold")
+
+    def test_known_author_unknown_fallback_rejects_nonfinite_similarity(self):
+        response = {
+            "authors": [[{
+                "id": 1078148,
+                "last_name": "mu",
+                "first_name": "l",
+                "middle_name": "",
+                "name_similarity": float("nan"),
+            }]],
+            "result_id": ["1078148"],
+        }
+
+        decision = IstinaDisambiguationClient.known_author_unknown_fallback(
+            response,
+            known_author_ids={"1078148"},
+        )
+
+        self.assertFalse(decision.accepted)
+        self.assertEqual(decision.reason, "service_name_similarity_below_threshold")
+
 
 if __name__ == "__main__":
     unittest.main()

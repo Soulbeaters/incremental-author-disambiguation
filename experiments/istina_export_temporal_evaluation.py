@@ -32,6 +32,10 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from disambiguation_engine.author_merger import AuthorMerger  # noqa: E402
 from disambiguation_engine.decision_types import Decision  # noqa: E402
+from disambiguation_engine.structured_name_repair import (  # noqa: E402
+    build_repair_profiles,
+    decide_structured_repair,
+)
 from integrations.istina_disambiguation_client import (  # noqa: E402
     DEFAULT_ISTINA_DISAMBIGUATION_URL,
     IstinaDisambiguationClient,
@@ -535,6 +539,7 @@ def evaluate_known_author_unknown_fallback(
     service_result: Dict[str, Any],
     known_author_ids: Iterable[str],
     min_name_similarity: float,
+    local_candidate_ids: Optional[Mapping[Tuple[str, str, str, str, str], Iterable[str]]] = None,
 ) -> Dict[str, Any]:
     stats = {
         "attempted": 0,
@@ -545,17 +550,46 @@ def evaluate_known_author_unknown_fallback(
         "service_errors": 0,
     }
     records: List[Dict[str, Any]] = []
+    known_ids = {str(author_id) for author_id in known_author_ids}
     for record in service_result.get("records") or []:
         stats["attempted"] += 1
         if record.get("error"):
             stats["service_errors"] += 1
             records.append({
                 "article_id": record.get("article_id"),
+                "article_index": record.get("article_index"),
+                "position": record.get("position"),
                 "name": record.get("name"),
                 "accepted": False,
                 "reason": "service_error",
             })
             continue
+
+        eligible_ids = known_ids
+        if local_candidate_ids is not None:
+            eligible_ids = {
+                str(author_id)
+                for author_id in local_candidate_ids.get(mention_identity(record), ())
+            }
+            raw_result_id = record.get("result_id")
+            if isinstance(raw_result_id, (list, tuple)):
+                service_result_id = str(raw_result_id[0]) if raw_result_id else "0"
+            else:
+                service_result_id = str(raw_result_id or "0")
+            if service_result_id in known_ids and service_result_id not in eligible_ids:
+                stats["rejected"] += 1
+                records.append({
+                    "article_id": record.get("article_id"),
+                    "article_index": record.get("article_index"),
+                    "position": record.get("position"),
+                    "name": record.get("name"),
+                    "gold_author_id": record.get("gold_author_id"),
+                    "accepted": False,
+                    "correct": False,
+                    "reason": "service_result_not_local_candidate",
+                    "candidate_id": None,
+                })
+                continue
 
         response = {
             "authors": [record.get("candidates") or []],
@@ -563,7 +597,7 @@ def evaluate_known_author_unknown_fallback(
         }
         decision = IstinaDisambiguationClient.known_author_unknown_fallback(
             response,
-            known_author_ids=known_author_ids,
+            known_author_ids=eligible_ids,
             min_name_similarity=min_name_similarity,
         )
         correct = bool(
@@ -577,6 +611,8 @@ def evaluate_known_author_unknown_fallback(
         stats["rejected"] += int(not decision.accepted)
         records.append({
             "article_id": record.get("article_id"),
+            "article_index": record.get("article_index"),
+            "position": record.get("position"),
             "name": record.get("name"),
             "gold_author_id": record.get("gold_author_id"),
             "accepted": decision.accepted,
@@ -609,6 +645,105 @@ def combine_local_with_unknown_fallback(
     stats["merge"] += accepted
     stats["correct_merge"] += fallback_stats["correct"]
     stats["wrong_merge"] += fallback_stats["wrong"]
+    metrics = finalize_metrics(stats, elapsed_seconds=0.0)
+    metrics.pop("mentions_per_second")
+    return {"stats": stats, "metrics": metrics}
+
+
+def evaluate_structured_name_repair(
+    history_mentions: List[Dict[str, Any]],
+    test_mentions: List[Dict[str, Any]],
+    local_records: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Evaluate the conservative second pass on local NEW/UNKNOWN records."""
+
+    profiles = build_repair_profiles(history_mentions)
+    local_by_identity = {
+        mention_identity(record): record for record in local_records
+    }
+    stats = {
+        "attempted": 0,
+        "accepted": 0,
+        "correct": 0,
+        "wrong": 0,
+        "accepted_from_new": 0,
+        "accepted_from_unknown": 0,
+    }
+    records: List[Dict[str, Any]] = []
+    for mention in test_mentions:
+        local_record = local_by_identity[mention_identity(mention)]
+        base_decision = local_record.get("decision")
+        if base_decision not in {Decision.NEW.value, Decision.UNKNOWN.value}:
+            continue
+
+        stats["attempted"] += 1
+        decision = decide_structured_repair(mention, profiles)
+        correct = bool(
+            decision.accepted
+            and decision.author_id == str(mention.get("gold_author_id"))
+        )
+        stats["accepted"] += int(decision.accepted)
+        stats["correct"] += int(correct)
+        stats["wrong"] += int(decision.accepted and not correct)
+        if decision.accepted:
+            stats[f"accepted_from_{base_decision}"] += 1
+        records.append({
+            "article_index": mention.get("article_index"),
+            "article_id": mention.get("article_id"),
+            "year": mention.get("year"),
+            "position": mention.get("position"),
+            "name": mention.get("name"),
+            "gold_author_id": mention.get("gold_author_id"),
+            "gold_seen_in_history": local_record.get("gold_seen_in_history"),
+            "base_decision": base_decision,
+            "accepted": decision.accepted,
+            "correct": correct,
+            "reason": decision.reason,
+            "candidate_id": decision.author_id,
+            "relation": decision.relation,
+            "coauthor_jaccard": decision.coauthor_jaccard,
+            "history_name": decision.history_name,
+        })
+
+    return {
+        "stats": stats,
+        "metrics": {
+            "precision": stats["correct"] / stats["accepted"] if stats["accepted"] else 0.0,
+            "coverage": stats["accepted"] / stats["attempted"] if stats["attempted"] else 0.0,
+        },
+        "quarantined_history_author_ids": list(profiles.quarantined_author_ids),
+        "records": records,
+    }
+
+
+def combine_local_with_structured_repair(
+    local_result: Dict[str, Any],
+    repair_result: Dict[str, Any],
+) -> Dict[str, Any]:
+    stats = dict(local_result["stats"])
+    for record in repair_result.get("records") or []:
+        if not record.get("accepted"):
+            continue
+        base_decision = record.get("base_decision")
+        if base_decision == Decision.NEW.value:
+            stats["new"] -= 1
+            if record.get("gold_seen_in_history"):
+                stats["false_new_for_existing"] -= 1
+            else:
+                stats["correct_new"] -= 1
+        elif base_decision == Decision.UNKNOWN.value:
+            stats["unknown"] -= 1
+        else:
+            raise ValueError(f"Unexpected structured-repair base decision: {base_decision}")
+
+        stats["merge"] += 1
+        if record.get("correct"):
+            stats["correct_merge"] += 1
+        else:
+            stats["wrong_merge"] += 1
+            if not record.get("gold_seen_in_history"):
+                stats["merge_for_new_gold"] += 1
+
     metrics = finalize_metrics(stats, elapsed_seconds=0.0)
     metrics.pop("mentions_per_second")
     return {"stats": stats, "metrics": metrics}
@@ -746,6 +881,7 @@ def main() -> None:
     parser.add_argument("--reject-threshold", type=float, default=-4.0)
     parser.add_argument("--min-accept-margin", type=float, default=1e-9)
     parser.add_argument("--require-context-for-low-name-accept", action="store_true")
+    parser.add_argument("--enable-structured-repair", action="store_true")
     parser.add_argument("--disable-alias-index", action="store_true")
     parser.add_argument("--exclude-singleton-new-gold", action="store_true")
     parser.add_argument("--topk", type=int, default=5)
@@ -783,7 +919,25 @@ def main() -> None:
         history_mentions,
         index_aliases=not args.disable_alias_index,
     )
+    db_author_to_gold = {
+        db_author_id: gold_author_id
+        for gold_author_id, db_author_id in gold_to_db_author_id.items()
+    }
     local_result = evaluate_local_framework(database, gold_to_db_author_id, test_mentions, args)
+    structured_repair_result = (
+        evaluate_structured_name_repair(
+            history_mentions,
+            test_mentions,
+            local_result["records"],
+        )
+        if args.enable_structured_repair
+        else None
+    )
+    local_after_structured_repair = (
+        combine_local_with_structured_repair(local_result, structured_repair_result)
+        if structured_repair_result
+        else local_result
+    )
     service_mentions: List[Dict[str, Any]] = []
     if args.compare_service:
         if args.service_subset == "shared-existing":
@@ -797,8 +951,21 @@ def main() -> None:
                 test_mentions,
                 local_result["records"],
                 Decision.UNKNOWN.value,
-                args.service_limit,
+                0,
             )
+            if structured_repair_result:
+                repaired_unknown = {
+                    mention_identity(record)
+                    for record in structured_repair_result["records"]
+                    if record.get("accepted")
+                    and record.get("base_decision") == Decision.UNKNOWN.value
+                }
+                service_mentions = [
+                    mention for mention in service_mentions
+                    if mention_identity(mention) not in repaired_unknown
+                ]
+            if args.service_limit:
+                service_mentions = service_mentions[:args.service_limit]
     local_service_subset_result = (
         evaluate_local_framework(database, gold_to_db_author_id, service_mentions, args)
         if args.compare_service
@@ -816,14 +983,25 @@ def main() -> None:
             service_result,
             known_author_ids=gold_to_db_author_id,
             min_name_similarity=args.service_fallback_min_name_similarity,
+            local_candidate_ids={
+                mention_identity(record): {
+                    db_author_to_gold[item["author_id"]]
+                    for item in record.get("topk") or []
+                    if item.get("author_id") in db_author_to_gold
+                }
+                for record in (local_service_subset_result or {}).get("records", [])
+            },
         )
         if service_result and args.service_subset == "local-unknown"
         else None
     )
     combined_result = (
-        combine_local_with_unknown_fallback(local_result, service_fallback_result)
+        combine_local_with_unknown_fallback(
+            local_after_structured_repair,
+            service_fallback_result,
+        )
         if service_fallback_result
-        else None
+        else local_after_structured_repair if structured_repair_result else None
     )
 
     result = {
@@ -837,6 +1015,7 @@ def main() -> None:
             "reject_threshold": args.reject_threshold,
             "min_accept_margin": args.min_accept_margin,
             "require_context_for_low_name_accept": args.require_context_for_low_name_accept,
+            "enable_structured_repair": args.enable_structured_repair,
             "alias_index": not args.disable_alias_index,
             "include_singleton_new_gold": not args.exclude_singleton_new_gold,
             "compare_service": args.compare_service,
@@ -853,6 +1032,10 @@ def main() -> None:
             "database_authors": database.get_author_count(),
         },
         "local_framework": local_result,
+        "structured_name_repair": structured_repair_result,
+        "local_after_structured_repair": (
+            local_after_structured_repair if structured_repair_result else None
+        ),
         "local_framework_service_subset": local_service_subset_result,
         "istina_service": service_result,
         "known_author_unknown_fallback": service_fallback_result,
@@ -870,6 +1053,13 @@ def main() -> None:
             "stats": local_result["stats"],
             "metrics": local_result["metrics"],
         },
+        "structured_name_repair": {
+            "stats": structured_repair_result["stats"],
+            "metrics": structured_repair_result["metrics"],
+        } if structured_repair_result else None,
+        "local_after_structured_repair": (
+            local_after_structured_repair if structured_repair_result else None
+        ),
         "local_framework_service_subset": {
             "stats": local_service_subset_result["stats"],
             "metrics": local_service_subset_result["metrics"],

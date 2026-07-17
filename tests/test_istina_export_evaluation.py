@@ -2,6 +2,7 @@ import unittest
 from types import SimpleNamespace
 
 from experiments.istina_export_temporal_evaluation import (
+    combine_local_with_structured_repair,
     combine_local_with_unknown_fallback,
     evaluate_known_author_unknown_fallback,
     evaluate_service_papers,
@@ -96,6 +97,33 @@ class IstinaExportEvaluationTests(unittest.TestCase):
         self.assertEqual(result["stats"]["correct"], 1)
         self.assertEqual(result["stats"]["wrong"], 0)
 
+    def test_known_author_fallback_requires_local_candidate(self):
+        record = {
+            "article_index": 1,
+            "article_id": "p",
+            "position": 1,
+            "name": "Polluted Alias",
+            "gold_author_id": "100",
+            "result_id": "100",
+            "candidates": [{
+                "id": 100,
+                "last_name": "polluted",
+                "first_name": "alias",
+                "middle_name": "",
+                "name_similarity": 1.0,
+            }],
+        }
+
+        result = evaluate_known_author_unknown_fallback(
+            {"records": [record]},
+            {"100", "200"},
+            0.85,
+            local_candidate_ids={("1", "p", "1", "100", "Polluted Alias"): {"200"}},
+        )
+
+        self.assertEqual(result["stats"]["accepted"], 0)
+        self.assertEqual(result["records"][0]["reason"], "service_result_not_local_candidate")
+
     def test_combined_metrics_move_only_accepted_unknowns_to_merge(self):
         local = {
             "stats": {
@@ -120,6 +148,45 @@ class IstinaExportEvaluationTests(unittest.TestCase):
         self.assertEqual(result["stats"]["unknown"], 5)
         self.assertEqual(result["metrics"]["precision"], 1.0)
         self.assertEqual(result["metrics"]["existing_recall"], 0.75)
+
+    def test_structured_repair_updates_new_and_unknown_pools(self):
+        local = {
+            "stats": {
+                "total": 10,
+                "existing_gold": 4,
+                "new_gold": 6,
+                "merge": 2,
+                "new": 7,
+                "unknown": 1,
+                "correct_merge": 2,
+                "wrong_merge": 0,
+                "correct_new": 6,
+                "false_new_for_existing": 1,
+                "merge_for_new_gold": 0,
+            }
+        }
+        repair = {"records": [
+            {
+                "accepted": True,
+                "correct": True,
+                "base_decision": "new",
+                "gold_seen_in_history": True,
+            },
+            {
+                "accepted": True,
+                "correct": True,
+                "base_decision": "unknown",
+                "gold_seen_in_history": True,
+            },
+        ]}
+
+        result = combine_local_with_structured_repair(local, repair)
+
+        self.assertEqual(result["stats"]["merge"], 4)
+        self.assertEqual(result["stats"]["new"], 6)
+        self.assertEqual(result["stats"]["unknown"], 0)
+        self.assertEqual(result["stats"]["false_new_for_existing"], 0)
+        self.assertEqual(result["metrics"]["precision"], 1.0)
 
     def test_paper_service_mode_sends_full_context_and_scores_targets_only(self):
         mentions = [

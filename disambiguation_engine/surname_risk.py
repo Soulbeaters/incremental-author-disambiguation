@@ -45,6 +45,9 @@ HIGH_RISK_EAST_ASIAN_ROMANIZED_SURNAMES = frozenset({
 })
 
 COMMON_WESTERN_SURNAMES = frozenset({
+    # UK government 2026 top-five licence-holder surnames; Khan is also rank
+    # 427 in the U.S. Census Bureau 2010 surname table.
+    "khan", "ali", "ahmed", "hussain", "singh",
     "smith", "johnson", "williams", "brown", "jones", "miller", "davis",
     "garcia", "rodriguez", "wilson", "martinez", "anderson", "taylor",
     "thomas", "hernandez", "moore", "martin", "jackson", "thompson",

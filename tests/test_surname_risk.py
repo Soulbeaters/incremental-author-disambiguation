@@ -22,6 +22,11 @@ class SurnameRiskTests(unittest.TestCase):
             with self.subTest(surname=surname):
                 self.assertTrue(is_high_risk_surname(surname))
 
+    def test_official_high_frequency_south_asian_surnames_are_high_risk(self):
+        for surname in ("Khan", "Ali", "Ahmed", "Hussain", "Singh"):
+            with self.subTest(surname=surname):
+                self.assertTrue(is_high_risk_surname(surname))
+
 
 if __name__ == "__main__":
     unittest.main()

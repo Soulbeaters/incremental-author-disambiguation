@@ -37,6 +37,9 @@ class FakeServiceClient:
 
 
 class IstinaPipelineTests(unittest.TestCase):
+    def test_calibrated_rescue_is_enabled_by_default(self):
+        self.assertTrue(IstinaPipelineConfig().enable_calibrated_candidate_rescue)
+
     def test_structured_surname_recovers_candidate_when_free_text_order_differs(self):
         state = build_istina_history_state([{
             "gold_author_id": "A1",
@@ -716,7 +719,7 @@ class IstinaPipelineTests(unittest.TestCase):
         self.assertGreater(result.calibrated_probability, 0.0)
         self.assertEqual(
             result.calibrated_model_version,
-            "openalex-orcid-blind-logit-20260719-v1",
+            "openalex-orcid-blind-logit-20260719-v2",
         )
 
     def test_calibrated_rescue_rejects_initial_only_name_without_context(self):

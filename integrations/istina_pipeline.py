@@ -229,7 +229,7 @@ class IstinaPipelineConfig:
     enable_strict_name_repair: bool = True
     enable_exact_name_token_repair: bool = True
     enable_unique_non_cjk_initial_repair: bool = True
-    enable_calibrated_candidate_rescue: bool = False
+    enable_calibrated_candidate_rescue: bool = True
     calibrated_candidate_threshold: float = CALIBRATED_ACCEPT_THRESHOLD
     require_strong_context_for_weak_name_accept: bool = True
     dense_name_candidate_limit: int = 5

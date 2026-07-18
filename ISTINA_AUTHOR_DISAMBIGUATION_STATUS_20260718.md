@@ -29,9 +29,15 @@ The default pipeline contains:
 - top-20 redacted, deterministic audit traces with score components and raw
   comparisons.
 
-An interpretable frozen logistic candidate-rescue model is retained for
-reproducible ablation only. It is **disabled by default** because enabling it
-did not remain safe across the independent public and ISTINA domains.
+An interpretable L2-logistic candidate-rescue model is enabled after the
+deterministic guards. It was fitted on seed 20260719, its threshold was selected
+once on seed 20260720 under a 0.1% unseen-author false-link budget, and it was
+then frozen before seeds 20260721–20260724 and ISTINA evaluation. The offline
+Newton fitting script reproduces every runtime mean, scale, coefficient, and
+threshold with zero numeric delta; runtime inference remains standard-library
+only. Common-name guards use official aggregate surname statistics, including
+the [U.S. Census surname files](https://www.census.gov/data/developers/data-sets/surnames.html)
+and the [UK government 2026 top-five table](https://www.gov.uk/csv-preview/69cb9f30a60a12ca3913c603/sia-4b-top-5-last-names.csv).
 
 ## Advisor ISTINA export and legacy comparison
 
@@ -44,43 +50,55 @@ so both methods are compared on the same 90 known-author mentions.
 
 | Metric | New framework | Existing ISTINA service |
 |---|---:|---:|
-| Correct known-author decisions | 86 / 90 | 35 / 90 |
-| Known-author accuracy/recall | 95.56% | 38.89% |
+| Correct known-author decisions | 85 / 90 | 35 / 90 |
+| Known-author accuracy/recall | 94.44% | 38.89% |
 | Merge precision | 100% | not derivable from this known-only shadow |
 | Wrong merges | 0 | not separately reported by the service |
-| Automatic accuracy, all 1,264 mentions | 98.58% | not comparable |
+| Automatic accuracy, all 1,264 mentions | 98.50% | not comparable |
 | UNKNOWN rate, all 1,264 mentions | 1.11% | not exposed |
-| Local p95 latency | 11.82 ms | network service latency not frozen |
+| Local p95 latency | 7.53 ms | network service latency not frozen |
 
-Paired outcomes are: both correct 31, new only correct 55, legacy only correct
-4, both incorrect 0. The absolute known-author gain is 56.67 percentage points;
-the exact two-sided McNemar result is `p = 1.6979681549678105e-12`.
+Paired outcomes are: both correct 31, new only correct 54, legacy only correct
+4, both incorrect 1. The raw-label absolute known-author gain is 55.56
+percentage points; the exact two-sided McNemar result is
+`p = 3.1699504132731704e-12`.
 
 This run fixes the demonstrated short-family/empty-patronymic failure mode and
 rejects inconsistent service IDs when returned names and local history do not
-support the same identity. The result is statistically strong but the sample
-is still only 90 shared known-author cases.
+support the same identity. A label audit found four clearly inconsistent test
+mentions: ID `1078148` maps history `Peng Peng` to test `Bi K.` and `Dawson
+Amanda Caroline`; ID `11121362` maps `Mark L.` to `Kouli Omar`; and ID
+`1618329` maps `Kustov A.L.` to `Кустов Л.М.`. These are reported as suspicious
+gold and remain counted as errors in the primary table. The fifth miss,
+`Khan A.` versus `Khan Amir`, is intentionally not auto-merged without
+independent context after the official high-frequency-surname guard. The
+result is statistically strong, but the sample is still only 90 shared cases
+and the suspected labels require advisor verification.
 
-## Six independent OpenAlex/ORCID-blind runs
+## Six OpenAlex/ORCID-blind runs
 
 Data were collected from the OpenAlex API. ORCID defines hidden identity gold
 and is removed from runtime input. The split assigns known and unseen authors
 deterministically, gives each known author one complete history paper, and has
-zero publication overlap. Seeds are experiment identifiers, not collection
-dates.
+zero publication overlap. Seed 20260719 is training, 20260720 is threshold
+validation, and 20260721–20260724 are untouched confirmation runs. Seeds are
+experiment identifiers, not collection dates.
 
 | Seed | Authors | Test | Known | New | Precision | Known recall | Auto accuracy | UNKNOWN | Unseen false links | p95 ms |
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 20260719 | 2,500 | 10,380 | 6,247 | 4,133 | 100.000% | 79.43% | 81.47% | 15.66% | 0 / 4,133 | 24.72 |
-| 20260720 | 2,500 | 10,370 | 6,386 | 3,984 | 100.000% | 80.49% | 82.36% | 14.92% | 0 / 3,984 | 18.94 |
-| 20260721 | 1,500 | 6,232 | 3,680 | 2,552 | 100.000% | 82.07% | 84.88% | 12.45% | 0 / 2,552 | 19.76 |
-| 20260722 | 1,500 | 6,221 | 3,825 | 2,396 | 99.968% | 81.75% | 83.31% | 13.78% | 1 / 2,396 | 21.17 |
-| 20260723 | 1,500 | 6,210 | 3,781 | 2,429 | 99.968% | 81.72% | 84.77% | 12.45% | 1 / 2,429 | 11.19 |
-| 20260724 | 1,000 | 4,110 | 2,618 | 1,492 | 99.953% | 81.86% | 83.80% | 12.14% | 1 / 1,492 | 11.73 |
-| **Aggregate** | **10,500** | **43,523** | **26,537** | **16,986** | **99.986%** | **80.95%** | **83.13%** | **13.96%** | **3 / 16,986 (0.0177%)** | — |
+| 20260719 train | 2,500 | 10,380 | 6,247 | 4,133 | 100.000% | 80.04% | 81.84% | 15.22% | 0 / 4,133 | 20.11 |
+| 20260720 threshold | 2,500 | 10,370 | 6,386 | 3,984 | 100.000% | 81.30% | 82.86% | 14.41% | 0 / 3,984 | 14.66 |
+| 20260721 confirmation | 1,500 | 6,232 | 3,680 | 2,552 | 100.000% | 82.80% | 85.32% | 12.00% | 0 / 2,552 | 11.10 |
+| 20260722 confirmation | 1,500 | 6,221 | 3,825 | 2,396 | 99.968% | 82.41% | 83.72% | 13.37% | 1 / 2,396 | 11.72 |
+| 20260723 confirmation | 1,500 | 6,210 | 3,781 | 2,429 | 99.968% | 82.76% | 85.39% | 11.82% | 1 / 2,429 | 7.53 |
+| 20260724 confirmation | 1,000 | 4,110 | 2,618 | 1,492 | 99.954% | 82.58% | 84.26% | 11.68% | 1 / 1,492 | 7.94 |
+| **Aggregate** | **10,500** | **43,523** | **26,537** | **16,986** | **99.986%** | **81.70%** | **83.59%** | **13.48%** | **3 / 16,986 (0.0177%)** | — |
 
-Aggregate counts are 21,482 correct merges, 3 wrong merges, 14,697 correct
-NEW decisions, 1,264 false-NEW known authors, and 6,077 UNKNOWN decisions.
+Aggregate counts are 21,682 correct merges, 3 wrong merges, 14,697 correct
+NEW decisions, 1,273 false-NEW known authors, and 5,868 UNKNOWN decisions.
+Relative to commit `1618075`, v2 adds 200 correct merges and removes 209
+UNKNOWN decisions without adding a wrong merge; recall rises by 0.75 percentage
+points and automatic accuracy by 0.46 points.
 The three remaining wrong merges are information-poor initial-only names; the
 system intentionally does not hide this open-world limitation.
 
@@ -96,9 +114,12 @@ are also mandatory.
 
 - Public 20260719 gate: 7/18 checks pass; recall, automatic accuracy, UNKNOWN,
   shadow comparison, and operations fail.
-- Advisor ISTINA gate: 10/18 checks pass, including every measured quality,
-  comparison, significance, and latency threshold. It fails the total, known,
-  and shadow sample-size thresholds plus the five operational requirements.
+- Advisor ISTINA gate: 9/18 checks pass, but `release_ready` remains `false`:
+  the raw known-author
+  recall is 94.44%, just below the 95% threshold, and it also lacks the required
+  total/known/shadow sample sizes and five operational checks. Precision,
+  automatic accuracy, UNKNOWN, wrong-link, comparison, significance, and
+  latency requirements pass.
 
 Therefore the defensible article claim is: **the framework significantly
 improves the existing ISTINA service on the available advisor-labelled shadow
@@ -112,6 +133,7 @@ replacement.
 python -B -m unittest discover -s tests -v
 python experiments/openalex_runtime_replay.py --dataset <mentions.jsonl> --metadata <metadata.json> --split-strategy orcid-author-holdout --history-papers-per-known-author 1 --topk 20 --output <result.json>
 python experiments/istina_runtime_replay.py --dataset <advisor-export.json> --split-strategy per-author-holdout --service-result <frozen-service-result.json> --output <result.json>
+python experiments/train_calibrated_candidate_model.py --train-result <seed19-risk-baseline.json> --validation-result <seed20-risk-baseline.json> --topk 20 --verify-runtime-model --output <model-artifact.json>
 python -m evaluation.production_gate --replay-result <result.json> --output <gate.json>
 ```
 

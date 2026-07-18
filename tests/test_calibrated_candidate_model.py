@@ -45,8 +45,8 @@ class CalibratedCandidateModelTests(unittest.TestCase):
             "Hanna Almira", "local_fs", 2, candidates
         )
 
-        self.assertEqual(MODEL_VERSION, "openalex-orcid-blind-logit-20260719-v1")
-        self.assertAlmostEqual(probability, 0.9610996180594515, places=14)
+        self.assertEqual(MODEL_VERSION, "openalex-orcid-blind-logit-20260719-v2")
+        self.assertAlmostEqual(probability, 0.9615296351381594, places=14)
         self.assertIsNotNone(prediction)
         self.assertEqual(prediction.author_id, "A1")
         self.assertAlmostEqual(prediction.probability, probability, places=14)

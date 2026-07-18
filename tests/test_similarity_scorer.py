@@ -20,6 +20,16 @@ from config import SIMILARITY_THRESHOLD
 
 
 class TestSimilarityScorer(unittest.TestCase):
+    def test_coauthor_similarity_normalizes_order_and_diacritics(self):
+        scorer = SimilarityScorer()
+
+        similarity = scorer._calculate_coauthor_similarity(
+            {"Pérez, Pablo", "Thierry Béland"},
+            {"Pablo Perez", "Beland Thierry"},
+        )
+
+        self.assertEqual(similarity, 1.0)
+
     """相似度评分器测试类 / Класс тестов оценщика сходства"""
 
     def setUp(self):

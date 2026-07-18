@@ -18,6 +18,11 @@ from dataclasses import dataclass, field, replace
 from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 from disambiguation_engine.author_merger import AuthorMerger
+from disambiguation_engine.calibrated_candidate_model import (
+    DEFAULT_ACCEPT_THRESHOLD as CALIBRATED_ACCEPT_THRESHOLD,
+    MODEL_VERSION as CALIBRATED_MODEL_VERSION,
+    select_calibrated_candidate,
+)
 from disambiguation_engine.decision_trace import DecisionTraceLogger
 from disambiguation_engine.decision_types import Decision, DecisionResult
 from disambiguation_engine.structured_name_repair import (
@@ -62,10 +67,24 @@ def _index_alias(database: AuthorDatabase, author: Author, alias: str) -> None:
         return
     surname = database._extract_surname(alias)
     if surname:
-        database.blocking_key_index[f"surname:{surname.lower()}"].append(author)
+        surname_key = database._normalize_blocking_token(surname)
+        database.blocking_key_index[f"surname:{surname_key}"].append(author)
+        for token in database._blocking_tokens(surname):
+            if len(token) >= 3:
+                database.blocking_key_index[
+                    f"surname_token:{token}"
+                ].append(author)
     surname_initial = database._extract_surname_initial(alias)
     if surname_initial:
-        database.blocking_key_index[f"surname_init:{surname_initial}"].append(author)
+        surname_initial_key = database._normalize_surname_initial_key(surname_initial)
+        database.blocking_key_index[
+            f"surname_init:{surname_initial_key}"
+        ].append(author)
+    name_multiset_key = database._normalize_name_multiset_key(alias)
+    if name_multiset_key:
+        database.blocking_key_index[
+            f"name_tokens:{name_multiset_key}"
+        ].append(author)
 
 
 def _index_structured_name(
@@ -78,10 +97,22 @@ def _index_structured_name(
     firstname = str(firstname or "").strip()
     if not lastname:
         return
-    database.blocking_key_index[f"surname:{lastname.lower()}"].append(author)
+    surname_key = database._normalize_blocking_token(lastname)
+    database.blocking_key_index[f"surname:{surname_key}"].append(author)
+    for token in database._blocking_tokens(lastname):
+        if len(token) >= 3:
+            database.blocking_key_index[f"surname_token:{token}"].append(author)
     if firstname:
+        first_initial = database._normalize_blocking_token(firstname)[:1]
         database.blocking_key_index[
-            f"surname_init:{lastname.lower()}_{firstname[0].lower()}"
+            f"surname_init:{surname_key}_{first_initial}"
+        ].append(author)
+    name_multiset_key = database._normalize_name_multiset_key(
+        " ".join(part for part in (firstname, lastname) if part)
+    )
+    if name_multiset_key:
+        database.blocking_key_index[
+            f"name_tokens:{name_multiset_key}"
         ].append(author)
 
 
@@ -90,6 +121,8 @@ class IstinaHistoryState:
     database: AuthorDatabase
     external_to_database_id: Dict[str, str]
     repair_profiles: RepairProfileIndex
+    history_mentions_by_author: Dict[str, Tuple[Dict[str, Any], ...]]
+    exact_name_token_index: Dict[str, Tuple[str, ...]]
 
     @property
     def database_to_external_id(self) -> Dict[str, str]:
@@ -157,10 +190,29 @@ def build_istina_history_state(
                     str(mention.get("firstname") or mention.get("first_name") or ""),
                 )
 
+    exact_name_token_index: Dict[str, set[str]] = defaultdict(set)
+    for author_id, mentions in grouped.items():
+        if author_id in quarantined:
+            continue
+        for mention in mentions:
+            name_key = database._normalize_name_multiset_key(
+                str(mention.get("name") or "")
+            )
+            if name_key:
+                exact_name_token_index[name_key].add(author_id)
+
     return IstinaHistoryState(
         database=database,
         external_to_database_id=external_to_database_id,
         repair_profiles=repair_profiles,
+        history_mentions_by_author={
+            author_id: tuple(mentions)
+            for author_id, mentions in grouped.items()
+        },
+        exact_name_token_index={
+            key: tuple(sorted(author_ids))
+            for key, author_ids in exact_name_token_index.items()
+        },
     )
 
 
@@ -171,13 +223,17 @@ class IstinaPipelineConfig:
     reject_threshold: float = -4.0
     min_accept_margin: float = 1e-9
     require_context_for_low_name_accept: bool = True
-    topk: int = 5
+    topk: int = 20
     service_fallback_min_name_similarity: float = 0.85
     use_remote_fallback: bool = True
     enable_strict_name_repair: bool = True
+    enable_exact_name_token_repair: bool = True
     enable_unique_non_cjk_initial_repair: bool = True
+    enable_calibrated_candidate_rescue: bool = False
+    calibrated_candidate_threshold: float = CALIBRATED_ACCEPT_THRESHOLD
     require_strong_context_for_weak_name_accept: bool = True
     dense_name_candidate_limit: int = 5
+    dense_name_min_affiliation_similarity: float = 0.40
     run_id: Optional[str] = None
 
     def __post_init__(self) -> None:
@@ -191,6 +247,10 @@ class IstinaPipelineConfig:
             raise ValueError("topk must be positive")
         if not 0.0 <= self.service_fallback_min_name_similarity <= 1.0:
             raise ValueError("service fallback name similarity must be within [0, 1]")
+        if not 0.0 <= self.calibrated_candidate_threshold <= 1.0:
+            raise ValueError("calibrated candidate threshold must be within [0, 1]")
+        if not 0.0 <= self.dense_name_min_affiliation_similarity <= 1.0:
+            raise ValueError("dense-name affiliation similarity must be within [0, 1]")
 
 
 @dataclass(frozen=True)
@@ -205,6 +265,8 @@ class IstinaPipelineDecision:
     topk: Tuple[Dict[str, Any], ...] = field(default_factory=tuple)
     structured_relation: Optional[str] = None
     structured_coauthor_jaccard: float = 0.0
+    calibrated_probability: Optional[float] = None
+    calibrated_model_version: Optional[str] = None
     legacy_result_id: Optional[str] = None
     legacy_candidate_count: int = 0
     legacy_agrees: Optional[bool] = None
@@ -224,6 +286,8 @@ class IstinaPipelineDecision:
             "topk": list(self.topk),
             "structured_relation": self.structured_relation,
             "structured_coauthor_jaccard": self.structured_coauthor_jaccard,
+            "calibrated_probability": self.calibrated_probability,
+            "calibrated_model_version": self.calibrated_model_version,
             "legacy_result_id": self.legacy_result_id,
             "legacy_candidate_count": self.legacy_candidate_count,
             "legacy_agrees": self.legacy_agrees,
@@ -390,6 +454,90 @@ class IstinaDisambiguationPipeline:
         candidate_count = len(groups[0] or []) if groups else 0
         return result_id, candidate_count
 
+    def _decide_exact_name_token_repair(
+        self,
+        mention: Mapping[str, Any],
+        allowed_author_ids: Iterable[str],
+    ) -> StructuredRepairDecision:
+        name = str(mention.get("name") or "")
+        name_tokens = self.history_state.database._blocking_tokens(name)
+        if (
+            len(name_tokens) < 2
+            or sum(len(token) > 1 for token in name_tokens) < 2
+        ):
+            return StructuredRepairDecision(False, "name_tokens_not_informative")
+
+        name_key = self.history_state.database._normalize_name_multiset_key(name)
+        allowed = {str(author_id) for author_id in allowed_author_ids}
+        current_article_id = str(mention.get("article_id") or "")
+        matched_profiles: Dict[str, List[Dict[str, Any]]] = {}
+        for author_id in self.history_state.exact_name_token_index.get(name_key, ()):
+            if author_id not in allowed or author_id in self._quarantined:
+                continue
+            profiles = [
+                profile
+                for profile in self.history_state.history_mentions_by_author.get(
+                    author_id, ()
+                )
+                if not (
+                    current_article_id
+                    and str(profile.get("article_id") or "") == current_article_id
+                )
+                and self.history_state.database._normalize_name_multiset_key(
+                    str(profile.get("name") or "")
+                ) == name_key
+                and str(profile.get("name") or "").casefold().strip()
+                != name.casefold().strip()
+            ]
+            if profiles:
+                matched_profiles[author_id] = profiles
+
+        if not matched_profiles:
+            return StructuredRepairDecision(False, "no_exact_name_token_candidate")
+        if len(matched_profiles) != 1:
+            return StructuredRepairDecision(False, "ambiguous_exact_name_token_candidates")
+
+        author_id, profiles = next(iter(matched_profiles.items()))
+        mention_coauthors = set(mention.get("coauthors") or [])
+        coauthor_similarity = max((
+            self._merger.scorer._calculate_coauthor_similarity(
+                mention_coauthors,
+                set(profile.get("coauthors") or []),
+            )
+            for profile in profiles
+            if mention_coauthors and set(profile.get("coauthors") or [])
+        ), default=0.0)
+        mention_affiliation = self.history_state.database._normalize_blocking_token(
+            str(mention.get("affiliation") or "")
+        )
+        affiliation_exact = bool(
+            mention_affiliation
+            and any(
+                self.history_state.database._normalize_blocking_token(
+                    str(profile.get("affiliation") or "")
+                ) == mention_affiliation
+                for profile in profiles
+            )
+        )
+        family_key, _ = structured_name_parts(mention)
+        if (
+            self._surname_risk_checker(family_key)
+            and coauthor_similarity <= 0.0
+            and not affiliation_exact
+        ):
+            return StructuredRepairDecision(
+                False,
+                "high_risk_exact_name_tokens_require_independent_context",
+            )
+        return StructuredRepairDecision(
+            True,
+            "unique_informative_exact_name_token_multiset",
+            author_id=author_id,
+            relation="exact_token_multiset",
+            coauthor_jaccard=coauthor_similarity,
+            history_name=str(profiles[0].get("name") or ""),
+        )
+
     def decide_mention(
         self,
         mention: Mapping[str, Any],
@@ -400,6 +548,14 @@ class IstinaDisambiguationPipeline:
     ) -> IstinaPipelineDecision:
         started = time.perf_counter()
         payload = mention_payload(mention)
+        raw_payload = dict(payload)
+        raw_payload["surname"] = ""
+        raw_payload["firstname"] = ""
+        raw_payload["_include_enhanced_blocking"] = False
+        raw_candidate_ids = {
+            candidate.author_id
+            for candidate in self.history_state.database.get_candidates(raw_payload)
+        }
         local = self._merger.make_decision(payload, metadata=None)
         topk = self._external_topk(local)
         final_decision = local.decision
@@ -407,8 +563,14 @@ class IstinaDisambiguationPipeline:
         stage = "local_fs"
         reason = local.reason
         structured = StructuredRepairDecision(False, "not_attempted")
+        calibrated_probability: Optional[float] = None
+        calibrated_model_version: Optional[str] = None
 
         if local.decision == Decision.MERGE:
+            structured_only_candidate = bool(
+                raw_candidate_ids is not None
+                and str(local.best_author_id) not in raw_candidate_ids
+            )
             weak_name = local.comparisons.get("name_bin") in {"medium", "low", "none"}
             strong_context = local.comparisons.get("coauthor_bin") in {"high", "medium"}
             compatible_ids = compatible_structured_author_ids(
@@ -424,6 +586,16 @@ class IstinaDisambiguationPipeline:
                 or len(compatible_ids) > 1
             )
             if (
+                structured_only_candidate
+                and local.comparisons.get("orcid_bin") != "match"
+            ):
+                final_decision = Decision.UNKNOWN
+                stage = "enhanced_blocking_source_guard"
+                reason = (
+                    "candidate introduced only by enhanced multilingual blocking; "
+                    "requires independent identity validation"
+                )
+            elif (
                 self.config.require_strong_context_for_weak_name_accept
                 and weak_name
                 and local.comparisons.get("orcid_bin") != "match"
@@ -455,7 +627,15 @@ class IstinaDisambiguationPipeline:
                     stage = "history_quarantine"
                     reason = "local merge candidate has conflicting historical identities"
 
-        if final_decision in {Decision.NEW, Decision.UNKNOWN}:
+        dense_structured_only_block = bool(
+            stage == "enhanced_blocking_source_guard"
+            and local.candidate_count >= self.config.dense_name_candidate_limit
+        )
+
+        if (
+            final_decision in {Decision.NEW, Decision.UNKNOWN}
+            and not dense_structured_only_block
+        ):
             structured = decide_structured_repair(mention, self.history_state.repair_profiles)
             if (
                 structured.accepted
@@ -470,15 +650,37 @@ class IstinaDisambiguationPipeline:
         if (
             self.config.enable_strict_name_repair
             and final_decision in {Decision.NEW, Decision.UNKNOWN}
+            and not dense_structured_only_block
         ):
             strict_name = decide_strict_name_repair(
                 mention,
                 self.history_state.repair_profiles,
             )
+            strict_candidate = next(
+                (
+                    candidate
+                    for candidate in topk
+                    if str(candidate.get("author_id") or "")
+                    == str(strict_name.author_id or "")
+                ),
+                None,
+            )
+            strict_comparisons = (strict_candidate or {}).get("comparisons") or {}
+            strict_dense_context = bool(
+                strict_comparisons.get("orcid_bin") == "match"
+                or float(strict_comparisons.get("coauthor_sim") or 0.0) > 0.0
+                or float(strict_comparisons.get("journal_sim") or 0.0) > 0.0
+                or float(strict_comparisons.get("affiliation_sim") or 0.0)
+                >= self.config.dense_name_min_affiliation_similarity
+            )
             if (
                 strict_name.accepted
                 and strict_name.author_id in self._known_external_ids
                 and strict_name.author_id not in self._quarantined
+                and (
+                    stage != "dense_name_block_context_guard"
+                    or strict_dense_context
+                )
             ):
                 structured = strict_name
                 final_decision = Decision.MERGE
@@ -487,8 +689,32 @@ class IstinaDisambiguationPipeline:
                 reason = strict_name.reason
 
         if (
+            self.config.enable_exact_name_token_repair
+            and final_decision in {Decision.NEW, Decision.UNKNOWN}
+        ):
+            exact_tokens = self._decide_exact_name_token_repair(
+                mention,
+                (
+                    str(candidate.get("author_id"))
+                    for candidate in topk
+                    if candidate.get("author_id")
+                ),
+            )
+            if (
+                exact_tokens.accepted
+                and exact_tokens.author_id in self._known_external_ids
+                and exact_tokens.author_id not in self._quarantined
+            ):
+                structured = exact_tokens
+                final_decision = Decision.MERGE
+                final_author_id = exact_tokens.author_id
+                stage = "exact_name_token_repair"
+                reason = exact_tokens.reason
+
+        if (
             self.config.enable_unique_non_cjk_initial_repair
             and final_decision in {Decision.NEW, Decision.UNKNOWN}
+            and not dense_structured_only_block
         ):
             initial_name = decide_unique_non_cjk_initial_repair(
                 mention,
@@ -505,6 +731,78 @@ class IstinaDisambiguationPipeline:
                 final_author_id = initial_name.author_id
                 stage = "unique_non_cjk_initial_repair"
                 reason = initial_name.reason
+
+        if (
+            self.config.enable_calibrated_candidate_rescue
+            and final_decision in {Decision.NEW, Decision.UNKNOWN}
+            and topk
+            and not dense_structured_only_block
+        ):
+            prediction = select_calibrated_candidate(
+                mention_name=str(mention.get("name") or ""),
+                stage=stage,
+                candidate_count=local.candidate_count,
+                candidates=topk,
+            )
+            if prediction:
+                calibrated_probability = prediction.probability
+                calibrated_model_version = CALIBRATED_MODEL_VERSION
+                selected = next(
+                    (
+                        candidate
+                        for candidate in topk
+                        if str(candidate.get("author_id") or "")
+                        == prediction.author_id
+                    ),
+                    None,
+                )
+                comparisons = (selected or {}).get("comparisons") or {}
+                family_key, given_tokens = structured_name_parts(mention)
+                initial_only_given_name = bool(given_tokens) and all(
+                    len(token) == 1 for token in given_tokens
+                )
+                guarded_signature = bool(
+                    self._surname_risk_checker(family_key)
+                    or local.candidate_count >= self.config.dense_name_candidate_limit
+                    or initial_only_given_name
+                )
+                independent_context = bool(
+                    comparisons.get("orcid_bin") == "match"
+                    or float(comparisons.get("coauthor_sim") or 0.0) > 0.0
+                    or float(comparisons.get("affiliation_sim") or 0.0) >= 0.9
+                )
+                compatible_name_evidence = bool(
+                    comparisons.get("orcid_bin") == "match"
+                    or float(comparisons.get("name_sim") or 0.0) >= 0.7
+                )
+                current_article_id = str(mention.get("article_id") or "")
+                same_paper_candidate = bool(
+                    current_article_id
+                    and any(
+                        str(history.get("article_id") or "") == current_article_id
+                        for history in self.history_state.history_mentions_by_author.get(
+                            prediction.author_id,
+                            (),
+                        )
+                    )
+                )
+                if (
+                    prediction.probability
+                    >= self.config.calibrated_candidate_threshold
+                    and prediction.author_id in self._known_external_ids
+                    and prediction.author_id not in self._quarantined
+                    and compatible_name_evidence
+                    and not same_paper_candidate
+                    and (not guarded_signature or independent_context)
+                ):
+                    final_decision = Decision.MERGE
+                    final_author_id = prediction.author_id
+                    stage = "calibrated_candidate_rescue"
+                    reason = (
+                        f"{CALIBRATED_MODEL_VERSION} probability "
+                        f"{prediction.probability:.6f} >= "
+                        f"{self.config.calibrated_candidate_threshold:.6f}"
+                    )
 
         legacy_result_id, legacy_candidate_count = self._legacy_observation(service_response)
         use_fallback = (
@@ -564,6 +862,8 @@ class IstinaDisambiguationPipeline:
                 "base_decision": local.decision.value,
                 "legacy_result_id": legacy_result_id,
                 "legacy_agrees": legacy_agrees,
+                "calibrated_probability": calibrated_probability,
+                "calibrated_model_version": calibrated_model_version,
             })
             self.trace_logger.append_trace(final_trace, payload, metadata)
 
@@ -578,6 +878,8 @@ class IstinaDisambiguationPipeline:
             topk=topk,
             structured_relation=structured.relation,
             structured_coauthor_jaccard=structured.coauthor_jaccard,
+            calibrated_probability=calibrated_probability,
+            calibrated_model_version=calibrated_model_version,
             legacy_result_id=legacy_result_id,
             legacy_candidate_count=legacy_candidate_count,
             legacy_agrees=legacy_agrees,

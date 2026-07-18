@@ -11,6 +11,7 @@ In-memory database for storing and querying author information
 """
 
 import logging
+import unicodedata
 from typing import List, Dict, Optional, Any
 from collections import defaultdict
 from models.author import Author
@@ -57,6 +58,41 @@ class AuthorDatabase:
 
         self.logger = logging.getLogger(__name__)
 
+    @staticmethod
+    def _blocking_tokens(value: str) -> tuple[str, ...]:
+        text = str(value or '').casefold().translate(str.maketrans({
+            'ı': 'i', 'ł': 'l', 'đ': 'd', 'ð': 'd', 'þ': 'th',
+            'ø': 'o', 'æ': 'ae', 'œ': 'oe',
+        }))
+        decomposed = unicodedata.normalize('NFKD', text.strip())
+        normalized = ''.join(
+            char if char.isalnum() else ' '
+            for char in decomposed
+            if not unicodedata.combining(char)
+        )
+        return tuple(token for token in normalized.split() if token)
+
+    @classmethod
+    def _normalize_blocking_token(cls, value: str) -> str:
+        """Normalize a name token for candidate blocking without changing source data."""
+
+        return ''.join(cls._blocking_tokens(value))
+
+    @classmethod
+    def _normalize_name_multiset_key(cls, value: str) -> str:
+        return '_'.join(sorted(cls._blocking_tokens(value)))
+
+    @classmethod
+    def _normalize_surname_initial_key(cls, value: str) -> str:
+        surname, separator, initial = str(value or '').rpartition('_')
+        if not separator:
+            return cls._normalize_blocking_token(value)
+        normalized_surname = cls._normalize_blocking_token(surname)
+        normalized_initial = cls._normalize_blocking_token(initial)[:1]
+        if not normalized_surname or not normalized_initial:
+            return ''
+        return f"{normalized_surname}_{normalized_initial}"
+
     def add_author(self, author_data: Dict[str, Any]) -> Author:
         """
         添加新作者到数据库 / Добавление нового автора в базу
@@ -102,12 +138,14 @@ class AuthorDatabase:
         # 更新姓氏索引 / Обновление индекса по фамилии
         surname = self._extract_surname(author.canonical_name)
         if surname:
-            self.surname_index[surname.lower()].append(author)
+            self.surname_index[self._normalize_blocking_token(surname)].append(author)
 
         # 更新姓氏+首字母索引 / Обновление индекса фамилия+инициал
         surname_initial_key = self._extract_surname_initial(author.canonical_name)
         if surname_initial_key:
-            self.surname_initial_index[surname_initial_key].append(author)
+            self.surname_initial_index[
+                self._normalize_surname_initial_key(surname_initial_key)
+            ].append(author)
 
         # 更新ORCID索引 / Обновление индекса ORCID
         if author.orcid:
@@ -134,7 +172,7 @@ class AuthorDatabase:
         返回 / Возвращает / Returns:
             匹配的作者列表 / Список совпадающих авторов
         """
-        return self.surname_index.get(surname.lower(), [])
+        return self.surname_index.get(self._normalize_blocking_token(surname), [])
 
     def find_by_orcid(self, orcid: str) -> Optional[Author]:
         """
@@ -355,12 +393,23 @@ class AuthorDatabase:
         # 2. 姓氏键 / Ключ фамилии
         surname = self._extract_surname(author.canonical_name)
         if surname:
-            keys.append(f"surname:{surname.lower()}")
+            keys.append(f"surname:{self._normalize_blocking_token(surname)}")
+            keys.extend(
+                f"surname_token:{token}"
+                for token in self._blocking_tokens(surname)
+                if len(token) >= 3
+            )
 
         # 3. 姓氏+首字母键 / Ключ фамилия+инициал
         surname_initial = self._extract_surname_initial(author.canonical_name)
         if surname_initial:
-            keys.append(f"surname_init:{surname_initial}")
+            keys.append(
+                f"surname_init:{self._normalize_surname_initial_key(surname_initial)}"
+            )
+
+        name_multiset_key = self._normalize_name_multiset_key(author.canonical_name)
+        if name_multiset_key:
+            keys.append(f"name_tokens:{name_multiset_key}")
 
         # 4. 机构键（如果有）/ Ключи аффилиаций
         for affiliation in list(author.affiliations)[:2]:  # 限制前2个机构 / первые 2
@@ -402,6 +451,9 @@ class AuthorDatabase:
         # 使用字典去重（author_id -> Author）/ Используем словарь для дедупликации
         candidates_dict = {}
         blocking_keys_used = []
+        include_enhanced_blocking = bool(
+            mention.get('_include_enhanced_blocking', True)
+        )
 
         # 策略1：ORCID精确匹配（优先级最高）/ Стратегия 1: точное совпадение ORCID
         mention_orcid = mention.get('orcid', '')
@@ -417,20 +469,72 @@ class AuthorDatabase:
 
         # 策略2：姓氏匹配 / Стратегия 2: совпадение фамилии
         mention_name = mention.get('name', '')
+        structured_surname = str(
+            mention.get('surname')
+            or mention.get('lastname')
+            or mention.get('last_name')
+            or ''
+        ).strip()
+        surnames = []
+        if structured_surname:
+            surnames.append(structured_surname)
         if mention_name:
-            surname = self._extract_surname(mention_name)
+            extracted_surname = self._extract_surname(mention_name)
+            if extracted_surname and self._normalize_blocking_token(extracted_surname) not in {
+                self._normalize_blocking_token(surname) for surname in surnames
+            }:
+                surnames.append(extracted_surname)
+
+        for surname in surnames:
             if surname:
-                surname_key = f"surname:{surname.lower()}"
+                surname_key = f"surname:{self._normalize_blocking_token(surname)}"
                 blocking_keys_used.append(surname_key)
                 candidates_from_surname = self.blocking_key_index.get(surname_key, [])
                 for author in candidates_from_surname:
                     candidates_dict[author.author_id] = author
+                if include_enhanced_blocking:
+                    for token in self._blocking_tokens(surname):
+                        if len(token) < 3:
+                            continue
+                        surname_token_key = f"surname_token:{token}"
+                        if surname_token_key not in blocking_keys_used:
+                            blocking_keys_used.append(surname_token_key)
+                        for author in self.blocking_key_index.get(surname_token_key, []):
+                            candidates_dict[author.author_id] = author
 
         # 策略3：姓氏+首字母匹配（更精确）/ Стратегия 3: фамилия+инициал
         if mention_name:
             surname_initial = self._extract_surname_initial(mention_name)
             if surname_initial:
-                surname_init_key = f"surname_init:{surname_initial}"
+                surname_init_key = (
+                    "surname_init:"
+                    f"{self._normalize_surname_initial_key(surname_initial)}"
+                )
+                blocking_keys_used.append(surname_init_key)
+                candidates_from_init = self.blocking_key_index.get(surname_init_key, [])
+                for author in candidates_from_init:
+                    candidates_dict[author.author_id] = author
+
+        if mention_name and include_enhanced_blocking:
+            name_multiset_key = self._normalize_name_multiset_key(mention_name)
+            if name_multiset_key:
+                name_key = f"name_tokens:{name_multiset_key}"
+                blocking_keys_used.append(name_key)
+                for author in self.blocking_key_index.get(name_key, []):
+                    candidates_dict[author.author_id] = author
+
+        structured_firstname = str(
+            mention.get('firstname')
+            or mention.get('first_name')
+            or ''
+        ).strip()
+        if structured_surname and structured_firstname:
+            surname_init_key = (
+                "surname_init:"
+                f"{self._normalize_blocking_token(structured_surname)}_"
+                f"{self._normalize_blocking_token(structured_firstname)[:1]}"
+            )
+            if surname_init_key not in blocking_keys_used:
                 blocking_keys_used.append(surname_init_key)
                 candidates_from_init = self.blocking_key_index.get(surname_init_key, [])
                 for author in candidates_from_init:

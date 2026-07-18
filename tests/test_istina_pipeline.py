@@ -37,6 +37,163 @@ class FakeServiceClient:
 
 
 class IstinaPipelineTests(unittest.TestCase):
+    def test_structured_surname_recovers_candidate_when_free_text_order_differs(self):
+        state = build_istina_history_state([{
+            "gold_author_id": "A1",
+            "article_id": "P1",
+            "name": "Zhongyi Yu",
+            "lastname": "Yu",
+            "firstname": "Zhongyi",
+            "coauthors": [],
+        }])
+
+        candidates = state.database.get_candidates({
+            "name": "Yu Zhongyi",
+            "surname": "Yu",
+            "firstname": "Zhongyi",
+        })
+
+        self.assertEqual(
+            [state.database_to_external_id[candidate.author_id] for candidate in candidates],
+            ["A1"],
+        )
+
+    def test_blocking_normalizes_diacritics_without_changing_source_name(self):
+        state = build_istina_history_state([{
+            "gold_author_id": "A1",
+            "article_id": "P1",
+            "name": "Pablo Pérez",
+            "lastname": "Pérez",
+            "firstname": "Pablo",
+            "coauthors": [],
+        }])
+
+        candidates = state.database.get_candidates({
+            "name": "P Perez",
+            "surname": "Perez",
+            "firstname": "P",
+        })
+
+        self.assertEqual(
+            [state.database_to_external_id[candidate.author_id] for candidate in candidates],
+            ["A1"],
+        )
+
+    def test_name_token_blocking_recovers_compound_surname_order(self):
+        state = build_istina_history_state([{
+            "gold_author_id": "A1",
+            "article_id": "P1",
+            "name": "Ismael S. da Silva",
+            "lastname": "Silva",
+            "firstname": "Ismael S. da",
+            "coauthors": [],
+        }])
+
+        candidates = state.database.get_candidates({
+            "name": "da Silva, Ismael S.",
+            "surname": "da Silva",
+            "firstname": "Ismael S.",
+        })
+
+        self.assertEqual(
+            [state.database_to_external_id[candidate.author_id] for candidate in candidates],
+            ["A1"],
+        )
+
+    def test_exact_name_token_repair_merges_unique_informative_identity(self):
+        pipeline = IstinaDisambiguationPipeline.from_history_mentions([{
+            "gold_author_id": "A1",
+            "article_id": "P1",
+            "name": "Ismael S. da Silva",
+            "lastname": "Silva",
+            "firstname": "Ismael S. da",
+            "coauthors": [],
+        }])
+
+        result = pipeline.decide_mention({
+            "article_id": "P2",
+            "name": "da Silva, Ismael S.",
+            "lastname": "da Silva",
+            "firstname": "Ismael S.",
+            "coauthors": [],
+        })
+
+        self.assertEqual(result.decision, Decision.MERGE)
+        self.assertEqual(result.author_id, "A1")
+        self.assertEqual(result.stage, "exact_name_token_repair")
+
+    def test_high_risk_reordered_name_tokens_require_context(self):
+        pipeline = IstinaDisambiguationPipeline.from_history_mentions([{
+            "gold_author_id": "A1",
+            "article_id": "P1",
+            "name": "Ming Li",
+            "lastname": "Ming",
+            "firstname": "Li",
+            "coauthors": [],
+        }])
+
+        result = pipeline.decide_mention({
+            "article_id": "P2",
+            "name": "Li Ming",
+            "lastname": "Li",
+            "firstname": "Ming",
+            "coauthors": [],
+        })
+
+        self.assertNotEqual(result.decision, Decision.MERGE)
+
+    def test_blocking_folds_turkish_dotless_i(self):
+        state = build_istina_history_state([{
+            "gold_author_id": "A1",
+            "article_id": "P1",
+            "name": "Sönmez Fıratlı",
+            "lastname": "Fıratlı",
+            "firstname": "Sönmez",
+            "coauthors": [],
+        }])
+
+        candidates = state.database.get_candidates({
+            "name": "Sonmez Firatli",
+            "surname": "Firatli",
+            "firstname": "Sonmez",
+        })
+
+        self.assertEqual(
+            [state.database_to_external_id[candidate.author_id] for candidate in candidates],
+            ["A1"],
+        )
+
+    def test_structured_only_initial_candidate_cannot_directly_auto_merge(self):
+        history = [
+            {
+                "gold_author_id": f"A{index}",
+                "article_id": f"P{index}",
+                "name": f"{initial} Kumar",
+                "lastname": "Kumar",
+                "firstname": initial,
+                "coauthors": [f"C{index}"],
+            }
+            for index, initial in enumerate("ABCDE", start=1)
+        ]
+        pipeline = IstinaDisambiguationPipeline.from_history_mentions(
+            history,
+            config=IstinaPipelineConfig(
+                accept_threshold=-100.0,
+                reject_threshold=-200.0,
+            ),
+        )
+
+        result = pipeline.decide_mention({
+            "article_id": "P2",
+            "name": "Kumar A.",
+            "lastname": "Kumar",
+            "firstname": "A",
+            "coauthors": ["C1"],
+        })
+
+        self.assertEqual(result.decision, Decision.UNKNOWN)
+        self.assertEqual(result.stage, "enhanced_blocking_source_guard")
+
     def test_strict_full_structured_name_repairs_without_context(self):
         history = [{
             "gold_author_id": "A1",
@@ -354,6 +511,84 @@ class IstinaPipelineTests(unittest.TestCase):
         self.assertEqual(result.decision, Decision.NEW)
         self.assertIsNone(result.author_id)
 
+    def test_strict_name_repair_cannot_bypass_dense_name_guard(self):
+        history = [
+            history_row(
+                "A1",
+                "Jun Zhang",
+                lastname="Zhang",
+                firstname="Jun",
+            )
+        ]
+        history.extend(
+            history_row(
+                f"A{index}",
+                f"Given{index} Zhang",
+                lastname="Zhang",
+                firstname=f"Given{index}",
+            )
+            for index in range(2, 7)
+        )
+        pipeline = IstinaDisambiguationPipeline.from_history_mentions(
+            history,
+            config=IstinaPipelineConfig(
+                accept_threshold=-2.0,
+                reject_threshold=-4.0,
+            ),
+        )
+
+        result = pipeline.decide_mention({
+            "name": "Jun Zhang",
+            "lastname": "Zhang",
+            "firstname": "Jun",
+            "article_id": "new",
+            "coauthors": [],
+        })
+
+        self.assertEqual(result.decision, Decision.UNKNOWN)
+        self.assertEqual(result.stage, "dense_name_block_context_guard")
+        self.assertIsNone(result.author_id)
+
+    def test_dense_exact_name_can_use_independent_journal_context(self):
+        history = [
+            history_row(
+                "A1",
+                "Jun Zhang",
+                lastname="Zhang",
+                firstname="Jun",
+                journal="Journal A",
+            )
+        ]
+        history.extend(
+            history_row(
+                f"A{index}",
+                f"Given{index} Zhang",
+                lastname="Zhang",
+                firstname=f"Given{index}",
+            )
+            for index in range(2, 7)
+        )
+        pipeline = IstinaDisambiguationPipeline.from_history_mentions(
+            history,
+            config=IstinaPipelineConfig(
+                accept_threshold=100.0,
+                reject_threshold=-100.0,
+            ),
+        )
+
+        result = pipeline.decide_mention({
+            "name": "Jun Zhang",
+            "lastname": "Zhang",
+            "firstname": "Jun",
+            "article_id": "new",
+            "journal": "Journal A",
+            "coauthors": [],
+        })
+
+        self.assertEqual(result.decision, Decision.MERGE)
+        self.assertEqual(result.author_id, "A1")
+        self.assertEqual(result.stage, "strict_structured_name_repair")
+
     def test_legacy_fallback_must_be_in_local_topk(self):
         config = IstinaPipelineConfig(accept_threshold=10.0, reject_threshold=-10.0)
         pipeline = IstinaDisambiguationPipeline.from_history_mentions([
@@ -446,6 +681,106 @@ class IstinaPipelineTests(unittest.TestCase):
             self.assertNotIn("Sensitive Person", raw)
             self.assertEqual(record["metadata"]["pipeline_stage"], result.stage)
             self.assertEqual(record["deterministic_hash"], result.deterministic_hash)
+
+    def test_calibrated_rescue_exposes_frozen_model_audit_fields(self):
+        pipeline = IstinaDisambiguationPipeline.from_history_mentions(
+            [history_row(
+                "A1",
+                "Hanna Almira",
+                lastname="Almira",
+                firstname="Hanna",
+            )],
+            config=IstinaPipelineConfig(
+                accept_threshold=100.0,
+                reject_threshold=-100.0,
+                enable_strict_name_repair=False,
+                enable_exact_name_token_repair=False,
+                enable_unique_non_cjk_initial_repair=False,
+                enable_calibrated_candidate_rescue=True,
+                calibrated_candidate_threshold=0.0,
+                use_remote_fallback=False,
+            ),
+        )
+
+        result = pipeline.decide_mention({
+            "article_id": "P2",
+            "name": "Hana Almira",
+            "lastname": "Almira",
+            "firstname": "Hana",
+            "coauthors": [],
+        })
+
+        self.assertEqual(result.decision, Decision.MERGE)
+        self.assertEqual(result.author_id, "A1")
+        self.assertEqual(result.stage, "calibrated_candidate_rescue")
+        self.assertGreater(result.calibrated_probability, 0.0)
+        self.assertEqual(
+            result.calibrated_model_version,
+            "openalex-orcid-blind-logit-20260719-v1",
+        )
+
+    def test_calibrated_rescue_rejects_initial_only_name_without_context(self):
+        pipeline = IstinaDisambiguationPipeline.from_history_mentions(
+            [history_row(
+                "A1",
+                "Renata Cordeiro",
+                lastname="Cordeiro",
+                firstname="Renata",
+            )],
+            config=IstinaPipelineConfig(
+                accept_threshold=100.0,
+                reject_threshold=-100.0,
+                enable_strict_name_repair=False,
+                enable_exact_name_token_repair=False,
+                enable_unique_non_cjk_initial_repair=False,
+                enable_calibrated_candidate_rescue=True,
+                calibrated_candidate_threshold=0.0,
+                use_remote_fallback=False,
+            ),
+        )
+
+        result = pipeline.decide_mention({
+            "article_id": "P2",
+            "name": "R. Cordeiro",
+            "lastname": "Cordeiro",
+            "firstname": "R.",
+            "coauthors": [],
+        })
+
+        self.assertNotEqual(result.decision, Decision.MERGE)
+        self.assertIsNone(result.author_id)
+
+    def test_calibrated_rescue_cannot_override_incompatible_name(self):
+        pipeline = IstinaDisambiguationPipeline.from_history_mentions(
+            [history_row(
+                "A1",
+                "Kryukov Alexander",
+                ["Shared Team"],
+                lastname="Kryukov",
+                firstname="Alexander",
+            )],
+            config=IstinaPipelineConfig(
+                accept_threshold=100.0,
+                reject_threshold=-100.0,
+                enable_strict_name_repair=False,
+                enable_exact_name_token_repair=False,
+                enable_unique_non_cjk_initial_repair=False,
+                enable_calibrated_candidate_rescue=True,
+                calibrated_candidate_threshold=0.0,
+                use_remote_fallback=False,
+            ),
+        )
+
+        result = pipeline.decide_mention({
+            "article_id": "P2",
+            "name": "Volchugov Peter",
+            "lastname": "Volchugov",
+            "firstname": "Peter",
+            "coauthors": ["Shared Team"],
+        })
+
+        self.assertNotEqual(result.decision, Decision.MERGE)
+        self.assertIsNone(result.author_id)
 
 
 if __name__ == "__main__":

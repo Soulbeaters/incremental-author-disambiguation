@@ -246,7 +246,11 @@ class AuthorMerger:
             {
                 "author_id": cand["author_id"],
                 "score": round(cand["score"], 6),
-                "components": {k: round(v, 6) for k, v in cand["components"].items()}
+                "components": {k: round(v, 6) for k, v in cand["components"].items()},
+                "comparisons": {
+                    key: round(value, 6) if isinstance(value, float) else value
+                    for key, value in cand["comparisons"].items()
+                },
             }
             for cand in scored_candidates[:self.topk]
         ]

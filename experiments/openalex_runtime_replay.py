@@ -219,6 +219,7 @@ def main() -> None:
     parser.add_argument("--accept-threshold", type=float, default=-0.5)
     parser.add_argument("--reject-threshold", type=float, default=-4.0)
     parser.add_argument("--min-accept-margin", type=float, default=1e-9)
+    parser.add_argument("--topk", type=int, default=5)
     args = parser.parse_args()
 
     mentions = load_mentions(args.dataset)
@@ -254,6 +255,7 @@ def main() -> None:
         min_accept_margin=args.min_accept_margin,
         require_context_for_low_name_accept=True,
         use_remote_fallback=False,
+        topk=args.topk,
     )
     pipeline = IstinaDisambiguationPipeline.from_history_mentions(history, config=config)
     evaluation = evaluate(pipeline, test, service_records={})
@@ -290,6 +292,7 @@ def main() -> None:
             "history_mentions": len(history),
             "test_mentions": len(test),
             "runtime_class": "integrations.istina_pipeline.IstinaDisambiguationPipeline",
+            "topk": args.topk,
             "metadata": metadata,
         },
         **evaluation,

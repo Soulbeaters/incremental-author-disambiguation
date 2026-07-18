@@ -37,8 +37,8 @@ class FakeServiceClient:
 
 
 class IstinaPipelineTests(unittest.TestCase):
-    def test_calibrated_rescue_is_enabled_by_default(self):
-        self.assertTrue(IstinaPipelineConfig().enable_calibrated_candidate_rescue)
+    def test_calibrated_rescue_is_disabled_by_default(self):
+        self.assertFalse(IstinaPipelineConfig().enable_calibrated_candidate_rescue)
 
     def test_structured_surname_recovers_candidate_when_free_text_order_differs(self):
         state = build_istina_history_state([{

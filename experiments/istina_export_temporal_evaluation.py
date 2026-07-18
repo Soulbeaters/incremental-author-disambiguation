@@ -40,7 +40,10 @@ from integrations.istina_disambiguation_client import (  # noqa: E402
     DEFAULT_ISTINA_DISAMBIGUATION_URL,
     IstinaDisambiguationClient,
 )
-from models.author import Author  # noqa: E402
+from integrations.istina_pipeline import (  # noqa: E402
+    build_istina_history_state,
+    mention_payload,
+)
 from models.database import AuthorDatabase  # noqa: E402
 
 
@@ -111,82 +114,15 @@ def iter_mentions(articles: Iterable[Dict[str, Any]]) -> Iterable[Dict[str, Any]
             }
 
 
-def add_alias_blocking_keys(database: AuthorDatabase, author: Author, alias: str) -> None:
-    """Index a known historical alias without creating a duplicate author."""
-
-    alias = (alias or "").strip()
-    if not alias:
-        return
-    surname = database._extract_surname(alias)  # private helper, used only by this experiment
-    if surname:
-        database.blocking_key_index[f"surname:{surname.lower()}"].append(author)
-    surname_initial = database._extract_surname_initial(alias)
-    if surname_initial:
-        database.blocking_key_index[f"surname_init:{surname_initial}"].append(author)
-
-
-def add_structured_lastname_key(database: AuthorDatabase, author: Author, lastname: str, firstname: str = "") -> None:
-    lastname = (lastname or "").strip()
-    if not lastname:
-        return
-    database.blocking_key_index[f"surname:{lastname.lower()}"].append(author)
-    if firstname:
-        database.blocking_key_index[f"surname_init:{lastname.lower()}_{firstname[0].lower()}"].append(author)
-
-
 def build_history_database(
     history_mentions: List[Dict[str, Any]],
     index_aliases: bool = True,
 ) -> Tuple[AuthorDatabase, Dict[str, str]]:
-    grouped: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
-    for mention in history_mentions:
-        gold = mention.get("gold_author_id")
-        if gold and mention.get("name"):
-            grouped[gold].append(mention)
-
-    database = AuthorDatabase()
-    gold_to_db_author_id: Dict[str, str] = {}
-
-    for gold, mentions in sorted(grouped.items()):
-        names = [mention["name"] for mention in mentions if mention.get("name")]
-        canonical_name = Counter(names).most_common(1)[0][0]
-        coauthors = sorted({coauthor for mention in mentions for coauthor in mention.get("coauthors", [])})
-        journals = sorted({mention.get("journal") for mention in mentions if mention.get("journal")})
-        affiliations = sorted({mention.get("affiliation") for mention in mentions if mention.get("affiliation")})
-
-        author = database.add_author({
-            "name": canonical_name,
-            "coauthors": coauthors,
-            "journals": journals,
-            "affiliation": affiliations,
-        })
-        gold_to_db_author_id[gold] = author.author_id
-
-        if index_aliases:
-            for mention in mentions:
-                author.add_alternate_name(mention["name"])
-                add_alias_blocking_keys(database, author, mention["name"])
-                add_structured_lastname_key(
-                    database,
-                    author,
-                    mention.get("lastname", ""),
-                    mention.get("firstname", ""),
-                )
-
-    return database, gold_to_db_author_id
-
-
-def mention_payload(mention: Dict[str, Any]) -> Dict[str, Any]:
-    payload = {
-        "name": mention.get("name", ""),
-        "surname": mention.get("lastname", ""),
-        "firstname": mention.get("firstname", ""),
-        "orcid": "",
-        "coauthors": mention.get("coauthors", []),
-        "journals": [mention["journal"]] if mention.get("journal") else [],
-        "affiliation": [mention["affiliation"]] if mention.get("affiliation") else [],
-    }
-    return payload
+    state = build_istina_history_state(
+        history_mentions,
+        index_aliases=index_aliases,
+    )
+    return state.database, state.external_to_database_id
 
 
 def empty_stats() -> Dict[str, int]:

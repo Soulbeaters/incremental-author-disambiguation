@@ -12,7 +12,7 @@ from __future__ import annotations
 import re
 import unicodedata
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Tuple
 
 
 TOKEN_RE = re.compile(r"[^\W\d_]+", re.UNICODE)
@@ -118,6 +118,7 @@ class ProfileMention:
     family_key: str
     given_tokens: Tuple[str, ...]
     coauthors: frozenset[str]
+    affiliation_key: str
     article_id: str
     name: str
 
@@ -136,6 +137,128 @@ class StructuredRepairDecision:
     relation: Optional[str] = None
     coauthor_jaccard: float = 0.0
     history_name: Optional[str] = None
+
+
+def compatible_structured_author_ids(
+    mention: Mapping[str, Any],
+    profiles: RepairProfileIndex,
+) -> Tuple[str, ...]:
+    """Return known identities compatible with a structured signature.
+
+    Initial-compatible profiles are included as ambiguity blockers even though
+    they are never sufficient by themselves for an automatic merge.
+    """
+
+    family_key, given_tokens = structured_name_parts(mention)
+    current_article_id = str(mention.get("article_id") or "")
+    author_ids = {
+        profile.author_id
+        for profile in profiles.by_family.get(family_key, ())
+        if not (current_article_id and profile.article_id == current_article_id)
+        and given_relation(profile.given_tokens, given_tokens)
+        in {"exact", "prefix", "initial_compatible"}
+    }
+    return tuple(sorted(author_ids))
+
+
+def decide_strict_name_repair(
+    mention: Mapping[str, Any],
+    profiles: RepairProfileIndex,
+) -> StructuredRepairDecision:
+    """Accept only one full-token exact/prefix structured-name identity.
+
+    Initial-only names are deliberately excluded because a unique local
+    candidate does not make common signatures such as ``S Li`` identities.
+    """
+
+    family_key, given_tokens = structured_name_parts(mention)
+
+    def is_informative(family: str, given: Sequence[str]) -> bool:
+        given_length = sum(len(token) for token in given)
+        has_full_given_token = any(len(token) > 1 for token in given)
+        if has_full_given_token:
+            return len(family) + given_length >= 8
+        return len(family) >= 5 and given_length >= 2
+
+    if not is_informative(family_key, given_tokens):
+        return StructuredRepairDecision(False, "missing_informative_structured_name")
+    current_article_id = str(mention.get("article_id") or "")
+    accepted_by_author: Dict[str, StructuredRepairDecision] = {}
+    for profile in profiles.by_family.get(family_key, ()):
+        if current_article_id and profile.article_id == current_article_id:
+            continue
+        if not is_informative(profile.family_key, profile.given_tokens):
+            continue
+        relation = given_relation(profile.given_tokens, given_tokens)
+        if relation not in {"exact", "prefix"}:
+            continue
+        accepted_by_author[profile.author_id] = StructuredRepairDecision(
+            True,
+            f"unique_informative_structured_name_{relation}",
+            author_id=profile.author_id,
+            relation=relation,
+            history_name=profile.name,
+        )
+    if not accepted_by_author:
+        return StructuredRepairDecision(False, "no_informative_structured_name_match")
+    if len(accepted_by_author) != 1:
+        return StructuredRepairDecision(False, "ambiguous_informative_structured_names")
+    accepted = next(iter(accepted_by_author.values()))
+    compatible_ids = compatible_structured_author_ids(mention, profiles)
+    if any(author_id != accepted.author_id for author_id in compatible_ids):
+        return StructuredRepairDecision(
+            False,
+            "initial_compatible_identity_blocks_strict_name_repair",
+        )
+    return accepted
+
+
+def decide_unique_non_cjk_initial_repair(
+    mention: Mapping[str, Any],
+    profiles: RepairProfileIndex,
+    is_known_cjk_surname: Optional[Callable[[str], bool]],
+) -> StructuredRepairDecision:
+    """Repair a unique non-CJK initial signature, failing closed on risk data.
+
+    A surname occurring for one local identity is not globally unique.  The
+    rule is therefore disabled unless the multilingual name module can first
+    exclude known CJK surnames, where homonym risk is especially high.
+    """
+
+    if not callable(is_known_cjk_surname):
+        return StructuredRepairDecision(False, "surname_risk_checker_unavailable")
+    family_key, given_tokens = structured_name_parts(mention)
+    if len(family_key) < 4 or not given_tokens:
+        return StructuredRepairDecision(False, "uninformative_initial_signature")
+    if is_known_cjk_surname(family_key):
+        return StructuredRepairDecision(False, "known_cjk_surname_requires_context")
+
+    current_article_id = str(mention.get("article_id") or "")
+    profiles_by_author: Dict[str, List[ProfileMention]] = {}
+    for profile in profiles.by_family.get(family_key, ()):
+        if current_article_id and profile.article_id == current_article_id:
+            continue
+        profiles_by_author.setdefault(profile.author_id, []).append(profile)
+    if len(profiles_by_author) != 1:
+        return StructuredRepairDecision(False, "non_unique_family_identity")
+
+    author_id, author_profiles = next(iter(profiles_by_author.items()))
+    relations = {
+        given_relation(profile.given_tokens, given_tokens)
+        for profile in author_profiles
+    }
+    if "exact" in relations or "prefix" in relations:
+        return StructuredRepairDecision(False, "full_signature_handled_elsewhere")
+    if "initial_compatible" not in relations:
+        return StructuredRepairDecision(False, "initial_signature_not_compatible")
+    history_name = min((profile.name for profile in author_profiles), default=None)
+    return StructuredRepairDecision(
+        True,
+        "unique_non_cjk_initial_signature",
+        author_id=author_id,
+        relation="initial_compatible",
+        history_name=history_name,
+    )
 
 
 def _author_id(record: Mapping[str, Any]) -> str:
@@ -157,6 +280,7 @@ def build_repair_profiles(history_mentions: Iterable[Mapping[str, Any]]) -> Repa
             family_key=family_key,
             given_tokens=given_tokens,
             coauthors=coauthor_keys(mention.get("coauthors") or []),
+            affiliation_key=normalized_name_key(mention.get("affiliation") or ""),
             article_id=str(mention.get("article_id") or ""),
             name=str(mention.get("name") or mention.get("original_name") or ""),
         ))
@@ -191,6 +315,7 @@ def _accepted_relation(
     history_given: Tuple[str, ...],
     current_given: Tuple[str, ...],
     coauthor_similarity: float,
+    affiliation_exact: bool,
 ) -> Optional[str]:
     relation = given_relation(history_given, current_given)
     # Exact names are not identities: common full names such as ``Wei Chen``
@@ -200,7 +325,10 @@ def _accepted_relation(
         return relation
     if relation == "prefix" and coauthor_similarity >= 0.16:
         return relation
-    if relation == "initial_compatible" and coauthor_similarity >= 0.30:
+    if relation == "initial_compatible" and (
+        coauthor_similarity >= 0.12
+        or affiliation_exact
+    ):
         return relation
     return None
 
@@ -215,6 +343,7 @@ def decide_structured_repair(
 
     current_article_id = str(mention.get("article_id") or "")
     current_coauthors = coauthor_keys(mention.get("coauthors") or [])
+    current_affiliation = normalized_name_key(mention.get("affiliation") or "")
     accepted_by_author: Dict[str, StructuredRepairDecision] = {}
     same_paper_author_ids = {
         profile.author_id
@@ -226,16 +355,27 @@ def decide_structured_repair(
         if profile.author_id in same_paper_author_ids:
             continue
         coauthor_similarity = jaccard(profile.coauthors, current_coauthors)
+        affiliation_exact = bool(
+            current_affiliation
+            and profile.affiliation_key
+            and current_affiliation == profile.affiliation_key
+        )
         relation = _accepted_relation(
             profile.given_tokens,
             given_tokens,
             coauthor_similarity,
+            affiliation_exact,
         )
         if relation is None:
             continue
+        evidence = []
+        if coauthor_similarity >= 0.12:
+            evidence.append("coauthor")
+        if affiliation_exact:
+            evidence.append("affiliation")
         candidate = StructuredRepairDecision(
             True,
-            f"unique_known_profile_{relation}",
+            f"unique_known_profile_{relation}_{'+'.join(evidence)}",
             author_id=profile.author_id,
             relation=relation,
             coauthor_jaccard=coauthor_similarity,

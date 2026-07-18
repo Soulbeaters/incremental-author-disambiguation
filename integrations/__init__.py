@@ -20,6 +20,14 @@ from .istina_disambiguation_client import (
     istina_author_record_from_export,
     iter_istina_author_records,
 )
+from .istina_pipeline import (
+    IstinaDisambiguationPipeline,
+    IstinaHistoryState,
+    IstinaPipelineConfig,
+    IstinaPipelineDecision,
+    article_mentions,
+    build_istina_history_state,
+)
 
 __all__ = [
     'CrossrefClient',
@@ -29,4 +37,10 @@ __all__ = [
     'IstinaServiceDecision',
     'istina_author_record_from_export',
     'iter_istina_author_records',
+    'IstinaDisambiguationPipeline',
+    'IstinaHistoryState',
+    'IstinaPipelineConfig',
+    'IstinaPipelineDecision',
+    'article_mentions',
+    'build_istina_history_state',
 ]

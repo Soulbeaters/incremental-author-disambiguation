@@ -9,7 +9,7 @@ import math
 import random
 from collections import defaultdict
 from dataclasses import asdict, dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from statistics import NormalDist
 from typing import Any, Dict, Mapping, Sequence
@@ -24,7 +24,11 @@ class PairedShadowCriteria:
     min_randomization_iterations: int = 20_000
     max_bootstrap_iterations: int = 200_000
     max_randomization_iterations: int = 1_000_000
+    min_cluster_adjustment_basis_chars: int = 20
     required_analysis_looks: int = 1
+
+
+_USE_CURRENT_VALIDATION_TIME = object()
 
 
 def sha256_file(path: Path) -> str:
@@ -204,33 +208,20 @@ def cluster_bootstrap_gain_interval(
     }
 
 
-def assess_paired_shadow(
-    live_shadow: Mapping[str, Any],
+def assess_paired_shadow_plan(
     plan: Mapping[str, Any],
     *,
     expected_dataset_sha256: str,
     expected_code_revision: str,
     criteria: PairedShadowCriteria | None = None,
+    validation_time: datetime | None | object = _USE_CURRENT_VALIDATION_TIME,
 ) -> Dict[str, Any]:
+    """Validate a preregistered plan and calculate its collection target."""
+
     criteria = criteria or PairedShadowCriteria()
     document = _object(plan)
-    protocol = _object(live_shadow.get("protocol"))
-    stats = _object(live_shadow.get("stats"))
-    safety = _object(live_shadow.get("safety"))
-    release_shadow = _object(
-        _object(live_shadow.get("operational_evidence")).get(
-            "online_shadow_verified"
-        )
-    )
     approval = _object(document.get("approval"))
-    raw_records = live_shadow.get("records")
-    record_collection_valid = isinstance(raw_records, list)
-    records = [
-        dict(item)
-        for item in raw_records or []
-        if isinstance(item, Mapping)
-    ] if record_collection_valid else []
-
+    cluster_adjustment = _object(document.get("cluster_power_adjustment"))
     expected_dataset_sha256 = str(expected_dataset_sha256 or "").lower()
     expected_code_revision = str(expected_code_revision or "").lower()
     alpha = document.get("alpha")
@@ -243,6 +234,13 @@ def assess_paired_shadow(
     randomization_iterations = document.get("randomization_iterations")
     seed = document.get("random_seed")
     maximum_looks = document.get("maximum_analysis_looks")
+    design_effect = cluster_adjustment.get("design_effect")
+    adjustment_basis_value = cluster_adjustment.get("basis")
+    adjustment_basis = (
+        adjustment_basis_value.strip()
+        if isinstance(adjustment_basis_value, str)
+        else ""
+    )
 
     numeric_plan_valid = bool(
         isinstance(alpha, (int, float))
@@ -254,45 +252,156 @@ def assess_paired_shadow(
         and isinstance(discordant_rate, (int, float))
         and not isinstance(discordant_rate, bool)
     )
-    planned_required_mentions = None
+    design_effect_valid = bool(
+        isinstance(design_effect, (int, float))
+        and not isinstance(design_effect, bool)
+        and math.isfinite(float(design_effect))
+        and float(design_effect) >= 1.0
+    )
+    base_required_mentions = None
     if numeric_plan_valid:
         try:
-            planned_required_mentions = required_paired_mentions(
+            base_required_mentions = required_paired_mentions(
                 alpha=float(alpha),
                 power=float(power),
                 minimum_absolute_gain=float(minimum_gain),
                 expected_discordant_rate=float(discordant_rate),
             )
         except ValueError:
-            planned_required_mentions = None
+            base_required_mentions = None
+    adjusted_requirement = (
+        base_required_mentions * float(design_effect)
+        if base_required_mentions is not None and design_effect_valid
+        else None
+    )
+    cluster_adjusted_required_mentions = (
+        int(math.ceil(adjusted_requirement))
+        if adjusted_requirement is not None and math.isfinite(adjusted_requirement)
+        else None
+    )
     effective_required_mentions = max(
         criteria.absolute_min_mentions,
-        int(min_mentions) if isinstance(min_mentions, int) and not isinstance(min_mentions, bool) else 0,
-        planned_required_mentions or 0,
+        (
+            int(min_mentions)
+            if isinstance(min_mentions, int) and not isinstance(min_mentions, bool)
+            else 0
+        ),
+        cluster_adjusted_required_mentions or 0,
     )
 
     registered_at = _timestamp(document.get("registered_at"))
     approved_at = _timestamp(approval.get("approved_at"))
-    live_generated_at = _timestamp(live_shadow.get("generated_at"))
+    if validation_time is _USE_CURRENT_VALIDATION_TIME:
+        cutoff = datetime.now(timezone.utc)
+    elif (
+        isinstance(validation_time, datetime)
+        and validation_time.tzinfo is not None
+    ):
+        cutoff = validation_time
+    else:
+        cutoff = None
     plan_checks = [
-        _check("plan_schema_version", document.get("schema_version"), 1, document.get("schema_version") == 1, "plan"),
-        _check("plan_dataset_sha256", str(document.get("dataset_sha256") or "").lower(), expected_dataset_sha256, bool(expected_dataset_sha256) and str(document.get("dataset_sha256") or "").lower() == expected_dataset_sha256, "plan"),
+        _check("plan_schema_version", document.get("schema_version"), 1, type(document.get("schema_version")) is int and document.get("schema_version") == 1, "plan"),
+        _check("plan_dataset_sha256", str(document.get("dataset_sha256") or "").lower(), expected_dataset_sha256, _hex_identifier(expected_dataset_sha256, 64) and str(document.get("dataset_sha256") or "").lower() == expected_dataset_sha256, "plan"),
         _check("plan_code_revision", str(document.get("code_revision") or "").lower(), expected_code_revision, _hex_identifier(expected_code_revision, 40) and str(document.get("code_revision") or "").lower() == expected_code_revision, "plan"),
         _check("primary_endpoint", document.get("primary_endpoint"), "paired known-author top-1 correctness", document.get("primary_endpoint") == "paired known-author top-1 correctness", "plan"),
         _check("two_sided_alpha", alpha, 0.05, alpha == 0.05, "plan"),
         _check("target_power", power, ">=0.8", isinstance(power, (int, float)) and not isinstance(power, bool) and 0.8 <= float(power) < 1.0, "plan"),
-        _check("minimum_absolute_gain", minimum_gain, ">=0.02", isinstance(minimum_gain, (int, float)) and not isinstance(minimum_gain, bool) and float(minimum_gain) >= 0.02, "plan"),
-        _check("expected_discordant_rate", discordant_rate, f">={criteria.min_expected_discordant_rate} and >= gain", isinstance(discordant_rate, (int, float)) and not isinstance(discordant_rate, bool) and criteria.min_expected_discordant_rate <= float(discordant_rate) <= 1.0 and isinstance(minimum_gain, (int, float)) and float(discordant_rate) >= float(minimum_gain), "plan"),
+        _check("minimum_absolute_gain", minimum_gain, ">=0.02", isinstance(minimum_gain, (int, float)) and not isinstance(minimum_gain, bool) and 0.02 <= float(minimum_gain) < 1.0, "plan"),
+        _check("expected_discordant_rate", discordant_rate, f">={criteria.min_expected_discordant_rate} and >= gain", isinstance(discordant_rate, (int, float)) and not isinstance(discordant_rate, bool) and criteria.min_expected_discordant_rate <= float(discordant_rate) <= 1.0 and isinstance(minimum_gain, (int, float)) and not isinstance(minimum_gain, bool) and float(discordant_rate) >= float(minimum_gain), "plan"),
         _check("minimum_mentions_floor", min_mentions, f">={criteria.absolute_min_mentions}", isinstance(min_mentions, int) and not isinstance(min_mentions, bool) and min_mentions >= criteria.absolute_min_mentions, "plan"),
         _check("minimum_unique_papers", min_papers, f">={criteria.min_unique_papers}", isinstance(min_papers, int) and not isinstance(min_papers, bool) and min_papers >= criteria.min_unique_papers, "plan"),
+        _check("paper_target_feasible", min_papers, f"<={effective_required_mentions} required mentions", isinstance(min_papers, int) and not isinstance(min_papers, bool) and min_papers <= effective_required_mentions, "power"),
+        _check("cluster_design_effect", design_effect, ">=1.0 and finite", design_effect_valid, "power"),
+        _check("cluster_adjustment_basis", len(adjustment_basis), f">={criteria.min_cluster_adjustment_basis_chars} characters in a string", isinstance(adjustment_basis_value, str) and len(adjustment_basis) >= criteria.min_cluster_adjustment_basis_chars, "power"),
         _check("bootstrap_iterations", bootstrap_iterations, f"within [{criteria.min_bootstrap_iterations}, {criteria.max_bootstrap_iterations}]", isinstance(bootstrap_iterations, int) and not isinstance(bootstrap_iterations, bool) and criteria.min_bootstrap_iterations <= bootstrap_iterations <= criteria.max_bootstrap_iterations, "plan"),
         _check("randomization_iterations", randomization_iterations, f"within [{criteria.min_randomization_iterations}, {criteria.max_randomization_iterations}]", isinstance(randomization_iterations, int) and not isinstance(randomization_iterations, bool) and criteria.min_randomization_iterations <= randomization_iterations <= criteria.max_randomization_iterations, "plan"),
         _check("random_seed", seed, "non-negative integer", isinstance(seed, int) and not isinstance(seed, bool) and seed >= 0, "plan"),
-        _check("single_analysis_look", maximum_looks, criteria.required_analysis_looks, maximum_looks == criteria.required_analysis_looks, "plan"),
-        _check("registration_timestamp", document.get("registered_at"), "timezone-aware and no later than approval/live run", registered_at is not None and approved_at is not None and live_generated_at is not None and registered_at <= approved_at <= live_generated_at, "plan"),
-        _check("registration_references", [document.get("registration_reference"), approval.get("reference")], "two non-empty references", bool(str(document.get("registration_reference") or "").strip()) and bool(str(approval.get("reference") or "").strip()), "plan"),
-        _check("power_calculation", planned_required_mentions, "valid paired design", planned_required_mentions is not None, "power"),
+        _check("single_analysis_look", maximum_looks, criteria.required_analysis_looks, type(maximum_looks) is int and maximum_looks == criteria.required_analysis_looks, "plan"),
+        _check("registration_timestamp", document.get("registered_at"), "timezone-aware; registration <= approval <= validation/live cutoff", registered_at is not None and approved_at is not None and cutoff is not None and registered_at <= approved_at <= cutoff, "plan"),
+        _check("registration_references", [document.get("registration_reference"), approval.get("reference")], "two non-empty strings", isinstance(document.get("registration_reference"), str) and bool(document.get("registration_reference").strip()) and isinstance(approval.get("reference"), str) and bool(approval.get("reference").strip()), "plan"),
+        _check("power_calculation", {"base": base_required_mentions, "cluster_adjusted": cluster_adjusted_required_mentions}, "valid paired design with cluster adjustment", base_required_mentions is not None and cluster_adjusted_required_mentions is not None, "power"),
     ]
+    failures = [item for item in plan_checks if not item["passed"]]
+    return {
+        "schema_version": 1,
+        "verified": not failures,
+        "validation_cutoff": cutoff.isoformat() if cutoff is not None else None,
+        "criteria": asdict(criteria),
+        "power_plan": {
+            "base_required_mentions": base_required_mentions,
+            "cluster_design_effect": design_effect,
+            "cluster_adjustment_basis": adjustment_basis,
+            "cluster_adjusted_required_mentions": cluster_adjusted_required_mentions,
+            "planned_required_mentions": cluster_adjusted_required_mentions,
+            "effective_required_mentions": effective_required_mentions,
+            "minimum_unique_papers": min_papers,
+            "alpha": alpha,
+            "power": power,
+            "minimum_absolute_gain": minimum_gain,
+            "expected_discordant_rate": discordant_rate,
+        },
+        "summary": {
+            "passed": len(plan_checks) - len(failures),
+            "failed": len(failures),
+            "total": len(plan_checks),
+        },
+        "checks": plan_checks,
+        "failures": failures,
+    }
+
+
+def assess_paired_shadow(
+    live_shadow: Mapping[str, Any],
+    plan: Mapping[str, Any],
+    *,
+    expected_dataset_sha256: str,
+    expected_code_revision: str,
+    expected_plan_sha256: str,
+    criteria: PairedShadowCriteria | None = None,
+) -> Dict[str, Any]:
+    criteria = criteria or PairedShadowCriteria()
+    document = _object(plan)
+    protocol = _object(live_shadow.get("protocol"))
+    stats = _object(live_shadow.get("stats"))
+    safety = _object(live_shadow.get("safety"))
+    release_shadow = _object(
+        _object(live_shadow.get("operational_evidence")).get(
+            "online_shadow_verified"
+        )
+    )
+    raw_records = live_shadow.get("records")
+    record_collection_valid = isinstance(raw_records, list)
+    records = [
+        dict(item)
+        for item in raw_records or []
+        if isinstance(item, Mapping)
+    ] if record_collection_valid else []
+
+    expected_dataset_sha256 = str(expected_dataset_sha256 or "").lower()
+    expected_code_revision = str(expected_code_revision or "").lower()
+    expected_plan_sha256 = str(expected_plan_sha256 or "").lower()
+    live_generated_at = _timestamp(live_shadow.get("generated_at"))
+    plan_assessment = assess_paired_shadow_plan(
+        document,
+        expected_dataset_sha256=expected_dataset_sha256,
+        expected_code_revision=expected_code_revision,
+        criteria=criteria,
+        validation_time=live_generated_at,
+    )
+    power_plan = dict(plan_assessment["power_plan"])
+    alpha = power_plan.get("alpha")
+    power = power_plan.get("power")
+    minimum_gain = power_plan.get("minimum_absolute_gain")
+    discordant_rate = power_plan.get("expected_discordant_rate")
+    min_papers = power_plan.get("minimum_unique_papers")
+    bootstrap_iterations = document.get("bootstrap_iterations")
+    randomization_iterations = document.get("randomization_iterations")
+    seed = document.get("random_seed")
+    effective_required_mentions = int(
+        power_plan.get("effective_required_mentions") or 0
+    )
+    plan_checks = list(plan_assessment["checks"])
 
     clusters_by_paper: Dict[str, list[tuple[bool, bool]]] = defaultdict(list)
     identities = set()
@@ -372,9 +481,12 @@ def assess_paired_shadow(
     )
 
     analysis_checks = [
-        _check("live_schema_version", live_shadow.get("schema_version"), 1, live_shadow.get("schema_version") == 1, "input"),
+        _check("live_schema_version", live_shadow.get("schema_version"), 1, type(live_shadow.get("schema_version")) is int and live_shadow.get("schema_version") == 1, "input"),
         _check("live_dataset_sha256", str(protocol.get("dataset_sha256") or "").lower(), expected_dataset_sha256, str(protocol.get("dataset_sha256") or "").lower() == expected_dataset_sha256, "input"),
         _check("live_code_revision", str(protocol.get("code_revision") or "").lower(), expected_code_revision, _hex_identifier(expected_code_revision, 40) and str(protocol.get("code_revision") or "").lower() == expected_code_revision, "input"),
+        _check("live_plan_sha256", str(protocol.get("paired_shadow_plan_sha256") or "").lower(), expected_plan_sha256, _hex_identifier(expected_plan_sha256, 64) and str(protocol.get("paired_shadow_plan_sha256") or "").lower() == expected_plan_sha256, "binding"),
+        _check("live_required_mentions", protocol.get("paired_shadow_required_mentions"), effective_required_mentions, protocol.get("paired_shadow_required_mentions") == effective_required_mentions, "binding"),
+        _check("live_minimum_unique_papers", protocol.get("paired_shadow_minimum_unique_papers"), min_papers, protocol.get("paired_shadow_minimum_unique_papers") == min_papers, "binding"),
         _check("live_shadow_mode", protocol.get("mode"), "shadow", protocol.get("mode") == "shadow", "input"),
         _check("zero_write_calls", [protocol.get("write_calls"), stats.get("authorized_commands")], [0, 0], protocol.get("write_calls") == 0 and stats.get("authorized_commands") == 0, "safety"),
         _check("no_write_authorized", safety.get("no_write_authorized"), True, safety.get("no_write_authorized") is True, "safety"),
@@ -396,15 +508,7 @@ def assess_paired_shadow(
         "schema_version": 1,
         "verified": not failures,
         "criteria": asdict(criteria),
-        "power_plan": {
-            "planned_required_mentions": planned_required_mentions,
-            "effective_required_mentions": effective_required_mentions,
-            "minimum_unique_papers": min_papers,
-            "alpha": alpha,
-            "power": power,
-            "minimum_absolute_gain": minimum_gain,
-            "expected_discordant_rate": discordant_rate,
-        },
+        "power_plan": power_plan,
         "population": {
             "paired_mentions": n,
             "unique_papers": paper_count,
@@ -457,35 +561,65 @@ def _load(path: Path) -> Dict[str, Any]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--live-shadow", type=Path, required=True)
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--live-shadow", type=Path)
+    mode.add_argument(
+        "--plan-only",
+        action="store_true",
+        help="Validate the preregistration and print its collection target.",
+    )
     parser.add_argument("--plan", type=Path, required=True)
     parser.add_argument("--expected-dataset", type=Path, required=True)
     parser.add_argument("--expected-code-revision", required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
-    result = assess_paired_shadow(
-        _load(args.live_shadow),
-        _load(args.plan),
-        expected_dataset_sha256=sha256_file(args.expected_dataset),
-        expected_code_revision=args.expected_code_revision,
-    )
-    result["inputs"] = {
-        "live_shadow": {"name": args.live_shadow.name, "sha256": sha256_file(args.live_shadow)},
+    plan = _load(args.plan)
+    dataset_sha256 = sha256_file(args.expected_dataset)
+    plan_sha256 = sha256_file(args.plan)
+    inputs = {
         "plan": {"name": args.plan.name, "sha256": sha256_file(args.plan)},
         "dataset": {"name": args.expected_dataset.name, "sha256": sha256_file(args.expected_dataset)},
     }
+    if args.plan_only:
+        result = assess_paired_shadow_plan(
+            plan,
+            expected_dataset_sha256=dataset_sha256,
+            expected_code_revision=args.expected_code_revision,
+        )
+        mode_name = "plan_preflight"
+    else:
+        result = assess_paired_shadow(
+            _load(args.live_shadow),
+            plan,
+            expected_dataset_sha256=dataset_sha256,
+            expected_code_revision=args.expected_code_revision,
+            expected_plan_sha256=plan_sha256,
+        )
+        inputs["live_shadow"] = {
+            "name": args.live_shadow.name,
+            "sha256": sha256_file(args.live_shadow),
+        }
+        mode_name = "final_analysis"
+    result["mode"] = mode_name
+    result["inputs"] = inputs
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(json.dumps({
+    summary = {
         "output": str(args.output),
+        "mode": mode_name,
         "verified": result["verified"],
-        "paired_mentions": result["population"]["paired_mentions"],
         "required_mentions": result["power_plan"]["effective_required_mentions"],
-        "unique_papers": result["population"]["unique_papers"],
-        "absolute_gain": result["absolute_gain"],
-        "mcnemar_p": result["mcnemar_exact_two_sided_p"],
-        "cluster_p": result["cluster_randomization"]["p_value"],
-    }, ensure_ascii=False))
+        "minimum_unique_papers": result["power_plan"]["minimum_unique_papers"],
+    }
+    if not args.plan_only:
+        summary.update({
+            "paired_mentions": result["population"]["paired_mentions"],
+            "unique_papers": result["population"]["unique_papers"],
+            "absolute_gain": result["absolute_gain"],
+            "mcnemar_p": result["mcnemar_exact_two_sided_p"],
+            "cluster_p": result["cluster_randomization"]["p_value"],
+        })
+    print(json.dumps(summary, ensure_ascii=False))
 
 
 if __name__ == "__main__":
@@ -495,6 +629,7 @@ if __name__ == "__main__":
 __all__ = [
     "PairedShadowCriteria",
     "assess_paired_shadow",
+    "assess_paired_shadow_plan",
     "cluster_bootstrap_gain_interval",
     "cluster_sign_flip_p",
     "exact_mcnemar_two_sided",

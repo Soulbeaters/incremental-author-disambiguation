@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-19T15:36:05.218942+00:00",
-  "package_id": "5eaba248bd86aeba42d008b8738bd853760fb3db48cfea047ee311be2619759f",
+  "generated_at": "2026-07-19T15:54:31.586029+00:00",
+  "package_id": "469dd1cc155b69aad4ba34ab3884cdaeb2620ace705d4c0f0fb2f82a84d86eee",
   "integrity": {
     "verified": true,
     "summary": {
@@ -12,8 +12,8 @@
     "checks": [
       {
         "name": "bundle_operational_sha256",
-        "observed": "6e9b204f79902f56ae8c500434c790a94159eb433d932264815bb5b22a18f2c0",
-        "expected": "6e9b204f79902f56ae8c500434c790a94159eb433d932264815bb5b22a18f2c0",
+        "observed": "8d9f85f7ba24ce2422d31dc785d5e293ca7b08269303e2355c7bd7c4f8d90244",
+        "expected": "8d9f85f7ba24ce2422d31dc785d5e293ca7b08269303e2355c7bd7c4f8d90244",
         "passed": true
       },
       {
@@ -502,7 +502,7 @@
     },
     "operational": {
       "name": "istina_operational_validation_20260719.json",
-      "sha256": "6e9b204f79902f56ae8c500434c790a94159eb433d932264815bb5b22a18f2c0"
+      "sha256": "8d9f85f7ba24ce2422d31dc785d5e293ca7b08269303e2355c7bd7c4f8d90244"
     },
     "gold": {
       "name": "istina_gold_readiness_20260719.json",
@@ -514,11 +514,11 @@
     },
     "bundle": {
       "name": "istina_release_evidence_bundle_20260719.json",
-      "sha256": "983b6beb9eb0bec3bead4606a80ac4cec939fe36b67cf84bd10d050233651e0f"
+      "sha256": "a68fbf0177a7ee8c88dc555dd076e48e8a0892a04332702494ae3b77698e3b67"
     },
     "gate": {
       "name": "istina_production_gate_operational_20260719.json",
-      "sha256": "dc4186afbba4ccf34e7f933c3dd1fe40384c2a29396c75580791aba68ce8e94d"
+      "sha256": "a664ac5cf7764f0d40adcdceff76210a6fcea3a3f27b3e8bd096358a3ad7676e"
     },
     "openalex_default": {
       "name": "openalex_confirmation_default_current_20260719.json",
@@ -824,8 +824,8 @@
   ],
   "operational_summary": {
     "offline_load_operations": 13554,
-    "offline_load_p95_ms": 23.05979999800911,
-    "offline_throughput_mentions_per_second": 186.53547652568298,
+    "offline_load_p95_ms": 20.983199996408075,
+    "offline_throughput_mentions_per_second": 203.78385758512536,
     "deterministic_hash_mismatches": 0,
     "runtime_safety_contract_verified": true,
     "rollback_verified": true,

@@ -22,6 +22,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from disambiguation_engine.decision_types import Decision  # noqa: E402
+from evaluation.istina_paired_shadow import assess_paired_shadow_plan  # noqa: E402
 from experiments.istina_export_temporal_evaluation import (  # noqa: E402
     article_id,
     iter_mentions,
@@ -84,10 +85,76 @@ def release_shadow_is_verified(
     smoke_verified: bool,
     mentions: int,
     minimum_mentions: int = 500,
+    *,
+    papers: int | None = None,
+    minimum_papers: int = 0,
 ) -> bool:
     """Require both a healthy smoke and release-scale online volume."""
 
-    return bool(smoke_verified and mentions >= minimum_mentions)
+    papers_verified = minimum_papers <= 0 or (
+        papers is not None and papers >= minimum_papers
+    )
+    return bool(
+        smoke_verified
+        and mentions >= minimum_mentions
+        and papers_verified
+    )
+
+
+def select_known_shadow_mentions(
+    mentions: List[Mapping[str, Any]],
+    known_ids: set[str],
+    *,
+    limit: int,
+    minimum_papers: int = 0,
+) -> List[Mapping[str, Any]]:
+    """Select a deterministic, outcome-blind sample with paper coverage."""
+
+    eligible = [
+        mention
+        for mention in mentions
+        if str(mention.get("gold_author_id") or "") in known_ids
+    ]
+    if len(eligible) < limit:
+        raise ValueError(
+            f"requested {limit} known mentions, only {len(eligible)} are available"
+        )
+    if minimum_papers <= 0:
+        return eligible[:limit]
+
+    first_from_each_paper: List[Mapping[str, Any]] = []
+    covered_papers = set()
+    for mention in eligible:
+        paper = int(mention["article_index"])
+        if paper in covered_papers:
+            continue
+        covered_papers.add(paper)
+        first_from_each_paper.append(mention)
+        if len(first_from_each_paper) == minimum_papers:
+            break
+    if len(first_from_each_paper) < minimum_papers:
+        raise ValueError(
+            f"known mentions cover {len(first_from_each_paper)} papers; "
+            f"paired-shadow plan requires {minimum_papers}"
+        )
+
+    selected_keys = {
+        (int(mention["article_index"]), str(mention.get("position") or ""))
+        for mention in first_from_each_paper
+    }
+    selected = list(first_from_each_paper)
+    for mention in eligible:
+        key = (
+            int(mention["article_index"]),
+            str(mention.get("position") or ""),
+        )
+        if key in selected_keys:
+            continue
+        selected.append(mention)
+        selected_keys.add(key)
+        if len(selected) == limit:
+            break
+    return selected
 
 
 def main() -> None:
@@ -102,6 +169,14 @@ def main() -> None:
         help=(
             "Frozen 40-hex Git revision; required for institutional deployment "
             "evidence, optional for bounded connectivity smoke runs."
+        ),
+    )
+    parser.add_argument(
+        "--paired-shadow-plan",
+        type=Path,
+        help=(
+            "Approved preregistration plan. When supplied, the runner validates "
+            "it before collection and enforces its mention and paper targets."
         ),
     )
     parser.add_argument("--sleep", type=float, default=0.1)
@@ -129,6 +204,39 @@ def main() -> None:
         r"[0-9a-fA-F]{40}", args.code_revision
     ) is None:
         raise ValueError("code-revision must be a full 40-hex Git commit")
+    paired_plan_assessment = None
+    paired_plan_sha256 = None
+    if args.paired_shadow_plan:
+        if not args.code_revision:
+            raise ValueError(
+                "paired-shadow-plan requires a full --code-revision"
+            )
+        paired_plan_document = json.loads(
+            args.paired_shadow_plan.read_text(encoding="utf-8")
+        )
+        if not isinstance(paired_plan_document, Mapping):
+            raise ValueError("paired-shadow-plan must contain a JSON object")
+        paired_plan_sha256 = sha256_file(args.paired_shadow_plan)
+        paired_plan_assessment = assess_paired_shadow_plan(
+            paired_plan_document,
+            expected_dataset_sha256=sha256_file(args.dataset),
+            expected_code_revision=args.code_revision,
+        )
+        if not paired_plan_assessment["verified"]:
+            failed = ", ".join(
+                item["name"] for item in paired_plan_assessment["failures"]
+            )
+            raise ValueError(f"paired-shadow plan preflight failed: {failed}")
+        planned_mentions = int(
+            paired_plan_assessment["power_plan"][
+                "effective_required_mentions"
+            ]
+        )
+        if args.limit < planned_mentions:
+            raise ValueError(
+                f"limit {args.limit} is below paired-shadow target "
+                f"{planned_mentions}"
+            )
 
     raw_articles = load_articles(args.dataset)
     raw_mentions = sum(
@@ -157,14 +265,17 @@ def main() -> None:
         service_client=client,
     )
     known_ids = set(pipeline.history_state.external_to_database_id)
-    selected = [
-        mention for mention in test
-        if str(mention.get("gold_author_id") or "") in known_ids
-    ][:args.limit]
-    if len(selected) < args.limit:
-        raise ValueError(
-            f"requested {args.limit} known mentions, only {len(selected)} are available"
-        )
+    minimum_unique_papers = int(
+        paired_plan_assessment["power_plan"]["minimum_unique_papers"]
+        if paired_plan_assessment is not None
+        else 0
+    )
+    selected = select_known_shadow_mentions(
+        test,
+        known_ids,
+        limit=args.limit,
+        minimum_papers=minimum_unique_papers,
+    )
 
     selected_by_article: Dict[int, List[Mapping[str, Any]]] = defaultdict(list)
     for mention in selected:
@@ -295,11 +406,22 @@ def main() -> None:
         and durable_audit_verified
         and circuit_snapshot["state"] == "closed"
     )
-    minimum_release_shadow_mentions = 500
+    minimum_release_shadow_mentions = max(
+        500,
+        int(
+            paired_plan_assessment["power_plan"][
+                "effective_required_mentions"
+            ]
+            if paired_plan_assessment is not None
+            else 0
+        ),
+    )
     release_shadow_verified = release_shadow_is_verified(
         smoke_verified,
         args.limit,
         minimum_release_shadow_mentions,
+        papers=len(selected_by_article),
+        minimum_papers=minimum_unique_papers,
     )
     result = {
         "schema_version": 1,
@@ -309,6 +431,17 @@ def main() -> None:
             "dataset_sha256": sha256_file(args.dataset),
             "code_revision": (
                 args.code_revision.lower() if args.code_revision else None
+            ),
+            "paired_shadow_plan_sha256": paired_plan_sha256,
+            "paired_shadow_required_mentions": (
+                minimum_release_shadow_mentions
+                if paired_plan_assessment is not None
+                else None
+            ),
+            "paired_shadow_minimum_unique_papers": (
+                minimum_unique_papers
+                if paired_plan_assessment is not None
+                else None
             ),
             "mode": RuntimeMode.SHADOW.value,
             "split_strategy": args.split_strategy,
@@ -371,12 +504,19 @@ def main() -> None:
                 "sufficient_release_volume": (
                     args.limit >= minimum_release_shadow_mentions
                 ),
+                "minimum_release_shadow_papers": minimum_unique_papers,
+                "sufficient_release_papers": (
+                    len(selected_by_article) >= minimum_unique_papers
+                ),
             }
         },
         "records": records,
         "release_constraints": {
             "write_enabled_replacement_authorized": False,
-            "reason": "live connectivity is verified but release sample thresholds remain unmet",
+            "reason": (
+                "live shadow evidence alone never authorizes writes; the final "
+                "machine release gate must pass every check"
+            ),
         },
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)

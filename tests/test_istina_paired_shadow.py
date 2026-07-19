@@ -1,9 +1,17 @@
 import copy
+import hashlib
+import json
+import subprocess
+import sys
+import tempfile
 import unittest
+from datetime import datetime, timezone
+from pathlib import Path
 
 from evaluation.istina_paired_shadow import (
     PairedShadowCriteria,
     assess_paired_shadow,
+    assess_paired_shadow_plan,
     exact_mcnemar_two_sided,
     required_paired_mentions,
 )
@@ -11,6 +19,7 @@ from evaluation.istina_paired_shadow import (
 
 DATASET_SHA = "b" * 64
 CODE_REVISION = "a" * 40
+PLAN_SHA = "c" * 64
 
 
 def criteria_for_test():
@@ -37,6 +46,10 @@ def valid_plan():
         "expected_discordant_rate": 1.0,
         "minimum_mentions": 40,
         "minimum_unique_papers": 10,
+        "cluster_power_adjustment": {
+            "design_effect": 1.0,
+            "basis": "Independent paper clusters in the registered design.",
+        },
         "bootstrap_iterations": 100,
         "randomization_iterations": 100,
         "random_seed": 7,
@@ -66,6 +79,9 @@ def valid_live_shadow():
         "protocol": {
             "dataset_sha256": DATASET_SHA,
             "code_revision": CODE_REVISION,
+            "paired_shadow_plan_sha256": PLAN_SHA,
+            "paired_shadow_required_mentions": 40,
+            "paired_shadow_minimum_unique_papers": 10,
             "mode": "shadow",
             "write_calls": 0,
         },
@@ -92,6 +108,7 @@ class IstinaPairedShadowTests(unittest.TestCase):
             plan or valid_plan(),
             expected_dataset_sha256=DATASET_SHA,
             expected_code_revision=CODE_REVISION,
+            expected_plan_sha256=PLAN_SHA,
             criteria=criteria_for_test(),
         )
 
@@ -105,13 +122,81 @@ class IstinaPairedShadowTests(unittest.TestCase):
 
         self.assertEqual(required, 1960)
 
+    def test_plan_preflight_applies_registered_cluster_design_effect(self):
+        plan = valid_plan()
+        plan["cluster_power_adjustment"]["design_effect"] = 2.0
+
+        result = assess_paired_shadow_plan(
+            plan,
+            expected_dataset_sha256=DATASET_SHA,
+            expected_code_revision=CODE_REVISION,
+            criteria=criteria_for_test(),
+            validation_time=datetime(2026, 7, 18, tzinfo=timezone.utc),
+        )
+
+        self.assertTrue(result["verified"], result["failures"])
+        self.assertEqual(result["power_plan"]["base_required_mentions"], 29)
+        self.assertEqual(
+            result["power_plan"]["cluster_adjusted_required_mentions"],
+            58,
+        )
+        self.assertEqual(
+            result["power_plan"]["effective_required_mentions"],
+            58,
+        )
+
+    def test_plan_only_cli_writes_verified_collection_target(self):
+        script = (
+            Path(__file__).resolve().parents[1]
+            / "evaluation"
+            / "istina_paired_shadow.py"
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            dataset = root / "export.json"
+            dataset.write_text("[]", encoding="utf-8")
+            plan = valid_plan()
+            plan["dataset_sha256"] = hashlib.sha256(b"[]").hexdigest()
+            plan["minimum_mentions"] = 500
+            plan["minimum_unique_papers"] = 100
+            plan["bootstrap_iterations"] = 10_000
+            plan["randomization_iterations"] = 20_000
+            plan_path = root / "plan.json"
+            plan_path.write_text(json.dumps(plan), encoding="utf-8")
+            output = root / "preflight.json"
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(script),
+                    "--plan-only",
+                    "--plan",
+                    str(plan_path),
+                    "--expected-dataset",
+                    str(dataset),
+                    "--expected-code-revision",
+                    CODE_REVISION,
+                    "--output",
+                    str(output),
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            result = json.loads(output.read_text(encoding="utf-8"))
+
+        self.assertIn('"mode": "plan_preflight"', completed.stdout)
+        self.assertTrue(result["verified"], result["failures"])
+        self.assertIsNotNone(result["validation_cutoff"])
+        self.assertEqual(result["power_plan"]["effective_required_mentions"], 500)
+
     def test_strong_preregistered_clustered_result_passes(self):
         result = self.assess()
 
         self.assertTrue(result["verified"])
         self.assertEqual(result["population"]["paired_mentions"], 40)
         self.assertEqual(result["population"]["unique_papers"], 10)
-        self.assertEqual(result["summary"]["total"], 33)
+        self.assertEqual(result["summary"]["total"], 39)
         self.assertEqual(result["absolute_gain"], 1.0)
         self.assertLess(result["cluster_randomization"]["p_value"], 0.05)
         self.assertGreater(
@@ -179,6 +264,10 @@ class IstinaPairedShadowTests(unittest.TestCase):
         plan = valid_plan()
         plan["bootstrap_iterations"] = 10**12
         plan["randomization_iterations"] = 10**12
+        plan["cluster_power_adjustment"] = {
+            "design_effect": 1e308,
+            "basis": ["not", "a", "string"],
+        }
 
         result = self.assess(plan=plan)
 
@@ -186,6 +275,8 @@ class IstinaPairedShadowTests(unittest.TestCase):
         failures = {failure["name"] for failure in result["failures"]}
         self.assertIn("bootstrap_iterations", failures)
         self.assertIn("randomization_iterations", failures)
+        self.assertIn("cluster_adjustment_basis", failures)
+        self.assertIn("power_calculation", failures)
 
 
 if __name__ == "__main__":

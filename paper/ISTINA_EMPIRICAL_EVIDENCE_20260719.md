@@ -1,6 +1,6 @@
 # ISTINA author-disambiguation empirical evidence package
 
-Package ID: `5eaba248bd86aeba42d008b8738bd853760fb3db48cfea047ee311be2619759f`.
+Package ID: `469dd1cc155b69aad4ba34ab3884cdaeb2620ace705d4c0f0fb2f82a84d86eee`.
 
 This package is internally consistent and machine-traceable for article use. It is not a write-enabled production authorization.
 
@@ -72,8 +72,8 @@ This table uses the first 10 of 100 deterministic AMiner name blocks (679 test m
 ## Operational evidence
 
 - Offline no-write operations: 13554
-- Offline load p95: 23.06 ms
-- Offline throughput: 186.54 mentions/s
+- Offline load p95: 20.98 ms
+- Offline throughput: 203.78 mentions/s
 - Deterministic mismatches: 0
 - Runtime safety / rollback / drift fault tests: passed / passed / passed
 - Real-service shadow: 5 mentions, 0 service errors, 0 authorized commands
@@ -124,8 +124,8 @@ Result: **8/22 passed; `release_ready: false`.**
 | aminer_full_current | `aminer_kdd18_test100_default_current_20260719.json` | `f8ef9434a15392b58086cbcb2bd19b339e237f626c3087edabeff0459b951246` |
 | aminer_full_rescue_current | `aminer_kdd18_test100_rescue_current_20260719.json` | `c1c8be7ee0c6cb15a27a13fb0ec0b15c1f1252246cf2b4b0ad9912eff145502d` |
 | aminer_rescue_current | `aminer_kdd18_test100_first10_rescue_current_20260719.json` | `6ca510c9d663d7ba5b23de75098e797bc441e621ba0215f5bb7688462c92f7e7` |
-| bundle | `istina_release_evidence_bundle_20260719.json` | `983b6beb9eb0bec3bead4606a80ac4cec939fe36b67cf84bd10d050233651e0f` |
-| gate | `istina_production_gate_operational_20260719.json` | `dc4186afbba4ccf34e7f933c3dd1fe40384c2a29396c75580791aba68ce8e94d` |
+| bundle | `istina_release_evidence_bundle_20260719.json` | `a68fbf0177a7ee8c88dc555dd076e48e8a0892a04332702494ae3b77698e3b67` |
+| gate | `istina_production_gate_operational_20260719.json` | `a664ac5cf7764f0d40adcdceff76210a6fcea3a3f27b3e8bd096358a3ad7676e` |
 | gold | `istina_gold_readiness_20260719.json` | `e337fbe9a9f8428353851d3b0626a5bc2ff3163856dca866db66c96972eea4ed` |
 | holdout | `istina_holdout_runtime_replay_deduplicated_20260719.json` | `8d871d4d55b2442dd5336019179904e1ee9d2bb94f3982e9b69e94e5f4834185` |
 | live | `istina_live_shadow_smoke_20260719.json` | `b0100dcab3c8f3229efbe7a0798063426999eb5f5c5fe14e0fe6d02e287ed595` |
@@ -133,6 +133,6 @@ Result: **8/22 passed; `release_ready: false`.**
 | openalex_large_default | `openalex_10000works_default_current_20260719.json` | `32ee0aab2ff41a85fba4069e9bb1479035ba366690d1e4d93fad6b20eb17dcc3` |
 | openalex_large_rescue | `openalex_10000works_rescue_current_20260719.json` | `456b0ada4e05851597af19d028bde18b3af5dbeda912ce53c880a298f444d309` |
 | openalex_rescue | `openalex_confirmation_rescue_ablation_current_20260719.json` | `12aeb53b945a4ad38d47850873b91b3c7aa7feda4a54c9dafe682427f41fe825` |
-| operational | `istina_operational_validation_20260719.json` | `6e9b204f79902f56ae8c500434c790a94159eb433d932264815bb5b22a18f2c0` |
+| operational | `istina_operational_validation_20260719.json` | `8d9f85f7ba24ce2422d31dc785d5e293ca7b08269303e2355c7bd7c4f8d90244` |
 | public_validation | `runtime_validation_20260719.json` | `49ada917aac3084921df958e792593107e4f09c6f530c0c2c90d230659be01d2` |
 | temporal | `istina_temporal_runtime_replay_20260719.json` | `82df262deb595ec68af3f1420dec4eefe8dc3399ee9ad12dbbd52b066234c465` |

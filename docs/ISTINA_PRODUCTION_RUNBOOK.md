@@ -50,10 +50,14 @@ service; sharing one JSONL file between processes is unsupported.
    export. Repeated load operations must not be counted as extra gold.
 5. Before the live window, register and independently approve
    `config/istina_paired_shadow_plan.template.json`. Then run
-   `experiments/istina_live_shadow.py` in no-write mode. Production release
-   requires at least 500 shared mentions and 100 papers, but the effective
-   sample is the larger power-calculated requirement (1,960 under the default
-   2-point-gain and 10%-discordance assumptions).
+   the `--plan-only` preflight before `experiments/istina_live_shadow.py` in
+   no-write mode. The live runner must receive the same plan and refuses to
+   start below its mention or paper target. Production release requires at
+   least 500 shared mentions and 100 papers. The default 2-point-gain and
+   10%-discordance assumptions give a 1,960-mention base, which is multiplied
+   by the pre-registered paper-cluster design effect. Sampling is deterministic
+   and outcome-blind: one eligible mention per required paper is selected in
+   source order before the remaining target is filled in source order.
 6. During an approved operations window, run the explicitly acknowledged,
    rate-limited `experiments/istina_online_read_load.py`; this is a read-only
    load generator, not a write client.
@@ -156,9 +160,10 @@ name/ORCID/DOI data used for name-component parsing. It is not an ISTINA
 identity export and must never be substituted for the required gold set.
 
 Obtain an adjudicated, cross-disciplinary ISTINA export of the required size,
-then perform the prospectively powered live shadow (500-case floor, 1,960 under
-the default assumptions, at least 100 papers), an online end-to-end load test, and
-deployed drift monitoring and durable audit retention. Do not duplicate,
+then perform the prospectively powered live shadow (500-case floor, a
+1,960-case base before the registered cluster design effect, and at least 100
+papers), an online end-to-end load test, and deployed drift monitoring and
+durable audit retention. Do not duplicate,
 resample, or repeatedly replay existing mentions to claim a larger gold set. A
 successful bounded smoke is not release-scale shadow verification.
 

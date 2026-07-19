@@ -62,6 +62,7 @@ def revalidate_paired_shadow_inputs(
     plan: Mapping[str, Any],
     *,
     expected_code_revision: str,
+    expected_plan_sha256: str,
     criteria: PairedShadowCriteria | None = None,
 ) -> Dict[str, Any]:
     dataset_hashes = {
@@ -77,6 +78,7 @@ def revalidate_paired_shadow_inputs(
         plan,
         expected_dataset_sha256=expected_dataset_sha256,
         expected_code_revision=expected_code_revision,
+        expected_plan_sha256=expected_plan_sha256,
         criteria=criteria,
     )
     result["validation_mode"] = "bundle_raw_shadow_plan_revalidation"
@@ -258,6 +260,7 @@ def main() -> None:
             live_shadow,
             _load(args.paired_shadow_plan),
             expected_code_revision=args.expected_code_revision,
+            expected_plan_sha256=sha256_file(args.paired_shadow_plan),
         )
         deployment_validation["paired_shadow_analysis"] = paired_shadow
         deployment_validation["operational_evidence"][

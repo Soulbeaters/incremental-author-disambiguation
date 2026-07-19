@@ -33,7 +33,7 @@ artifact whose own `release_ready` value is true. No such artifact exists.
 | `evidence/istina_release_evidence_bundle_20260719.json` | SHA-256-bound composition of independently generated evidence |
 | `evidence/istina_production_gate_operational_20260719.json` | authoritative 22-check release decision |
 | `evaluation/istina_deployment_evidence.py` | 47-check, content-level institutional shadow/load/monitor/audit validator |
-| `evaluation/istina_paired_shadow.py` | pre-registered power, exact McNemar, paper-cluster randomization and bootstrap analysis |
+| `evaluation/istina_paired_shadow.py` | preflighted cluster-adjusted power, exact McNemar, paper-cluster randomization and bootstrap analysis |
 | `experiments/istina_online_read_load.py` | approval-gated, bounded-concurrency read-only online load generator |
 | `config/istina_provenance_manifest.template.json` | intentionally invalid institutional provenance template |
 | `config/istina_deployment_evidence.template.json` | intentionally invalid deployment evidence template |
@@ -53,7 +53,7 @@ artifact whose own `release_ready` value is true. No such artifact exists.
 | `paper/ISTINA_EMPIRICAL_EVIDENCE_20260719.md` | article-ready tables, claims, limitations, and source traceability |
 
 The current article package passes 51/51 integrity checks and has package ID
-`5eaba248bd86aeba42d008b8738bd853760fb3db48cfea047ee311be2619759f`.
+`469dd1cc155b69aad4ba34ab3884cdaeb2620ace705d4c0f0fb2f82a84d86eee`.
 Its independent release field remains false.
 
 Mention-level advisor records and the private adjudication queue are excluded
@@ -174,8 +174,8 @@ The offline no-write operational run replayed all 753 temporal test mentions
 | Operational measure | Result |
 |---|---:|
 | Load operations | 13,554 |
-| Throughput | 186.54 mentions/s |
-| Local p95 | 23.06 ms |
+| Throughput | 203.78 mentions/s |
+| Local p95 | 20.98 ms |
 | Deterministic-hash mismatches | 0 |
 | Runtime safety/idempotency/redaction | passed |
 | Durable fsync audit hash chain / restart verification | passed (8 records) |
@@ -191,7 +191,7 @@ verification for the single-process sink. It does not claim deployed audit
 retention; multi-worker deployment requires separate per-worker chains or a
 transactional central append service.
 
-The final repository regression command reports 208 passed tests and one
+The final repository regression command reports 211 passed tests and one
 collection warning for a manual scenario class with a constructor. The ISTINA,
 provenance, audit-integrity, and production-control suites are included.
 
@@ -257,7 +257,9 @@ requires cross-disciplinary adjudicated ISTINA gold, online no-write shadow,
 online load, tested rollback, deployed drift monitoring, and a pre-registered,
 adequately powered, paper-cluster-aware paired comparison. Under the default
 2-point-gain and 10%-discordance assumptions, the power calculation requires
-1,960 paired mentions across at least 100 papers.
+a 1,960-mention base across at least 100 papers. The enforced collection target
+is the base multiplied by the pre-registered cluster design effect, rounded up,
+and cannot be below the registered or 500-mention floors.
 
 Current result: **8 passed, 14 failed, 22 total; `release_ready: false`.**
 
@@ -321,7 +323,7 @@ python experiments/aminer_kdd18_runtime_replay.py --data-root <aminer-data-globa
 $env:ISTINA_AUDIT_SALT = <secret-manager-value>
 python experiments/istina_live_shadow.py --dataset <advisor-export.json> --split-strategy temporal --train-through-year 2023 --limit 5 --audit-output <private-audit.jsonl> --output evidence/istina_live_shadow_smoke_20260719.json
 
-python experiments/istina_operational_validation.py --dataset <advisor-export.json> --service-result <frozen-service.json> --live-shadow-evidence evidence/istina_live_shadow_smoke_20260719.json --split-strategy temporal --train-through-year 2023 --iterations 18 --tests-passed 208 --test-warnings 1 --output evidence/istina_operational_validation_20260719.json
+python experiments/istina_operational_validation.py --dataset <advisor-export.json> --service-result <frozen-service.json> --live-shadow-evidence evidence/istina_live_shadow_smoke_20260719.json --split-strategy temporal --train-through-year 2023 --iterations 18 --tests-passed 211 --test-warnings 1 --output evidence/istina_operational_validation_20260719.json
 
 python evaluation/istina_evidence_bundle.py --operational-validation evidence/istina_operational_validation_20260719.json --gold-readiness evidence/istina_gold_readiness_20260719.json --live-shadow evidence/istina_live_shadow_smoke_20260719.json --output evidence/istina_release_evidence_bundle_20260719.json
 
@@ -335,7 +337,8 @@ python evaluation/istina_paper_package.py --temporal evidence/istina_temporal_ru
 Obtain an adjudicated, cross-disciplinary ISTINA export with at least 10,000
 future test mentions, 1,000 verified identities already present in frozen
 history, 1,000 genuine new identities, and a prospectively powered paired
-comparison (500 is only the floor; the default plan requires 1,960 cases).
+comparison (500 is only the floor; the default assumptions produce a
+1,960-case base before the registered cluster design effect).
 The export must include discipline and sufficient affiliation/journal context,
 and all unresolved label conflicts must be adjudicated. Its provenance manifest
 must bind the exact file hashes, extraction time and method, label semantics,

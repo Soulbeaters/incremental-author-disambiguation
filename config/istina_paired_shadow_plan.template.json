@@ -11,6 +11,10 @@
   "expected_discordant_rate": 0.1,
   "minimum_mentions": 500,
   "minimum_unique_papers": 100,
+  "cluster_power_adjustment": {
+    "design_effect": 1.0,
+    "basis": "REPLACE_WITH_STATISTICIAN_APPROVED_CLUSTER_DESIGN_RATIONALE"
+  },
   "bootstrap_iterations": 10000,
   "randomization_iterations": 20000,
   "random_seed": 20260719,

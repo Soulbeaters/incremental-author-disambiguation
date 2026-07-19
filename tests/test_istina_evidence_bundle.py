@@ -15,6 +15,7 @@ from tests.test_istina_deployment_evidence import (
     valid_manifest,
 )
 from tests.test_istina_paired_shadow import (
+    PLAN_SHA,
     criteria_for_test as paired_criteria_for_test,
     valid_live_shadow as valid_paired_live_shadow,
     valid_plan as valid_paired_plan,
@@ -197,14 +198,26 @@ class IstinaEvidenceBundleTests(unittest.TestCase):
             live,
             valid_paired_plan(),
             expected_code_revision=CODE_REVISION,
+            expected_plan_sha256=PLAN_SHA,
             criteria=paired_criteria_for_test(),
         )
+        live["protocol"]["paired_shadow_plan_sha256"] = "d" * 64
+        mismatched_plan = revalidate_paired_shadow_inputs(
+            gold,
+            live,
+            valid_paired_plan(),
+            expected_code_revision=CODE_REVISION,
+            expected_plan_sha256=PLAN_SHA,
+            criteria=paired_criteria_for_test(),
+        )
+        live["protocol"]["paired_shadow_plan_sha256"] = PLAN_SHA
         live["records"][0]["service_error"] = True
         tampered = revalidate_paired_shadow_inputs(
             gold,
             live,
             valid_paired_plan(),
             expected_code_revision=CODE_REVISION,
+            expected_plan_sha256=PLAN_SHA,
             criteria=paired_criteria_for_test(),
         )
 
@@ -212,6 +225,11 @@ class IstinaEvidenceBundleTests(unittest.TestCase):
         self.assertEqual(
             valid["validation_mode"],
             "bundle_raw_shadow_plan_revalidation",
+        )
+        self.assertFalse(mismatched_plan["verified"])
+        self.assertIn(
+            "live_plan_sha256",
+            {failure["name"] for failure in mismatched_plan["failures"]},
         )
         self.assertFalse(tampered["verified"])
 

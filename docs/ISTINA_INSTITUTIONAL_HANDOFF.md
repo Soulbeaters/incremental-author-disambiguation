@@ -46,7 +46,7 @@ The code revision enforces these defaults:
 | Strict-temporal test | at least 10,000 mentions |
 | Known / genuinely unseen | at least 1,000 / 1,000 |
 | Fair live shadow | at least 500 known mentions and 100 papers, zero writes |
-| Powered paired comparison | maximum of the 500 floor, registered minimum, and computed requirement |
+| Powered paired comparison | maximum of the 500 floor, registered minimum, and cluster-adjusted computed requirement |
 | Cross-disciplinary scope | at least 5 disciplines and 3 years |
 | Gold/title/year coverage | at least 95% each |
 | Unresolved label issues | 0 |
@@ -65,10 +65,13 @@ and unseen-false-link rates at most 0.1%, local p95 at most 50 ms, and a
 statistically significant legacy-shadow gain of at least two percentage
 points. With the default registered assumptions (`alpha=0.05`, 80% power,
 2-point gain, and 10% anticipated discordance), the paired normal-approximation
-requirement is 1,960 mentions. Final inference also requires an exact two-sided
-McNemar p-value at most 0.05, a paper-cluster sign-flip p-value at most 0.05,
-and a paper-cluster bootstrap interval whose lower bound is above zero.
-Changing assumptions after observing outcomes invalidates the evidence.
+base requirement is 1,960 mentions. The final collection target is this base
+multiplied by the statistician-approved, pre-registered paper-cluster design
+effect, rounded up, and cannot be below either the 500 floor or the registered
+minimum. Final inference also requires an exact two-sided McNemar p-value at
+most 0.05, a paper-cluster sign-flip p-value at most 0.05, and a paper-cluster
+bootstrap interval whose lower bound is above zero. Changing assumptions after
+observing outcomes invalidates the evidence.
 
 ## Execution sequence
 
@@ -83,9 +86,10 @@ python evaluation/istina_gold_readiness.py --dataset <private-istina-export.json
 python experiments/istina_runtime_replay.py --dataset <private-istina-export.json> --service-result <private-frozen-legacy.json> --split-strategy temporal --train-through-year <frozen-year> --compact-output --output <private-temporal-replay.json>
 
 # Complete and approve the paired-shadow plan before starting the live window.
+python evaluation/istina_paired_shadow.py --plan-only --plan <private-paired-shadow-plan.json> --expected-dataset <private-istina-export.json> --expected-code-revision $revision --output <private-paired-shadow-preflight.json>
 
 $env:ISTINA_AUDIT_SALT = <secret-manager-value>
-python experiments/istina_live_shadow.py --dataset <private-istina-export.json> --split-strategy temporal --train-through-year <frozen-year> --limit <registered-required-mentions> --code-revision $revision --audit-output <private-retained-audit.jsonl> --output <private-live-shadow.json>
+python experiments/istina_live_shadow.py --dataset <private-istina-export.json> --split-strategy temporal --train-through-year <frozen-year> --limit <preflight-effective-required-mentions> --code-revision $revision --paired-shadow-plan <private-paired-shadow-plan.json> --audit-output <private-retained-audit.jsonl> --output <private-live-shadow.json>
 
 python evaluation/istina_paired_shadow.py --live-shadow <private-live-shadow.json> --plan <private-paired-shadow-plan.json> --expected-dataset <private-istina-export.json> --expected-code-revision $revision --output <private-paired-shadow-analysis.json>
 
@@ -102,6 +106,12 @@ python evaluation/istina_evidence_bundle.py --operational-validation <private-op
 python evaluation/production_gate.py --replay-result <private-operational-validation.json> --evidence <private-release-bundle.json> --output <private-production-gate.json>
 ```
 
+When the plan is supplied, the live runner makes the sample deterministic and
+outcome-blind: it first selects one eligible known-author mention from each
+required distinct paper in source order, then fills the remaining target in
+source order. It refuses to contact the service if the plan, hashes, code
+revision, mention target, or available paper coverage is insufficient.
+
 ## Fail-closed interpretation
 
 `istina_deployment_evidence.py` ignores any hand-written `verified` field. It
@@ -111,11 +121,13 @@ signals, monitoring window, paging proof, audit-chain head, retention policy,
 and exact file hashes. It also requires two distinct approval references.
 `istina_evidence_bundle.py` then checks that the deployment dataset hash is the
 same dataset audited by gold readiness and independently reruns the attachment
-checks from the raw files. It also reruns the 33-check paired analysis directly
-from live records and the registered plan. Standalone validation and analysis
-JSON files are preflight reports, not the bundle's trust source. A mismatched,
-incomplete, non-JSON, or edited artifact leaves online shadow, online load,
-paired comparison, and deployed monitoring false.
+checks from the raw files. It also reruns the 39-check paired analysis directly
+from live records and the registered plan, including the plan file hash,
+cluster-adjusted collection target, and minimum paper count recorded by the
+live runner. Standalone validation, preflight, and analysis JSON files are
+diagnostic reports, not the bundle's trust source. A mismatched, incomplete,
+non-JSON, or edited artifact leaves online shadow, online load, paired
+comparison, and deployed monitoring false.
 
 The current repository evidence intentionally omits a deployment-validation
 artifact because no qualifying institutional run has occurred. Therefore the

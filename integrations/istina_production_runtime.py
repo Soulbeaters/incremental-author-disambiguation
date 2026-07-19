@@ -610,6 +610,7 @@ class IstinaProductionRuntime:
         service_response: Optional[Mapping[str, Any]] = None,
         query_service: bool = True,
         capture_legacy_shadow: bool = True,
+        allow_service_fallback: Optional[bool] = None,
     ) -> ProductionPaperResult:
         mentions = article_mentions(article, article_index=article_index)
         decisions = tuple(self.pipeline.decide_paper(
@@ -619,7 +620,7 @@ class IstinaProductionRuntime:
             service_response=service_response,
             query_service=query_service,
             capture_legacy_shadow=capture_legacy_shadow,
-            allow_service_fallback=True,
+            allow_service_fallback=allow_service_fallback,
         ))
 
         monitoring = self.monitor.observe_many(decisions) if self.monitor else {

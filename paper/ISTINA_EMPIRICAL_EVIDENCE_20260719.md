@@ -1,6 +1,6 @@
 # ISTINA author-disambiguation empirical evidence package
 
-Package ID: `469dd1cc155b69aad4ba34ab3884cdaeb2620ace705d4c0f0fb2f82a84d86eee`.
+Package ID: `ff5d42ea706bfe9fb5b4000d6fbdab0814b4c5fe3e9c38f8669419ac68b93146`.
 
 This package is internally consistent and machine-traceable for article use. It is not a write-enabled production authorization.
 
@@ -20,8 +20,8 @@ This package is internally consistent and machine-traceable for article use. It 
 
 | Dataset | Protocol role | Test | Known | New | Paper overlap | Merge precision | Known recall | Automatic accuracy | UNKNOWN | Wrong-merge rate | p95 ms |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| ISTINA advisor export | strict temporal primary | 571 | 5 | 566 | 0 | 100.00% | 20.00% | 94.40% | 4.90% | 0.00% | 12.85 |
-| ISTINA advisor export | per-author diagnostic only | 1263 | 38 | 1225 | 13 | 100.00% | 73.68% | 95.96% | 3.25% | 0.00% | 1.32 |
+| ISTINA advisor export | strict temporal primary | 571 | 5 | 566 | 0 | 0.00% | 0.00% | 94.22% | 5.08% | 0.00% | 12.96 |
+| ISTINA advisor export | per-author diagnostic only | 1263 | 38 | 1225 | 13 | 100.00% | 71.05% | 95.88% | 3.33% | 0.00% | 1.34 |
 | OpenAlex ORCID-blind confirmation | current-runtime public confirmation | 6232 | 3680 | 2552 | 0 | 100.00% | 71.93% | 78.90% | 16.13% | 0.00% | 8.23 |
 | OpenAlex 10,000-work sample | current-runtime large cross-domain stress | 27430 | 552 | 26878 | 0 | 73.68% | 43.12% | 88.83% | 10.84% | 0.31% | 13.72 |
 | AMiner KDD'18 test_100 | current-runtime complete public transfer stress | 6412 | 2744 | 3668 | 0 | 70.02% | 64.61% | 27.65% | 60.51% | 11.84% | 391.61 |
@@ -64,26 +64,28 @@ This table uses the first 10 of 100 deterministic AMiner name blocks (679 test m
 
 ## Fair legacy-service comparison
 
+Framework decisions are computed with legacy-service fallback disabled; incumbent outputs are retained only as paired observations.
+
 | Protocol | Shared cases | Framework correct | Legacy correct | Exact McNemar p | Significant at 0.05 |
 |---|---:|---:|---:|---:|---:|
-| strict temporal primary | 5 | 1 | 3 | 0.500000 | false |
-| per-author diagnostic only | 38 | 28 | 24 | 0.454498 | false |
+| strict temporal primary | 5 | 0 | 3 | 0.250000 | false |
+| per-author diagnostic only | 38 | 27 | 24 | 0.629059 | false |
 
 ## Operational evidence
 
 - Offline no-write operations: 13554
-- Offline load p95: 20.98 ms
-- Offline throughput: 203.78 mentions/s
+- Offline load p95: 14.14 ms
+- Offline throughput: 302.58 mentions/s
 - Deterministic mismatches: 0
 - Runtime safety / rollback / drift fault tests: passed / passed / passed
 - Real-service shadow: 5 mentions, 0 service errors, 0 authorized commands
-- Live paper-request p95: 15462.99 ms
+- Live paper-request p95: 15205.50 ms
 - Live audit chain verified / retained: true / false
 
 ## Article-safe interpretation
 
-- The cleaned strict-temporal ISTINA sample has no observed wrong merge, but contains only five known-author cases and one merge.
-- The cleaned 38-case diagnostic favors the framework 28 to 24, but the exact paired test is not statistically significant.
+- The cleaned strict-temporal ISTINA sample has no observed wrong merge, but contains only 5 known-author cases and 0 automatic merges.
+- The cleaned 38-case diagnostic compares the independent framework at 27 correct with the legacy service at 24 correct, but the exact paired test is not statistically significant.
 - A five-mention real-service smoke demonstrates bounded no-write connectivity, not release-scale online performance.
 - The rescue improves recall without reducing precision on the current OpenAlex confirmation, but lowers precision and increases wrong merges on both the 27,430-mention OpenAlex stress ablation and the complete 6,412-mention AMiner ablation. Universal superiority is therefore unsupported.
 - The current machine gate does not authorize write-enabled ISTINA replacement.
@@ -97,7 +99,7 @@ Claims that remain prohibited:
 
 ## Machine release gate
 
-Result: **8/22 passed; `release_ready: false`.**
+Result: **8/23 passed; `release_ready: false`.**
 
 | Missing check | Category | Observed | Required |
 |---|---|---:|---|
@@ -105,11 +107,12 @@ Result: **8/22 passed; `release_ready: false`.**
 | existing_mentions | data | 5 | >=1000 |
 | new_mentions | data | 566 | >=1000 |
 | shadow_mentions | data | 5 | >=500 |
-| existing_recall | quality | 0.2 | >=0.95 |
-| auto_accuracy | quality | 0.943958 | >=0.98 |
-| unknown_rate | quality | 0.0490368 | <=0.02 |
-| shadow_absolute_gain | comparison | -0.4 | >=0.02 |
-| shadow_significance | comparison | 0.5 | <=0.05 |
+| merge_precision | quality | 0 | >=0.995 |
+| existing_recall | quality | 0 | >=0.95 |
+| auto_accuracy | quality | 0.942207 | >=0.98 |
+| unknown_rate | quality | 0.0507881 | <=0.02 |
+| shadow_absolute_gain | comparison | -0.6 | >=0.02 |
+| shadow_significance | comparison | 0.25 | <=0.05 |
 | cross_domain_gold_verified | operations | false | validated gold from multiple ISTINA disciplines |
 | online_shadow_verified | operations | false | live shadow run without writes |
 | online_load_test_verified | operations | false | online end-to-end load and latency test |
@@ -124,15 +127,15 @@ Result: **8/22 passed; `release_ready: false`.**
 | aminer_full_current | `aminer_kdd18_test100_default_current_20260719.json` | `f8ef9434a15392b58086cbcb2bd19b339e237f626c3087edabeff0459b951246` |
 | aminer_full_rescue_current | `aminer_kdd18_test100_rescue_current_20260719.json` | `c1c8be7ee0c6cb15a27a13fb0ec0b15c1f1252246cf2b4b0ad9912eff145502d` |
 | aminer_rescue_current | `aminer_kdd18_test100_first10_rescue_current_20260719.json` | `6ca510c9d663d7ba5b23de75098e797bc441e621ba0215f5bb7688462c92f7e7` |
-| bundle | `istina_release_evidence_bundle_20260719.json` | `a68fbf0177a7ee8c88dc555dd076e48e8a0892a04332702494ae3b77698e3b67` |
-| gate | `istina_production_gate_operational_20260719.json` | `a664ac5cf7764f0d40adcdceff76210a6fcea3a3f27b3e8bd096358a3ad7676e` |
+| bundle | `istina_release_evidence_bundle_20260719.json` | `939ec29c7d2268cece11079a9fcad34e590d8aa0f58af50bfb6236533912be78` |
+| gate | `istina_production_gate_operational_20260719.json` | `347eb2727eedf631c1128bb55487f63fe400d657c19ee9ead0f300ff53f349a0` |
 | gold | `istina_gold_readiness_20260719.json` | `e337fbe9a9f8428353851d3b0626a5bc2ff3163856dca866db66c96972eea4ed` |
-| holdout | `istina_holdout_runtime_replay_deduplicated_20260719.json` | `8d871d4d55b2442dd5336019179904e1ee9d2bb94f3982e9b69e94e5f4834185` |
-| live | `istina_live_shadow_smoke_20260719.json` | `b0100dcab3c8f3229efbe7a0798063426999eb5f5c5fe14e0fe6d02e287ed595` |
+| holdout | `istina_holdout_runtime_replay_deduplicated_20260719.json` | `5006f00d7f8be4cb9ae5502bce9692b355a077a14a1511ee7cc9f41c624ad69d` |
+| live | `istina_live_shadow_smoke_20260719.json` | `f3eb98ed8a0fbfdf5a199bd41a256ddc208cdfa8ff0965112eb59491666d2cf3` |
 | openalex_default | `openalex_confirmation_default_current_20260719.json` | `038e9874ce9838e8e1153303f04164ccee5bd2c4b8cb2394725739006ae8e118` |
 | openalex_large_default | `openalex_10000works_default_current_20260719.json` | `32ee0aab2ff41a85fba4069e9bb1479035ba366690d1e4d93fad6b20eb17dcc3` |
 | openalex_large_rescue | `openalex_10000works_rescue_current_20260719.json` | `456b0ada4e05851597af19d028bde18b3af5dbeda912ce53c880a298f444d309` |
 | openalex_rescue | `openalex_confirmation_rescue_ablation_current_20260719.json` | `12aeb53b945a4ad38d47850873b91b3c7aa7feda4a54c9dafe682427f41fe825` |
-| operational | `istina_operational_validation_20260719.json` | `8d9f85f7ba24ce2422d31dc785d5e293ca7b08269303e2355c7bd7c4f8d90244` |
+| operational | `istina_operational_validation_20260719.json` | `da61c3b781a355c43cb775ed239991222e53dff67ee9f242490c6f6e39f8b26f` |
 | public_validation | `runtime_validation_20260719.json` | `49ada917aac3084921df958e792593107e4f09c6f530c0c2c90d230659be01d2` |
-| temporal | `istina_temporal_runtime_replay_20260719.json` | `82df262deb595ec68af3f1420dec4eefe8dc3399ee9ad12dbbd52b066234c465` |
+| temporal | `istina_temporal_runtime_replay_20260719.json` | `7b7f0c305dc20634c598eb59302f6bf82663d19d293ab3e287bfc780e4485557` |

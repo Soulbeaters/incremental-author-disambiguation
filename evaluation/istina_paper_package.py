@@ -171,6 +171,38 @@ def compose_paper_package(
             or 0
         ),
     }
+    comparator_protocols = {
+        "temporal": [
+            temporal_protocol.get("framework_legacy_fallback_enabled"),
+            temporal_protocol.get("legacy_service_observation_only"),
+            int((temporal.get("stage_counts") or {}).get(
+                "legacy_service_validated_fallback"
+            ) or 0),
+        ],
+        "holdout": [
+            holdout_protocol.get("framework_legacy_fallback_enabled"),
+            holdout_protocol.get("legacy_service_observation_only"),
+            int((holdout.get("stage_counts") or {}).get(
+                "legacy_service_validated_fallback"
+            ) or 0),
+        ],
+        "operational": [
+            operational_protocol.get("framework_legacy_fallback_enabled"),
+            operational_protocol.get("legacy_service_observation_only"),
+            int((operational.get("stage_counts") or {}).get(
+                "legacy_service_validated_fallback"
+            ) or 0),
+        ],
+        "live": [
+            live_protocol.get("framework_legacy_fallback_enabled"),
+            live_protocol.get("legacy_service_observation_only"),
+            sum(
+                isinstance(record, Mapping)
+                and record.get("stage") == "legacy_service_validated_fallback"
+                for record in (live.get("records") or [])
+            ),
+        ],
+    }
     bundle_sources = dict(bundle.get("sources") or {})
     checks = [
         _check(
@@ -206,6 +238,25 @@ def compose_paper_package(
                     live_protocol,
                 )
             ),
+        ),
+        _check(
+            "legacy_comparator_independence",
+            {
+                "protocols": comparator_protocols,
+                "gate": _gate_observed(
+                    gate,
+                    "legacy_comparator_independence_verified",
+                ),
+            },
+            "all framework paths [fallback=False, observation_only=True, fallback_stages=0] and gate=true",
+            all(
+                values == [False, True, 0]
+                for values in comparator_protocols.values()
+            )
+            and _gate_observed(
+                gate,
+                "legacy_comparator_independence_verified",
+            ) is True,
         ),
         _check("temporal_total", temporal_stats.get("total"), gold_temporal.get("test_mentions")),
         _check("temporal_existing", temporal_stats.get("existing_gold"), gold_temporal.get("existing_mentions")),
@@ -868,14 +919,19 @@ def compose_paper_package(
             "id": "istina_zero_observed_wrong_merges_limited_sample",
             "statement": (
                 "The cleaned strict-temporal ISTINA sample has no observed wrong "
-                "merge, but contains only five known-author cases and one merge."
+                f"merge, but contains only {temporal_stats.get('existing_gold')} "
+                f"known-author cases and {temporal_stats.get('merge')} automatic "
+                "merges."
             ),
             "sources": ["temporal", "gold"],
         },
         {
             "id": "legacy_advantage_not_established",
             "statement": (
-                "The cleaned 38-case diagnostic favors the framework 28 to 24, "
+                f"The cleaned {holdout_legacy.get('n')}-case diagnostic compares "
+                f"the independent framework at {holdout_legacy.get('runtime_correct')} "
+                f"correct with the legacy service at {holdout_legacy.get('legacy_correct')} "
+                "correct, "
                 "but the exact paired test is not statistically significant."
             ),
             "sources": ["holdout"],
@@ -1169,6 +1225,11 @@ def render_markdown(package: Mapping[str, Any]) -> str:
     lines.extend([
         "",
         "## Fair legacy-service comparison",
+        "",
+        (
+            "Framework decisions are computed with legacy-service fallback "
+            "disabled; incumbent outputs are retained only as paired observations."
+        ),
         "",
         "| Protocol | Shared cases | Framework correct | Legacy correct | Exact McNemar p | Significant at 0.05 |",
         "|---|---:|---:|---:|---:|---:|",

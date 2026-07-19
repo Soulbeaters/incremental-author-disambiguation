@@ -149,6 +149,10 @@ def assess_production_readiness(
     operational_requirements = {
         "runtime_safety_contract_verified": "write authorization, idempotency, redaction, and fail-closed runtime contract",
         "offline_load_test_verified": "deterministic no-write load replay on real ISTINA data",
+        "legacy_comparator_independence_verified": (
+            "framework decisions do not consume legacy-service outputs used "
+            "as the paired comparator"
+        ),
         "cross_domain_gold_verified": "validated gold from multiple ISTINA disciplines",
         "online_shadow_verified": "live shadow run without writes",
         "online_load_test_verified": "online end-to-end load and latency test",

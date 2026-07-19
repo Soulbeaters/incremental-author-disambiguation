@@ -377,7 +377,7 @@ def main() -> None:
     pipeline = IstinaDisambiguationPipeline.from_history_mentions(
         history,
         config=IstinaPipelineConfig(
-            use_remote_fallback=True,
+            use_remote_fallback=False,
             enable_calibrated_candidate_rescue=False,
             run_id="istina-operational-validation",
         ),
@@ -389,6 +389,7 @@ def main() -> None:
         baseline_decisions.append(pipeline.decide_mention(
             mention,
             service_response=record_service_response(service_record),
+            allow_service_fallback=False,
             emit_audit=False,
         ))
 
@@ -422,6 +423,49 @@ def main() -> None:
         "verified": False,
         "reason": "no live shadow evidence artifact was supplied",
     }
+    live_shadow_protocol = (
+        dict(live_shadow_document.get("protocol") or {})
+        if isinstance(live_shadow_document, Mapping)
+        else {}
+    )
+    live_shadow_records = (
+        list(live_shadow_document.get("records") or [])
+        if isinstance(live_shadow_document, Mapping)
+        and isinstance(live_shadow_document.get("records"), list)
+        else []
+    )
+    offline_fallback_stages = sum(
+        decision.stage == "legacy_service_validated_fallback"
+        for decision in baseline_decisions
+    )
+    live_fallback_stages = sum(
+        isinstance(record, Mapping)
+        and record.get("stage") == "legacy_service_validated_fallback"
+        for record in live_shadow_records
+    )
+    comparator_independence = {
+        "verified": bool(
+            args.live_shadow_evidence
+            and live_shadow_protocol.get(
+                "framework_legacy_fallback_enabled"
+            ) is False
+            and live_shadow_protocol.get(
+                "legacy_service_observation_only"
+            ) is True
+            and offline_fallback_stages == 0
+            and live_fallback_stages == 0
+        ),
+        "offline_framework_legacy_fallback_enabled": False,
+        "offline_legacy_fallback_stages": offline_fallback_stages,
+        "live_framework_legacy_fallback_enabled": live_shadow_protocol.get(
+            "framework_legacy_fallback_enabled"
+        ),
+        "live_legacy_service_observation_only": live_shadow_protocol.get(
+            "legacy_service_observation_only"
+        ),
+        "live_legacy_fallback_stages": live_fallback_stages,
+        "required": "legacy service observed only and never used by framework decisions",
+    }
 
     result = {
         "schema_version": 1,
@@ -448,6 +492,8 @@ def main() -> None:
             "load_iterations": args.iterations,
             "network_calls": 0,
             "write_calls": 0,
+            "framework_legacy_fallback_enabled": False,
+            "legacy_service_observation_only": True,
         },
         "tests": {
             "command": "python -m pytest -q -p no:cacheprovider",
@@ -469,6 +515,7 @@ def main() -> None:
         "operational_evidence": {
             "runtime_safety_contract_verified": runtime_contract,
             "offline_load_test_verified": load,
+            "legacy_comparator_independence_verified": comparator_independence,
             "rollback_verified": {
                 "verified": bool(circuit["verified"] and drift["verified"]),
                 "method": "circuit-breaker recovery plus fail-closed drift fault injection",

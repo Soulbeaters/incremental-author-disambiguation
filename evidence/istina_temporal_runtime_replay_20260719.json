@@ -12,37 +12,38 @@
     "exact_duplicate_cleaning_applied": true,
     "service_result": "C:\\program 2 in 2025\\results\\istina_export_holdout_eval_shared_existing_paper_service90_20260717.json",
     "service_result_sha256": "00d86db7994f5348d0b1805509ac2ad1a8be164b9eed59ea3721bea0635919b3",
-    "runtime_class": "integrations.istina_pipeline.IstinaDisambiguationPipeline"
+    "runtime_class": "integrations.istina_pipeline.IstinaDisambiguationPipeline",
+    "framework_legacy_fallback_enabled": false,
+    "legacy_service_observation_only": true
   },
   "stats": {
     "total": 571,
     "existing_gold": 5,
     "new_gold": 566,
-    "merge": 1,
+    "merge": 0,
     "new": 542,
-    "unknown": 28,
-    "correct_merge": 1,
+    "unknown": 29,
+    "correct_merge": 0,
     "wrong_merge": 0,
     "correct_new": 538,
     "false_new_for_existing": 4,
     "merge_for_new_gold": 0
   },
   "metrics": {
-    "precision": 1.0,
-    "existing_recall": 0.2,
-    "f1_existing": 0.33333333333333337,
-    "auto_accuracy": 0.9439579684763573,
-    "unknown_rate": 0.04903677758318739,
+    "precision": 0.0,
+    "existing_recall": 0.0,
+    "f1_existing": 0.0,
+    "auto_accuracy": 0.9422066549912435,
+    "unknown_rate": 0.050788091068301226,
     "wrong_merge_rate": 0.0,
-    "throughput_mentions_per_second": 403.3819372062281,
-    "latency_ms_p50": 0.23890000011306256,
-    "latency_ms_p95": 12.847900001361268,
-    "latency_ms_p99": 17.590600000403356,
-    "latency_ms_max": 20.67470000110916
+    "throughput_mentions_per_second": 397.87594172393426,
+    "latency_ms_p50": 0.24570000095991418,
+    "latency_ms_p95": 12.964000001375098,
+    "latency_ms_p99": 18.155099998693913,
+    "latency_ms_max": 21.628999995300546
   },
   "stage_counts": {
-    "legacy_service_validated_fallback": 1,
-    "local_fs": 570
+    "local_fs": 571
   },
   "candidate_retrieval": {
     "truncated_mentions": 0,
@@ -54,14 +55,14 @@
   "legacy_shadow": {
     "n": 5,
     "paired_table": {
-      "both_correct": 1,
+      "both_correct": 0,
       "runtime_only_correct": 0,
-      "legacy_only_correct": 2,
+      "legacy_only_correct": 3,
       "both_incorrect": 2
     },
-    "runtime_correct": 1,
+    "runtime_correct": 0,
     "legacy_correct": 3,
-    "mcnemar_exact_two_sided_p": 0.5
+    "mcnemar_exact_two_sided_p": 0.25
   },
-  "elapsed_seconds": 1.4155319000019517
+  "elapsed_seconds": 1.4351206999999704
 }

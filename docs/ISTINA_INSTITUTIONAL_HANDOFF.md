@@ -3,7 +3,7 @@
 This handoff is the remaining institution-side path from the current
 research/candidate framework to a machine-verifiable release decision. It does
 not authorize writes. A write-capable downstream adapter must remain absent
-until the final 22-check gate reports `release_ready: true`.
+until the final 23-check gate reports `release_ready: true`.
 
 ## Required private inputs
 
@@ -73,6 +73,12 @@ most 0.05, a paper-cluster sign-flip p-value at most 0.05, and a paper-cluster
 bootstrap interval whose lower bound is above zero. Changing assumptions after
 observing outcomes invalidates the evidence.
 
+The framework arm must never consume the legacy result used as its comparator.
+The live runner therefore disables legacy fallback and records the incumbent
+response only as an observation. The paired validator rejects either a protocol
+claim that enables fallback or any record produced by the
+`legacy_service_validated_fallback` stage.
+
 ## Execution sequence
 
 Run all commands from a frozen, clean revision. Replace angle-bracket values
@@ -121,7 +127,7 @@ signals, monitoring window, paging proof, audit-chain head, retention policy,
 and exact file hashes. It also requires two distinct approval references.
 `istina_evidence_bundle.py` then checks that the deployment dataset hash is the
 same dataset audited by gold readiness and independently reruns the attachment
-checks from the raw files. It also reruns the 39-check paired analysis directly
+checks from the raw files. It also reruns the 40-check paired analysis directly
 from live records and the registered plan, including the plan file hash,
 cluster-adjusted collection target, and minimum paper count recorded by the
 live runner. Standalone validation, preflight, and analysis JSON files are

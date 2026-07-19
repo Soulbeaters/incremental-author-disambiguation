@@ -14,7 +14,14 @@ class _Pipeline:
             external_to_database_id={"known": "db-known"}
         )
 
-    def decide_mention(self, mention, service_response=None):
+    def decide_mention(
+        self,
+        mention,
+        service_response=None,
+        allow_service_fallback=None,
+    ):
+        if allow_service_fallback is not False:
+            raise AssertionError("evaluation must disable legacy fallback")
         gold = str(mention["gold_author_id"])
         decision = Decision.MERGE if gold == "known" else Decision.NEW
         return IstinaPipelineDecision(

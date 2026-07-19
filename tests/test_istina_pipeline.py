@@ -732,11 +732,37 @@ class IstinaPipelineTests(unittest.TestCase):
         decisions = pipeline.decide_paper({
             "id": "paper",
             "authors": [{"lastname": "Ма", "firstname": "Цзясин"}],
-        }, man_id=4705445, query_service=True, capture_legacy_shadow=True)
+        },
+            man_id=4705445,
+            query_service=True,
+            capture_legacy_shadow=True,
+            allow_service_fallback=False,
+        )
 
-        self.assertEqual(len(client.calls), 1)
+        first = decisions[0]
+        client.response = {**response, "result_id": ["999"]}
+        second = pipeline.decide_paper({
+            "id": "paper",
+            "authors": [{"lastname": "Ма", "firstname": "Цзясин"}],
+        },
+            man_id=4705445,
+            query_service=True,
+            capture_legacy_shadow=True,
+            allow_service_fallback=False,
+        )[0]
+
+        self.assertEqual(len(client.calls), 2)
         self.assertEqual(client.calls[0][0][0].middle_name, "ч")
-        self.assertEqual(decisions[0].legacy_result_id, "10")
+        self.assertEqual(first.legacy_result_id, "10")
+        self.assertEqual(second.legacy_result_id, "999")
+        self.assertNotEqual(
+            first.stage,
+            "legacy_service_validated_fallback",
+        )
+        self.assertEqual(
+            (first.decision, first.author_id, first.stage, first.deterministic_hash),
+            (second.decision, second.author_id, second.stage, second.deterministic_hash),
+        )
 
     def test_final_pipeline_audit_is_redacted(self):
         with tempfile.TemporaryDirectory() as directory:

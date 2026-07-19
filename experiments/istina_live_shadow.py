@@ -258,7 +258,7 @@ def main() -> None:
     pipeline = IstinaDisambiguationPipeline.from_history_mentions(
         history,
         config=IstinaPipelineConfig(
-            use_remote_fallback=True,
+            use_remote_fallback=False,
             enable_calibrated_candidate_rescue=False,
             run_id="istina-live-shadow",
         ),
@@ -327,6 +327,7 @@ def main() -> None:
             article_index=article_index,
             query_service=True,
             capture_legacy_shadow=True,
+            allow_service_fallback=False,
         )
         paper_latencies.append((time.perf_counter() - started) * 1000.0)
         expected_audit_records += len(result.decisions)
@@ -442,6 +443,14 @@ def main() -> None:
                 minimum_unique_papers
                 if paired_plan_assessment is not None
                 else None
+            ),
+            "framework_legacy_fallback_enabled": False,
+            "legacy_service_observation_only": True,
+            "comparison_sample_outcome_blind": True,
+            "comparison_selection_strategy": (
+                "source_order"
+                if paired_plan_assessment is None
+                else "one_per_required_paper_then_source_order"
             ),
             "mode": RuntimeMode.SHADOW.value,
             "split_strategy": args.split_strategy,

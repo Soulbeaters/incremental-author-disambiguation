@@ -124,6 +124,7 @@ def evaluate(
         result = pipeline.decide_mention(
             mention,
             service_response=record_service_response(service_record),
+            allow_service_fallback=False,
         )
         seen = gold in known_ids
         correct_merge = result.decision == Decision.MERGE and result.author_id == gold
@@ -270,6 +271,7 @@ def main() -> None:
         reject_threshold=-4.0,
         min_accept_margin=1e-9,
         require_context_for_low_name_accept=True,
+        use_remote_fallback=False,
     )
     pipeline = IstinaDisambiguationPipeline.from_history_mentions(history, config=config)
     result = {
@@ -291,6 +293,8 @@ def main() -> None:
                 sha256_file(args.service_result) if args.service_result else None
             ),
             "runtime_class": "integrations.istina_pipeline.IstinaDisambiguationPipeline",
+            "framework_legacy_fallback_enabled": False,
+            "legacy_service_observation_only": True,
         },
         **evaluate(pipeline, test, load_service_records(args.service_result)),
     }

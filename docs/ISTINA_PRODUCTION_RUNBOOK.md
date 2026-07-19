@@ -4,7 +4,7 @@
 
 The current branch is authorized for offline replay, live no-write shadow, and
 candidate generation only. It is not authorized to write identity decisions
-back to ISTINA. The 2026-07-19 machine gate passes 8 of 22 checks and reports
+back to ISTINA. The 2026-07-19 machine gate passes 8 of 23 checks and reports
 `release_ready: false`. The five-mention live smoke passed, but release shadow
 verification remains false because it is below both the 500-mention floor and
 the prospectively powered paired-comparison requirement.
@@ -71,8 +71,10 @@ service; sharing one JSONL file between processes is unsupported.
    fail-closed verification flags. Its release workflow must receive the raw
    deployment manifest and all four attachments so it can rerun content checks;
    it must also receive the registered paired-shadow plan and rerun
-   paper-cluster-aware inference. Previously generated validation or analysis
-   JSON is diagnostic convenience only.
+   paper-cluster-aware inference. Framework decisions in every paired
+   comparison must have legacy fallback disabled; incumbent results are
+   observation-only. Previously generated validation or analysis JSON is
+   diagnostic convenience only.
 9. Run the machine gate with the strict temporal operational replay as
    `--replay-result` and the composed bundle as `--evidence`.
 10. Generate the article evidence with `evaluation/istina_paper_package.py`.

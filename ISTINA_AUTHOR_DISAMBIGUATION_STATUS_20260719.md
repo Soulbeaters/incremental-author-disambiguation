@@ -4,7 +4,7 @@
 
 The project now provides a reproducible article framework and a fail-closed
 shadow/candidate implementation. It is **not authorized for write-enabled
-replacement of the ISTINA service**. The current machine gate passes 8 of 22
+replacement of the ISTINA service**. The current machine gate passes 8 of 23
 checks and records `release_ready: false`.
 
 This revision supersedes the advisor-result interpretation in
@@ -31,7 +31,7 @@ artifact whose own `release_ready` value is true. No such artifact exists.
 | `evidence/istina_live_shadow_smoke_20260719.json` | bounded real-service no-write connectivity smoke |
 | `evidence/istina_operational_validation_20260719.json` | load, determinism, audit, rollback, circuit-breaker, and drift tests |
 | `evidence/istina_release_evidence_bundle_20260719.json` | SHA-256-bound composition of independently generated evidence |
-| `evidence/istina_production_gate_operational_20260719.json` | authoritative 22-check release decision |
+| `evidence/istina_production_gate_operational_20260719.json` | authoritative 23-check release decision |
 | `evaluation/istina_deployment_evidence.py` | 47-check, content-level institutional shadow/load/monitor/audit validator |
 | `evaluation/istina_paired_shadow.py` | preflighted cluster-adjusted power, exact McNemar, paper-cluster randomization and bootstrap analysis |
 | `experiments/istina_online_read_load.py` | approval-gated, bounded-concurrency read-only online load generator |
@@ -49,11 +49,11 @@ artifact whose own `release_ready` value is true. No such artifact exists.
 | `evidence/aminer_kdd18_test100_rescue_current_20260719.json` | paired complete current-runtime AMiner rescue ablation |
 | `evidence/aminer_kdd18_test100_first10_default_current_20260719.json` | bounded current-runtime AMiner transfer check |
 | `evidence/aminer_kdd18_test100_first10_rescue_current_20260719.json` | bounded current-runtime AMiner rescue transfer check |
-| `paper/istina_empirical_evidence_20260719.json` | 51-check, SHA-256-bound machine article package |
+| `paper/istina_empirical_evidence_20260719.json` | 52-check, SHA-256-bound machine article package |
 | `paper/ISTINA_EMPIRICAL_EVIDENCE_20260719.md` | article-ready tables, claims, limitations, and source traceability |
 
-The current article package passes 51/51 integrity checks and has package ID
-`469dd1cc155b69aad4ba34ab3884cdaeb2620ace705d4c0f0fb2f82a84d86eee`.
+The current article package passes 52/52 integrity checks and has package ID
+`ff5d42ea706bfe9fb5b4000d6fbdab0814b4c5fe3e9c38f8669419ac68b93146`.
 Its independent release field remains false.
 
 Mention-level advisor records and the private adjudication queue are excluded
@@ -134,26 +134,31 @@ de-duplication are excluded from the paired table.
 |---|---:|---:|
 | Evaluated gold mentions | 571 | 1,263 |
 | Known / unseen | 5 / 566 | 38 / 1,225 |
-| Correct known merges | 1 / 5 | 28 / 38 |
-| Merge precision | 100% | 100% |
-| Known-author recall | 20.00% | 73.68% |
-| Automatic accuracy | 94.40% | 95.96% |
-| UNKNOWN rate | 4.90% | 3.25% |
+| Correct known merges | 0 / 5 | 27 / 38 |
+| Merge precision | 0% (no predicted merges) | 100% |
+| Known-author recall | 0.00% | 71.05% |
+| Automatic accuracy | 94.22% | 95.88% |
+| UNKNOWN rate | 5.08% | 3.33% |
 | Wrong merges | 0 | 0 |
 | Unseen false links | 0 | 0 |
-| Local p95 latency | 12.85 ms | 1.32 ms |
+| Local p95 latency | 12.96 ms | 1.34 ms |
 
 The production default now disables the unique-local-surname initial heuristic.
 The temporal audit showed that a historical “James A.” was wrongly merged to
 the future “James Alexander”; local surname uniqueness is not global identity
 evidence. The heuristic remains available only as an explicit ablation. This
-change restores observed merge precision to 100% at the cost of lower recall.
+change prevents observed wrong merges. With legacy fallback disabled, the
+strict-temporal sample emits no automatic merge; the overlap-prone diagnostic
+retains 100% observed merge precision at 71.05% known-author recall.
 
-On the 38 fair paired diagnostic cases, the framework is correct on 28 and the
-frozen legacy service on 24. Paired cells are: both correct 18, framework only
-10, legacy only 6, both incorrect 4. The exact two-sided McNemar value is
-`p = 0.454498291015625`; the cleaned sample does not establish a statistically
-significant advantage.
+The earlier 1/5 and 28/38 framework counts were not an independent replacement
+comparison: one decision used `legacy_service_validated_fallback`. The corrected
+protocol disables legacy fallback while retaining the incumbent response only
+as an observation. On the 38 diagnostic cases, the independent framework is
+correct on 27 and the frozen legacy service on 24. Paired cells are: both
+correct 17, framework only 10, legacy only 7, both incorrect 4. The exact
+two-sided McNemar value is `p = 0.629058837890625`; the cleaned sample does not
+establish a statistically significant advantage.
 
 ## Online shadow and operational validation
 
@@ -161,10 +166,12 @@ The strict temporal live smoke queried the real legacy endpoint for five known
 mentions across four complete-paper requests:
 
 - 5 runtime decisions and 0 service errors;
+- framework fallback to the legacy service was disabled; the legacy result was
+  observation-only, yielding 0/5 framework versus 3/5 legacy correct;
 - 0 authorized commands and 0 write calls;
 - audit redaction and the ephemeral durable hash chain passed, and the circuit
   remained closed;
-- paper round-trip p95 was 15.463 seconds;
+- paper round-trip p95 was 15.206 seconds;
 - smoke health passed, but release shadow verification failed because 5 is
   below the predeclared 500-mention minimum.
 
@@ -174,8 +181,8 @@ The offline no-write operational run replayed all 753 temporal test mentions
 | Operational measure | Result |
 |---|---:|
 | Load operations | 13,554 |
-| Throughput | 203.78 mentions/s |
-| Local p95 | 20.98 ms |
+| Throughput | 302.58 mentions/s |
+| Local p95 | 14.14 ms |
 | Deterministic-hash mismatches | 0 |
 | Runtime safety/idempotency/redaction | passed |
 | Durable fsync audit hash chain / restart verification | passed (8 records) |
@@ -254,23 +261,25 @@ unseen, and 500 fair shadow cases as an absolute floor; merge precision at least
 least 95%, automatic accuracy at least 98%, UNKNOWN at most 2%, wrong-merge and
 unseen-false-link rates at most 0.1%, and local p95 at most 50 ms. It also
 requires cross-disciplinary adjudicated ISTINA gold, online no-write shadow,
-online load, tested rollback, deployed drift monitoring, and a pre-registered,
-adequately powered, paper-cluster-aware paired comparison. Under the default
+online load, tested rollback, deployed drift monitoring, an independently
+observed legacy comparator, and a pre-registered, adequately powered,
+paper-cluster-aware paired comparison. Under the default
 2-point-gain and 10%-discordance assumptions, the power calculation requires
 a 1,960-mention base across at least 100 papers. The enforced collection target
 is the base multiplied by the pre-registered cluster design effect, rounded up,
 and cannot be below the registered or 500-mention floors.
 
-Current result: **8 passed, 14 failed, 22 total; `release_ready: false`.**
+Current result: **8 passed, 15 failed, 23 total; `release_ready: false`.**
 
-Passed checks are merge precision, wrong-merge rate, unseen false-link rate,
-local p95, runtime safety contract, offline load, rollback/circuit breaker, and
-drift-monitor fault testing.
+Passed checks are wrong-merge rate, unseen false-link rate, local p95, runtime
+safety contract, offline load, legacy-comparator independence,
+rollback/circuit breaker, and drift-monitor fault testing.
 
-Failed checks are total, known, unseen, and shadow sample sizes; known recall,
-automatic accuracy, UNKNOWN; significant absolute legacy-shadow gain; paired
-significance; cross-disciplinary gold; 500-case online shadow; online load;
-deployed drift monitoring; and the powered cluster-aware paired analysis.
+Failed checks are total, known, unseen, and shadow sample sizes; merge
+precision, known recall, automatic accuracy, UNKNOWN; significant absolute
+legacy-shadow gain; paired significance; cross-disciplinary gold; 500-case
+online shadow; online load; deployed drift monitoring; and the powered
+cluster-aware paired analysis.
 
 ## Defensible article claims
 
@@ -281,9 +290,9 @@ deployed drift monitoring; and the powered cluster-aware paired analysis.
 2. A raw-export audit found and corrected a concrete leakage mechanism that
    materially changed the ISTINA result; the cleaned primary analysis is
    reported even though it is weaker.
-3. On the available cleaned advisor sample, the framework makes no observed
-   wrong merge, but the strict temporal known-author sample is only five and
-   recall is not production-ready.
+3. On the available cleaned advisor sample, the independent framework makes no
+observed wrong merge but also no strict-temporal automatic merge; the known-
+author sample is only five and recall is not production-ready.
 4. Strong in-domain OpenAlex behavior does not transfer to the official AMiner
    stress test, so universal superiority is not supported.
 5. Online connectivity and no-write safety are demonstrated on five cases;

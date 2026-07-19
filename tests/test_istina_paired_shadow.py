@@ -71,6 +71,7 @@ def valid_live_shadow():
                 "runtime_correct": True,
                 "legacy_correct": False,
                 "legacy_result_present": True,
+                "stage": "local_fs",
                 "service_error": False,
             })
     return {
@@ -82,6 +83,8 @@ def valid_live_shadow():
             "paired_shadow_plan_sha256": PLAN_SHA,
             "paired_shadow_required_mentions": 40,
             "paired_shadow_minimum_unique_papers": 10,
+            "framework_legacy_fallback_enabled": False,
+            "legacy_service_observation_only": True,
             "mode": "shadow",
             "write_calls": 0,
         },
@@ -196,7 +199,7 @@ class IstinaPairedShadowTests(unittest.TestCase):
         self.assertTrue(result["verified"])
         self.assertEqual(result["population"]["paired_mentions"], 40)
         self.assertEqual(result["population"]["unique_papers"], 10)
-        self.assertEqual(result["summary"]["total"], 39)
+        self.assertEqual(result["summary"]["total"], 40)
         self.assertEqual(result["absolute_gain"], 1.0)
         self.assertLess(result["cluster_randomization"]["p_value"], 0.05)
         self.assertGreater(
@@ -220,12 +223,17 @@ class IstinaPairedShadowTests(unittest.TestCase):
         live = valid_live_shadow()
         live["records"][1] = copy.deepcopy(live["records"][0])
         live["records"][0]["service_error"] = True
+        live["records"][0]["stage"] = "legacy_service_validated_fallback"
 
         result = self.assess(live=live)
 
         self.assertFalse(result["verified"])
         self.assertIn(
             "record_format_and_uniqueness",
+            {failure["name"] for failure in result["failures"]},
+        )
+        self.assertIn(
+            "legacy_comparator_independence",
             {failure["name"] for failure in result["failures"]},
         )
 

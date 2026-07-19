@@ -406,11 +406,15 @@ def assess_paired_shadow(
     clusters_by_paper: Dict[str, list[tuple[bool, bool]]] = defaultdict(list)
     identities = set()
     record_format_valid = True
+    legacy_fallback_stages = 0
     for record in records:
         paper = str(record.get("article_id_hash") or "")
         position = str(record.get("position") or "")
         runtime_correct = record.get("runtime_correct")
         legacy_correct = record.get("legacy_correct")
+        stage = str(record.get("stage") or "")
+        if stage == "legacy_service_validated_fallback":
+            legacy_fallback_stages += 1
         identity = (paper, position)
         if (
             not paper
@@ -418,6 +422,8 @@ def assess_paired_shadow(
             or identity in identities
             or type(runtime_correct) is not bool
             or type(legacy_correct) is not bool
+            or not stage
+            or stage == "legacy_service_validated_fallback"
             or record.get("legacy_result_present") is not True
             or bool(record.get("error"))
             or bool(record.get("service_error"))
@@ -487,6 +493,7 @@ def assess_paired_shadow(
         _check("live_plan_sha256", str(protocol.get("paired_shadow_plan_sha256") or "").lower(), expected_plan_sha256, _hex_identifier(expected_plan_sha256, 64) and str(protocol.get("paired_shadow_plan_sha256") or "").lower() == expected_plan_sha256, "binding"),
         _check("live_required_mentions", protocol.get("paired_shadow_required_mentions"), effective_required_mentions, protocol.get("paired_shadow_required_mentions") == effective_required_mentions, "binding"),
         _check("live_minimum_unique_papers", protocol.get("paired_shadow_minimum_unique_papers"), min_papers, protocol.get("paired_shadow_minimum_unique_papers") == min_papers, "binding"),
+        _check("legacy_comparator_independence", {"framework_legacy_fallback_enabled": protocol.get("framework_legacy_fallback_enabled"), "legacy_service_observation_only": protocol.get("legacy_service_observation_only"), "fallback_stage_records": legacy_fallback_stages}, {"framework_legacy_fallback_enabled": False, "legacy_service_observation_only": True, "fallback_stage_records": 0}, protocol.get("framework_legacy_fallback_enabled") is False and protocol.get("legacy_service_observation_only") is True and legacy_fallback_stages == 0, "fairness"),
         _check("live_shadow_mode", protocol.get("mode"), "shadow", protocol.get("mode") == "shadow", "input"),
         _check("zero_write_calls", [protocol.get("write_calls"), stats.get("authorized_commands")], [0, 0], protocol.get("write_calls") == 0 and stats.get("authorized_commands") == 0, "safety"),
         _check("no_write_authorized", safety.get("no_write_authorized"), True, safety.get("no_write_authorized") is True, "safety"),
@@ -547,6 +554,11 @@ def assess_paired_shadow(
                 "mcnemar_p": mcnemar_p,
                 "cluster_p": randomization.get("p_value"),
                 "cluster_interval_lower": confidence_interval.get("lower"),
+                "legacy_comparator_independent": (
+                    protocol.get("framework_legacy_fallback_enabled") is False
+                    and protocol.get("legacy_service_observation_only") is True
+                    and legacy_fallback_stages == 0
+                ),
             }
         },
     }

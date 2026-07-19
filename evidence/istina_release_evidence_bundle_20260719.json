@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-19T15:54:31.268154+00:00",
+  "generated_at": "2026-07-19T16:08:19.898107+00:00",
   "operational_evidence": {
     "runtime_safety_contract_verified": {
       "verified": true,
@@ -11,7 +11,7 @@
       "durable_audit_chain": {
         "verified": true,
         "records": 8,
-        "head_hash": "c5f125738908cf382344935249878dbead63d5ab86c5a3c7974303e570aa45fe",
+        "head_hash": "b3c9bea96911f396ce2a41f9efdd1bd12f8450db2fc350fef89befc934f79a48",
         "restart_verified": true,
         "fsync": true,
         "storage_scope": "ephemeral validation file; not deployed production storage"
@@ -23,13 +23,22 @@
       "real_distinct_mentions": 753,
       "replay_iterations": 18,
       "load_operations": 13554,
-      "elapsed_seconds": 66.51164699999936,
-      "throughput_mentions_per_second": 203.78385758512536,
-      "latency_ms_p50": 0.6108999950811267,
-      "latency_ms_p95": 20.983199996408075,
-      "latency_ms_p99": 30.07390000129817,
+      "elapsed_seconds": 44.79529080000066,
+      "throughput_mentions_per_second": 302.57644850471206,
+      "latency_ms_p50": 0.40859999717213213,
+      "latency_ms_p95": 14.137300000584219,
+      "latency_ms_p99": 20.680399997218046,
       "deterministic_hash_mismatches": 0,
       "scope": "offline no-write load replay; repeated operations are not extra gold"
+    },
+    "legacy_comparator_independence_verified": {
+      "verified": true,
+      "offline_framework_legacy_fallback_enabled": false,
+      "offline_legacy_fallback_stages": 0,
+      "live_framework_legacy_fallback_enabled": false,
+      "live_legacy_service_observation_only": true,
+      "live_legacy_fallback_stages": 0,
+      "required": "legacy service observed only and never used by framework decisions"
     },
     "rollback_verified": {
       "verified": true,
@@ -60,7 +69,7 @@
           "merge_rate": 0.5,
           "service_error_rate": 1.0,
           "candidate_truncation_rate": 0.0,
-          "latency_p95_ms": 10.46630000200821,
+          "latency_p95_ms": 10.564999996859115,
           "stage_total_variation": 1.0,
           "stage_distribution": {
             "fault_injection": 1.0
@@ -69,13 +78,13 @@
         "checks": [
           {
             "name": "unknown_rate_increase",
-            "observed": 0.45617529880478086,
+            "observed": 0.4548472775564409,
             "limit": 0.01,
             "passed": false
           },
           {
             "name": "merge_rate_delta",
-            "observed": 0.49867197875166,
+            "observed": 0.5,
             "limit": 0.01,
             "passed": false
           },
@@ -99,7 +108,7 @@
           },
           {
             "name": "latency_p95_ms",
-            "observed": 10.46630000200821,
+            "observed": 10.564999996859115,
             "limit": 10000.0,
             "passed": true
           }
@@ -107,13 +116,13 @@
         "failures": [
           {
             "name": "unknown_rate_increase",
-            "observed": 0.45617529880478086,
+            "observed": 0.4548472775564409,
             "limit": 0.01,
             "passed": false
           },
           {
             "name": "merge_rate_delta",
-            "observed": 0.49867197875166,
+            "observed": 0.5,
             "limit": 0.01,
             "passed": false
           },
@@ -146,7 +155,9 @@
       "mentions": 5,
       "paper_requests": 4,
       "minimum_release_shadow_mentions": 500,
-      "sufficient_release_volume": false
+      "sufficient_release_volume": false,
+      "minimum_release_shadow_papers": 0,
+      "sufficient_release_papers": true
     },
     "online_load_test_verified": {
       "verified": false,
@@ -160,7 +171,7 @@
   "sources": {
     "operational_validation": {
       "name": "istina_operational_validation_20260719.json",
-      "sha256": "8d9f85f7ba24ce2422d31dc785d5e293ca7b08269303e2355c7bd7c4f8d90244"
+      "sha256": "da61c3b781a355c43cb775ed239991222e53dff67ee9f242490c6f6e39f8b26f"
     },
     "gold_readiness": {
       "name": "istina_gold_readiness_20260719.json",
@@ -168,7 +179,7 @@
     },
     "live_shadow": {
       "name": "istina_live_shadow_smoke_20260719.json",
-      "sha256": "b0100dcab3c8f3229efbe7a0798063426999eb5f5c5fe14e0fe6d02e287ed595"
+      "sha256": "f3eb98ed8a0fbfdf5a199bd41a256ddc208cdfa8ff0965112eb59491666d2cf3"
     }
   }
 }

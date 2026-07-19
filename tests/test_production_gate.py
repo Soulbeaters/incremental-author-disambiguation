@@ -37,6 +37,7 @@ class ProductionGateTests(unittest.TestCase):
         evidence = {
             "runtime_safety_contract_verified": True,
             "offline_load_test_verified": True,
+            "legacy_comparator_independence_verified": True,
             "cross_domain_gold_verified": True,
             "online_shadow_verified": True,
             "online_load_test_verified": True,
@@ -72,6 +73,7 @@ class ProductionGateTests(unittest.TestCase):
         evidence = {
             "runtime_safety_contract_verified": {"verified": True},
             "offline_load_test_verified": {"verified": True},
+            "legacy_comparator_independence_verified": True,
             "cross_domain_gold_verified": True,
             "online_shadow_verified": True,
             "online_load_test_verified": True,
@@ -95,6 +97,7 @@ class ProductionGateTests(unittest.TestCase):
             "operational_evidence": {
                 "runtime_safety_contract_verified": {"verified": True},
                 "offline_load_test_verified": {"verified": True},
+                "legacy_comparator_independence_verified": {"verified": True},
                 "cross_domain_gold_verified": {"verified": True},
                 "online_shadow_verified": {"verified": True},
                 "online_load_test_verified": {"verified": True},

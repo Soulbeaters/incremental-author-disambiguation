@@ -17,8 +17,8 @@
   },
   "summary": {
     "passed": 8,
-    "failed": 14,
-    "total": 22
+    "failed": 15,
+    "total": 23
   },
   "checks": [
     {
@@ -52,29 +52,29 @@
     {
       "name": "merge_precision",
       "category": "quality",
-      "passed": true,
-      "observed": 1.0,
+      "passed": false,
+      "observed": 0.0,
       "required": ">=0.995"
     },
     {
       "name": "existing_recall",
       "category": "quality",
       "passed": false,
-      "observed": 0.2,
+      "observed": 0.0,
       "required": ">=0.95"
     },
     {
       "name": "auto_accuracy",
       "category": "quality",
       "passed": false,
-      "observed": 0.9439579684763573,
+      "observed": 0.9422066549912435,
       "required": ">=0.98"
     },
     {
       "name": "unknown_rate",
       "category": "quality",
       "passed": false,
-      "observed": 0.04903677758318739,
+      "observed": 0.050788091068301226,
       "required": "<=0.02"
     },
     {
@@ -95,21 +95,21 @@
       "name": "local_p95_latency_ms",
       "category": "performance",
       "passed": true,
-      "observed": 12.437999997928273,
+      "observed": 12.765500003297348,
       "required": "<=50.0"
     },
     {
       "name": "shadow_absolute_gain",
       "category": "comparison",
       "passed": false,
-      "observed": -0.4,
+      "observed": -0.6,
       "required": ">=0.02"
     },
     {
       "name": "shadow_significance",
       "category": "comparison",
       "passed": false,
-      "observed": 0.5,
+      "observed": 0.25,
       "required": "<=0.05"
     },
     {
@@ -125,6 +125,13 @@
       "passed": true,
       "observed": true,
       "required": "deterministic no-write load replay on real ISTINA data"
+    },
+    {
+      "name": "legacy_comparator_independence_verified",
+      "category": "operations",
+      "passed": true,
+      "observed": true,
+      "required": "framework decisions do not consume legacy-service outputs used as the paired comparator"
     },
     {
       "name": "cross_domain_gold_verified",
@@ -206,38 +213,45 @@
       "required": ">=500"
     },
     {
+      "name": "merge_precision",
+      "category": "quality",
+      "passed": false,
+      "observed": 0.0,
+      "required": ">=0.995"
+    },
+    {
       "name": "existing_recall",
       "category": "quality",
       "passed": false,
-      "observed": 0.2,
+      "observed": 0.0,
       "required": ">=0.95"
     },
     {
       "name": "auto_accuracy",
       "category": "quality",
       "passed": false,
-      "observed": 0.9439579684763573,
+      "observed": 0.9422066549912435,
       "required": ">=0.98"
     },
     {
       "name": "unknown_rate",
       "category": "quality",
       "passed": false,
-      "observed": 0.04903677758318739,
+      "observed": 0.050788091068301226,
       "required": "<=0.02"
     },
     {
       "name": "shadow_absolute_gain",
       "category": "comparison",
       "passed": false,
-      "observed": -0.4,
+      "observed": -0.6,
       "required": ">=0.02"
     },
     {
       "name": "shadow_significance",
       "category": "comparison",
       "passed": false,
-      "observed": 0.5,
+      "observed": 0.25,
       "required": "<=0.05"
     },
     {

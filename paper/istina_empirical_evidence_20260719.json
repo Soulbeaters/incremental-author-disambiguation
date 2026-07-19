@@ -1,19 +1,19 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-19T15:54:31.586029+00:00",
-  "package_id": "469dd1cc155b69aad4ba34ab3884cdaeb2620ace705d4c0f0fb2f82a84d86eee",
+  "generated_at": "2026-07-19T16:11:13.472752+00:00",
+  "package_id": "ff5d42ea706bfe9fb5b4000d6fbdab0814b4c5fe3e9c38f8669419ac68b93146",
   "integrity": {
     "verified": true,
     "summary": {
-      "passed": 51,
+      "passed": 52,
       "failed": 0,
-      "total": 51
+      "total": 52
     },
     "checks": [
       {
         "name": "bundle_operational_sha256",
-        "observed": "8d9f85f7ba24ce2422d31dc785d5e293ca7b08269303e2355c7bd7c4f8d90244",
-        "expected": "8d9f85f7ba24ce2422d31dc785d5e293ca7b08269303e2355c7bd7c4f8d90244",
+        "observed": "da61c3b781a355c43cb775ed239991222e53dff67ee9f242490c6f6e39f8b26f",
+        "expected": "da61c3b781a355c43cb775ed239991222e53dff67ee9f242490c6f6e39f8b26f",
         "passed": true
       },
       {
@@ -24,8 +24,8 @@
       },
       {
         "name": "bundle_live_sha256",
-        "observed": "b0100dcab3c8f3229efbe7a0798063426999eb5f5c5fe14e0fe6d02e287ed595",
-        "expected": "b0100dcab3c8f3229efbe7a0798063426999eb5f5c5fe14e0fe6d02e287ed595",
+        "observed": "f3eb98ed8a0fbfdf5a199bd41a256ddc208cdfa8ff0965112eb59491666d2cf3",
+        "expected": "f3eb98ed8a0fbfdf5a199bd41a256ddc208cdfa8ff0965112eb59491666d2cf3",
         "passed": true
       },
       {
@@ -64,6 +64,36 @@
         "expected": [
           52
         ],
+        "passed": true
+      },
+      {
+        "name": "legacy_comparator_independence",
+        "observed": {
+          "protocols": {
+            "temporal": [
+              false,
+              true,
+              0
+            ],
+            "holdout": [
+              false,
+              true,
+              0
+            ],
+            "operational": [
+              false,
+              true,
+              0
+            ],
+            "live": [
+              false,
+              true,
+              0
+            ]
+          },
+          "gate": true
+        },
+        "expected": "all framework paths [fallback=False, observation_only=True, fallback_stages=0] and gate=true",
         "passed": true
       },
       {
@@ -134,26 +164,26 @@
       },
       {
         "name": "gate_merge_precision",
-        "observed": 1.0,
-        "expected": 1.0,
+        "observed": 0.0,
+        "expected": 0.0,
         "passed": true
       },
       {
         "name": "gate_existing_recall",
-        "observed": 0.2,
-        "expected": 0.2,
+        "observed": 0.0,
+        "expected": 0.0,
         "passed": true
       },
       {
         "name": "gate_auto_accuracy",
-        "observed": 0.9439579684763573,
-        "expected": 0.9439579684763573,
+        "observed": 0.9422066549912435,
+        "expected": 0.9422066549912435,
         "passed": true
       },
       {
         "name": "gate_unknown_rate",
-        "observed": 0.04903677758318739,
-        "expected": 0.04903677758318739,
+        "observed": 0.050788091068301226,
+        "expected": 0.050788091068301226,
         "passed": true
       },
       {
@@ -484,8 +514,8 @@
       },
       {
         "name": "gate_summary_consistent",
-        "observed": 22,
-        "expected": 22,
+        "observed": 23,
+        "expected": 23,
         "passed": true
       }
     ],
@@ -494,15 +524,15 @@
   "sources": {
     "temporal": {
       "name": "istina_temporal_runtime_replay_20260719.json",
-      "sha256": "82df262deb595ec68af3f1420dec4eefe8dc3399ee9ad12dbbd52b066234c465"
+      "sha256": "7b7f0c305dc20634c598eb59302f6bf82663d19d293ab3e287bfc780e4485557"
     },
     "holdout": {
       "name": "istina_holdout_runtime_replay_deduplicated_20260719.json",
-      "sha256": "8d871d4d55b2442dd5336019179904e1ee9d2bb94f3982e9b69e94e5f4834185"
+      "sha256": "5006f00d7f8be4cb9ae5502bce9692b355a077a14a1511ee7cc9f41c624ad69d"
     },
     "operational": {
       "name": "istina_operational_validation_20260719.json",
-      "sha256": "8d9f85f7ba24ce2422d31dc785d5e293ca7b08269303e2355c7bd7c4f8d90244"
+      "sha256": "da61c3b781a355c43cb775ed239991222e53dff67ee9f242490c6f6e39f8b26f"
     },
     "gold": {
       "name": "istina_gold_readiness_20260719.json",
@@ -510,15 +540,15 @@
     },
     "live": {
       "name": "istina_live_shadow_smoke_20260719.json",
-      "sha256": "b0100dcab3c8f3229efbe7a0798063426999eb5f5c5fe14e0fe6d02e287ed595"
+      "sha256": "f3eb98ed8a0fbfdf5a199bd41a256ddc208cdfa8ff0965112eb59491666d2cf3"
     },
     "bundle": {
       "name": "istina_release_evidence_bundle_20260719.json",
-      "sha256": "a68fbf0177a7ee8c88dc555dd076e48e8a0892a04332702494ae3b77698e3b67"
+      "sha256": "939ec29c7d2268cece11079a9fcad34e590d8aa0f58af50bfb6236533912be78"
     },
     "gate": {
       "name": "istina_production_gate_operational_20260719.json",
-      "sha256": "a664ac5cf7764f0d40adcdceff76210a6fcea3a3f27b3e8bd096358a3ad7676e"
+      "sha256": "347eb2727eedf631c1128bb55487f63fe400d657c19ee9ead0f300ff53f349a0"
     },
     "openalex_default": {
       "name": "openalex_confirmation_default_current_20260719.json",
@@ -581,12 +611,12 @@
       "existing_mentions": 5,
       "new_mentions": 566,
       "paper_overlap": 0,
-      "merge_precision": 1.0,
-      "existing_recall": 0.2,
-      "automatic_accuracy": 0.9439579684763573,
-      "unknown_rate": 0.04903677758318739,
+      "merge_precision": 0.0,
+      "existing_recall": 0.0,
+      "automatic_accuracy": 0.9422066549912435,
+      "unknown_rate": 0.050788091068301226,
       "wrong_merge_rate": 0.0,
-      "p95_latency_ms": 12.847900001361268,
+      "p95_latency_ms": 12.964000001375098,
       "source": "temporal"
     },
     {
@@ -597,11 +627,11 @@
       "new_mentions": 1225,
       "paper_overlap": 13,
       "merge_precision": 1.0,
-      "existing_recall": 0.7368421052631579,
-      "automatic_accuracy": 0.9596199524940617,
-      "unknown_rate": 0.03246239113222486,
+      "existing_recall": 0.7105263157894737,
+      "automatic_accuracy": 0.9588281868566905,
+      "unknown_rate": 0.0332541567695962,
       "wrong_merge_rate": 0.0,
-      "p95_latency_ms": 1.3174000014259946,
+      "p95_latency_ms": 1.3445000004139729,
       "source": "holdout"
     },
     {
@@ -797,35 +827,35 @@
       "protocol_role": "strict temporal primary",
       "n": 5,
       "paired_table": {
-        "both_correct": 1,
+        "both_correct": 0,
         "runtime_only_correct": 0,
-        "legacy_only_correct": 2,
+        "legacy_only_correct": 3,
         "both_incorrect": 2
       },
-      "runtime_correct": 1,
+      "runtime_correct": 0,
       "legacy_correct": 3,
-      "mcnemar_exact_two_sided_p": 0.5,
+      "mcnemar_exact_two_sided_p": 0.25,
       "statistically_significant_at_0_05": false
     },
     {
       "protocol_role": "per-author diagnostic only",
       "n": 38,
       "paired_table": {
-        "both_correct": 18,
+        "both_correct": 17,
         "runtime_only_correct": 10,
-        "legacy_only_correct": 6,
+        "legacy_only_correct": 7,
         "both_incorrect": 4
       },
-      "runtime_correct": 28,
+      "runtime_correct": 27,
       "legacy_correct": 24,
-      "mcnemar_exact_two_sided_p": 0.454498291015625,
+      "mcnemar_exact_two_sided_p": 0.629058837890625,
       "statistically_significant_at_0_05": false
     }
   ],
   "operational_summary": {
     "offline_load_operations": 13554,
-    "offline_load_p95_ms": 20.983199996408075,
-    "offline_throughput_mentions_per_second": 203.78385758512536,
+    "offline_load_p95_ms": 14.137300000584219,
+    "offline_throughput_mentions_per_second": 302.57644850471206,
     "deterministic_hash_mismatches": 0,
     "runtime_safety_contract_verified": true,
     "rollback_verified": true,
@@ -833,14 +863,14 @@
     "live_shadow_mentions": 5,
     "live_shadow_service_errors": 0,
     "live_shadow_authorized_commands": 0,
-    "live_shadow_p95_ms": 15462.99480000016,
+    "live_shadow_p95_ms": 15205.502400000114,
     "live_audit_chain_verified": true,
     "live_audit_retained": false
   },
   "supported_claims": [
     {
       "id": "istina_zero_observed_wrong_merges_limited_sample",
-      "statement": "The cleaned strict-temporal ISTINA sample has no observed wrong merge, but contains only five known-author cases and one merge.",
+      "statement": "The cleaned strict-temporal ISTINA sample has no observed wrong merge, but contains only 5 known-author cases and 0 automatic merges.",
       "sources": [
         "temporal",
         "gold"
@@ -848,7 +878,7 @@
     },
     {
       "id": "legacy_advantage_not_established",
-      "statement": "The cleaned 38-case diagnostic favors the framework 28 to 24, but the exact paired test is not statistically significant.",
+      "statement": "The cleaned 38-case diagnostic compares the independent framework at 27 correct with the legacy service at 24 correct, but the exact paired test is not statistically significant.",
       "sources": [
         "holdout"
       ]
@@ -890,8 +920,8 @@
   "release": {
     "release_ready": false,
     "passed": 8,
-    "failed": 14,
-    "total": 22,
+    "failed": 15,
+    "total": 23,
     "remaining_gaps": [
       {
         "name": "total_mentions",
@@ -918,33 +948,39 @@
         "required": ">=500"
       },
       {
+        "name": "merge_precision",
+        "category": "quality",
+        "observed": 0.0,
+        "required": ">=0.995"
+      },
+      {
         "name": "existing_recall",
         "category": "quality",
-        "observed": 0.2,
+        "observed": 0.0,
         "required": ">=0.95"
       },
       {
         "name": "auto_accuracy",
         "category": "quality",
-        "observed": 0.9439579684763573,
+        "observed": 0.9422066549912435,
         "required": ">=0.98"
       },
       {
         "name": "unknown_rate",
         "category": "quality",
-        "observed": 0.04903677758318739,
+        "observed": 0.050788091068301226,
         "required": "<=0.02"
       },
       {
         "name": "shadow_absolute_gain",
         "category": "comparison",
-        "observed": -0.4,
+        "observed": -0.6,
         "required": ">=0.02"
       },
       {
         "name": "shadow_significance",
         "category": "comparison",
-        "observed": 0.5,
+        "observed": 0.25,
         "required": "<=0.05"
       },
       {

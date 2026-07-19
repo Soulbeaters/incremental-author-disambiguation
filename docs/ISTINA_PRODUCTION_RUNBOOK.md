@@ -4,9 +4,10 @@
 
 The current branch is authorized for offline replay, live no-write shadow, and
 candidate generation only. It is not authorized to write identity decisions
-back to ISTINA. The 2026-07-19 machine gate passes 8 of 21 checks and reports
+back to ISTINA. The 2026-07-19 machine gate passes 8 of 22 checks and reports
 `release_ready: false`. The five-mention live smoke passed, but release shadow
-verification remains false because the predeclared minimum is 500 mentions.
+verification remains false because it is below both the 500-mention floor and
+the prospectively powered paired-comparison requirement.
 
 ## Runtime boundary
 
@@ -47,8 +48,12 @@ service; sharing one JSONL file between processes is unsupported.
    is diagnostic only and must not replace the zero-paper-overlap result.
 4. Run `experiments/istina_operational_validation.py` on the approved ISTINA
    export. Repeated load operations must not be counted as extra gold.
-5. Run `experiments/istina_live_shadow.py` in no-write mode. Production release
-   requires at least 500 shared, adjudicated shadow mentions.
+5. Before the live window, register and independently approve
+   `config/istina_paired_shadow_plan.template.json`. Then run
+   `experiments/istina_live_shadow.py` in no-write mode. Production release
+   requires at least 500 shared mentions and 100 papers, but the effective
+   sample is the larger power-calculated requirement (1,960 under the default
+   2-point-gain and 10%-discordance assumptions).
 6. During an approved operations window, run the explicitly acknowledged,
    rate-limited `experiments/istina_online_read_load.py`; this is a read-only
    load generator, not a write client.
@@ -61,7 +66,9 @@ service; sharing one JSONL file between processes is unsupported.
    SHA-256, rejects a deployment-to-gold dataset mismatch, and preserves
    fail-closed verification flags. Its release workflow must receive the raw
    deployment manifest and all four attachments so it can rerun content checks;
-   a previously generated validation JSON is diagnostic convenience only.
+   it must also receive the registered paired-shadow plan and rerun
+   paper-cluster-aware inference. Previously generated validation or analysis
+   JSON is diagnostic convenience only.
 9. Run the machine gate with the strict temporal operational replay as
    `--replay-result` and the composed bundle as `--evidence`.
 10. Generate the article evidence with `evaluation/istina_paper_package.py`.
@@ -149,7 +156,8 @@ name/ORCID/DOI data used for name-component parsing. It is not an ISTINA
 identity export and must never be substituted for the required gold set.
 
 Obtain an adjudicated, cross-disciplinary ISTINA export of the required size,
-then perform a 500-case live shadow, an online end-to-end load test, and
+then perform the prospectively powered live shadow (500-case floor, 1,960 under
+the default assumptions, at least 100 papers), an online end-to-end load test, and
 deployed drift monitoring and durable audit retention. Do not duplicate,
 resample, or repeatedly replay existing mentions to claim a larger gold set. A
 successful bounded smoke is not release-scale shadow verification.

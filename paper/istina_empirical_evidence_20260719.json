@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-19T15:11:20.716247+00:00",
-  "package_id": "6b8f7c374c3510366eecc89e35d5b01374a97bbb334a7646bcc0aebddbd5cf1b",
+  "generated_at": "2026-07-19T15:36:05.218942+00:00",
+  "package_id": "5eaba248bd86aeba42d008b8738bd853760fb3db48cfea047ee311be2619759f",
   "integrity": {
     "verified": true,
     "summary": {
@@ -12,8 +12,8 @@
     "checks": [
       {
         "name": "bundle_operational_sha256",
-        "observed": "a23a595b9414ea3ed668d385445b3fd1e4e902db89705e511c98969646fbd97e",
-        "expected": "a23a595b9414ea3ed668d385445b3fd1e4e902db89705e511c98969646fbd97e",
+        "observed": "6e9b204f79902f56ae8c500434c790a94159eb433d932264815bb5b22a18f2c0",
+        "expected": "6e9b204f79902f56ae8c500434c790a94159eb433d932264815bb5b22a18f2c0",
         "passed": true
       },
       {
@@ -484,8 +484,8 @@
       },
       {
         "name": "gate_summary_consistent",
-        "observed": 21,
-        "expected": 21,
+        "observed": 22,
+        "expected": 22,
         "passed": true
       }
     ],
@@ -502,7 +502,7 @@
     },
     "operational": {
       "name": "istina_operational_validation_20260719.json",
-      "sha256": "a23a595b9414ea3ed668d385445b3fd1e4e902db89705e511c98969646fbd97e"
+      "sha256": "6e9b204f79902f56ae8c500434c790a94159eb433d932264815bb5b22a18f2c0"
     },
     "gold": {
       "name": "istina_gold_readiness_20260719.json",
@@ -514,11 +514,11 @@
     },
     "bundle": {
       "name": "istina_release_evidence_bundle_20260719.json",
-      "sha256": "98306a36bbb7b911ce65f20753c7de71cacb10e99df7a15a6d0607d1ecf09d8d"
+      "sha256": "983b6beb9eb0bec3bead4606a80ac4cec939fe36b67cf84bd10d050233651e0f"
     },
     "gate": {
       "name": "istina_production_gate_operational_20260719.json",
-      "sha256": "91cfd76f82598314e947928e503b14a7b15754ae99e3689c39de8020f0f493b5"
+      "sha256": "dc4186afbba4ccf34e7f933c3dd1fe40384c2a29396c75580791aba68ce8e94d"
     },
     "openalex_default": {
       "name": "openalex_confirmation_default_current_20260719.json",
@@ -824,8 +824,8 @@
   ],
   "operational_summary": {
     "offline_load_operations": 13554,
-    "offline_load_p95_ms": 21.41529999789782,
-    "offline_throughput_mentions_per_second": 199.2067251343897,
+    "offline_load_p95_ms": 23.05979999800911,
+    "offline_throughput_mentions_per_second": 186.53547652568298,
     "deterministic_hash_mismatches": 0,
     "runtime_safety_contract_verified": true,
     "rollback_verified": true,
@@ -890,8 +890,8 @@
   "release": {
     "release_ready": false,
     "passed": 8,
-    "failed": 13,
-    "total": 21,
+    "failed": 14,
+    "total": 22,
     "remaining_gaps": [
       {
         "name": "total_mentions",
@@ -970,6 +970,12 @@
         "category": "operations",
         "observed": false,
         "required": "deployed data-quality and decision-drift monitoring"
+      },
+      {
+        "name": "paired_shadow_analysis_verified",
+        "category": "operations",
+        "observed": false,
+        "required": "pre-registered, adequately powered, paper-cluster-aware paired comparison against the legacy service"
       }
     ]
   }

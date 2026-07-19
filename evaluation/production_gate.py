@@ -155,6 +155,10 @@ def assess_production_readiness(
         "rollback_verified": "tested rollback/circuit-breaker procedure",
         "drift_monitor_test_verified": "fault-injected drift monitor alert verification",
         "drift_monitoring_verified": "deployed data-quality and decision-drift monitoring",
+        "paired_shadow_analysis_verified": (
+            "pre-registered, adequately powered, paper-cluster-aware paired "
+            "comparison against the legacy service"
+        ),
     }
     for name, requirement in operational_requirements.items():
         verified = _evidence_verified(evidence, name)

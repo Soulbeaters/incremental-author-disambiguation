@@ -1,6 +1,6 @@
 # ISTINA author-disambiguation empirical evidence package
 
-Package ID: `6b8f7c374c3510366eecc89e35d5b01374a97bbb334a7646bcc0aebddbd5cf1b`.
+Package ID: `5eaba248bd86aeba42d008b8738bd853760fb3db48cfea047ee311be2619759f`.
 
 This package is internally consistent and machine-traceable for article use. It is not a write-enabled production authorization.
 
@@ -72,8 +72,8 @@ This table uses the first 10 of 100 deterministic AMiner name blocks (679 test m
 ## Operational evidence
 
 - Offline no-write operations: 13554
-- Offline load p95: 21.42 ms
-- Offline throughput: 199.21 mentions/s
+- Offline load p95: 23.06 ms
+- Offline throughput: 186.54 mentions/s
 - Deterministic mismatches: 0
 - Runtime safety / rollback / drift fault tests: passed / passed / passed
 - Real-service shadow: 5 mentions, 0 service errors, 0 authorized commands
@@ -97,7 +97,7 @@ Claims that remain prohibited:
 
 ## Machine release gate
 
-Result: **8/21 passed; `release_ready: false`.**
+Result: **8/22 passed; `release_ready: false`.**
 
 | Missing check | Category | Observed | Required |
 |---|---|---:|---|
@@ -114,6 +114,7 @@ Result: **8/21 passed; `release_ready: false`.**
 | online_shadow_verified | operations | false | live shadow run without writes |
 | online_load_test_verified | operations | false | online end-to-end load and latency test |
 | drift_monitoring_verified | operations | false | deployed data-quality and decision-drift monitoring |
+| paired_shadow_analysis_verified | operations | false | pre-registered, adequately powered, paper-cluster-aware paired comparison against the legacy service |
 
 ## Source traceability
 
@@ -123,8 +124,8 @@ Result: **8/21 passed; `release_ready: false`.**
 | aminer_full_current | `aminer_kdd18_test100_default_current_20260719.json` | `f8ef9434a15392b58086cbcb2bd19b339e237f626c3087edabeff0459b951246` |
 | aminer_full_rescue_current | `aminer_kdd18_test100_rescue_current_20260719.json` | `c1c8be7ee0c6cb15a27a13fb0ec0b15c1f1252246cf2b4b0ad9912eff145502d` |
 | aminer_rescue_current | `aminer_kdd18_test100_first10_rescue_current_20260719.json` | `6ca510c9d663d7ba5b23de75098e797bc441e621ba0215f5bb7688462c92f7e7` |
-| bundle | `istina_release_evidence_bundle_20260719.json` | `98306a36bbb7b911ce65f20753c7de71cacb10e99df7a15a6d0607d1ecf09d8d` |
-| gate | `istina_production_gate_operational_20260719.json` | `91cfd76f82598314e947928e503b14a7b15754ae99e3689c39de8020f0f493b5` |
+| bundle | `istina_release_evidence_bundle_20260719.json` | `983b6beb9eb0bec3bead4606a80ac4cec939fe36b67cf84bd10d050233651e0f` |
+| gate | `istina_production_gate_operational_20260719.json` | `dc4186afbba4ccf34e7f933c3dd1fe40384c2a29396c75580791aba68ce8e94d` |
 | gold | `istina_gold_readiness_20260719.json` | `e337fbe9a9f8428353851d3b0626a5bc2ff3163856dca866db66c96972eea4ed` |
 | holdout | `istina_holdout_runtime_replay_deduplicated_20260719.json` | `8d871d4d55b2442dd5336019179904e1ee9d2bb94f3982e9b69e94e5f4834185` |
 | live | `istina_live_shadow_smoke_20260719.json` | `b0100dcab3c8f3229efbe7a0798063426999eb5f5c5fe14e0fe6d02e287ed595` |
@@ -132,6 +133,6 @@ Result: **8/21 passed; `release_ready: false`.**
 | openalex_large_default | `openalex_10000works_default_current_20260719.json` | `32ee0aab2ff41a85fba4069e9bb1479035ba366690d1e4d93fad6b20eb17dcc3` |
 | openalex_large_rescue | `openalex_10000works_rescue_current_20260719.json` | `456b0ada4e05851597af19d028bde18b3af5dbeda912ce53c880a298f444d309` |
 | openalex_rescue | `openalex_confirmation_rescue_ablation_current_20260719.json` | `12aeb53b945a4ad38d47850873b91b3c7aa7feda4a54c9dafe682427f41fe825` |
-| operational | `istina_operational_validation_20260719.json` | `a23a595b9414ea3ed668d385445b3fd1e4e902db89705e511c98969646fbd97e` |
+| operational | `istina_operational_validation_20260719.json` | `6e9b204f79902f56ae8c500434c790a94159eb433d932264815bb5b22a18f2c0` |
 | public_validation | `runtime_validation_20260719.json` | `49ada917aac3084921df958e792593107e4f09c6f530c0c2c90d230659be01d2` |
 | temporal | `istina_temporal_runtime_replay_20260719.json` | `82df262deb595ec68af3f1420dec4eefe8dc3399ee9ad12dbbd52b066234c465` |

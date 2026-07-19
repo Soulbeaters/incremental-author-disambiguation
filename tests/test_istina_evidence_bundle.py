@@ -6,12 +6,18 @@ from pathlib import Path
 from evaluation.istina_evidence_bundle import (
     compose_evidence_bundle,
     revalidate_deployment_inputs,
+    revalidate_paired_shadow_inputs,
 )
 from tests.test_istina_deployment_evidence import (
     CODE_REVISION,
     DATASET_SHA,
     valid_attachments,
     valid_manifest,
+)
+from tests.test_istina_paired_shadow import (
+    criteria_for_test as paired_criteria_for_test,
+    valid_live_shadow as valid_paired_live_shadow,
+    valid_plan as valid_paired_plan,
 )
 
 
@@ -175,6 +181,39 @@ class IstinaEvidenceBundleTests(unittest.TestCase):
             "load_attachment_counts",
             {failure["name"] for failure in tampered["failures"]},
         )
+
+    def test_bundle_revalidates_raw_paired_shadow_and_plan(self):
+        gold = {
+            "inputs": {
+                "datasets": [
+                    {"name": "export.json", "sha256": DATASET_SHA}
+                ]
+            }
+        }
+        live = valid_paired_live_shadow()
+
+        valid = revalidate_paired_shadow_inputs(
+            gold,
+            live,
+            valid_paired_plan(),
+            expected_code_revision=CODE_REVISION,
+            criteria=paired_criteria_for_test(),
+        )
+        live["records"][0]["service_error"] = True
+        tampered = revalidate_paired_shadow_inputs(
+            gold,
+            live,
+            valid_paired_plan(),
+            expected_code_revision=CODE_REVISION,
+            criteria=paired_criteria_for_test(),
+        )
+
+        self.assertTrue(valid["verified"])
+        self.assertEqual(
+            valid["validation_mode"],
+            "bundle_raw_shadow_plan_revalidation",
+        )
+        self.assertFalse(tampered["verified"])
 
 
 if __name__ == "__main__":

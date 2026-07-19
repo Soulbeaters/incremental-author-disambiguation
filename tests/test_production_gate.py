@@ -43,6 +43,7 @@ class ProductionGateTests(unittest.TestCase):
             "rollback_verified": True,
             "drift_monitor_test_verified": True,
             "drift_monitoring_verified": True,
+            "paired_shadow_analysis_verified": True,
         }
 
         result = assess_production_readiness(passing_replay(), evidence=evidence)
@@ -77,6 +78,7 @@ class ProductionGateTests(unittest.TestCase):
             "rollback_verified": True,
             "drift_monitor_test_verified": {"verified": True},
             "drift_monitoring_verified": True,
+            "paired_shadow_analysis_verified": True,
         }
 
         result = assess_production_readiness(replay, criteria, evidence)
@@ -99,6 +101,7 @@ class ProductionGateTests(unittest.TestCase):
                 "rollback_verified": {"verified": True},
                 "drift_monitor_test_verified": {"verified": True},
                 "drift_monitoring_verified": {"verified": True},
+                "paired_shadow_analysis_verified": {"verified": True},
             }
         }
         with tempfile.TemporaryDirectory() as directory:

@@ -17,6 +17,10 @@ from evaluation.istina_deployment_evidence import (
     _load_attachment,
     assess_deployment_evidence,
 )
+from evaluation.istina_paired_shadow import (
+    PairedShadowCriteria,
+    assess_paired_shadow,
+)
 
 
 def sha256_file(path: Path) -> str:
@@ -49,6 +53,33 @@ def revalidate_deployment_inputs(
         expected_code_revision=expected_code_revision,
     )
     result["validation_mode"] = "bundle_raw_attachment_revalidation"
+    return result
+
+
+def revalidate_paired_shadow_inputs(
+    gold_readiness: Mapping[str, Any],
+    live_shadow: Mapping[str, Any],
+    plan: Mapping[str, Any],
+    *,
+    expected_code_revision: str,
+    criteria: PairedShadowCriteria | None = None,
+) -> Dict[str, Any]:
+    dataset_hashes = {
+        str(item.get("sha256") or "").lower()
+        for item in ((gold_readiness.get("inputs") or {}).get("datasets") or [])
+        if isinstance(item, Mapping) and item.get("sha256")
+    }
+    expected_dataset_sha256 = (
+        next(iter(dataset_hashes)) if len(dataset_hashes) == 1 else ""
+    )
+    result = assess_paired_shadow(
+        live_shadow,
+        plan,
+        expected_dataset_sha256=expected_dataset_sha256,
+        expected_code_revision=expected_code_revision,
+        criteria=criteria,
+    )
+    result["validation_mode"] = "bundle_raw_shadow_plan_revalidation"
     return result
 
 
@@ -149,6 +180,7 @@ def compose_evidence_bundle(
             "online_load_test_verified",
             "drift_monitoring_verified",
             "durable_audit_retention_verified",
+            "paired_shadow_analysis_verified",
         )
         for name in externally_verified:
             item = dict(deployment_evidence.get(name) or {})
@@ -189,6 +221,7 @@ def main() -> None:
     parser.add_argument("--live-shadow", type=Path)
     parser.add_argument("--deployment-manifest", type=Path)
     parser.add_argument("--deployment-attachment", type=Path, nargs="+")
+    parser.add_argument("--paired-shadow-plan", type=Path)
     parser.add_argument("--expected-code-revision")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
@@ -199,16 +232,19 @@ def main() -> None:
     raw_deployment_requested = bool(
         args.deployment_manifest
         or args.deployment_attachment
+        or args.paired_shadow_plan
         or args.expected_code_revision
     )
     if raw_deployment_requested and not (
         args.deployment_manifest
         and args.deployment_attachment
+        and args.paired_shadow_plan
         and args.expected_code_revision
+        and args.live_shadow
     ):
         parser.error(
-            "--deployment-manifest, --deployment-attachment, and "
-            "--expected-code-revision are required together"
+            "--live-shadow, --deployment-manifest, --deployment-attachment, "
+            "--paired-shadow-plan, and --expected-code-revision are required together"
         )
     if raw_deployment_requested:
         deployment_validation = revalidate_deployment_inputs(
@@ -216,6 +252,21 @@ def main() -> None:
             _load(args.deployment_manifest),
             [_load_attachment(path) for path in args.deployment_attachment],
             expected_code_revision=args.expected_code_revision,
+        )
+        paired_shadow = revalidate_paired_shadow_inputs(
+            gold_readiness,
+            live_shadow,
+            _load(args.paired_shadow_plan),
+            expected_code_revision=args.expected_code_revision,
+        )
+        deployment_validation["paired_shadow_analysis"] = paired_shadow
+        deployment_validation["operational_evidence"][
+            "paired_shadow_analysis_verified"
+        ] = dict(
+            (paired_shadow.get("operational_evidence") or {}).get(
+                "paired_shadow_analysis_verified"
+            )
+            or {"verified": False}
         )
     else:
         deployment_validation = None
@@ -233,6 +284,7 @@ def main() -> None:
         sources["live_shadow"] = args.live_shadow
     if raw_deployment_requested:
         sources["deployment_manifest"] = args.deployment_manifest
+        sources["paired_shadow_plan"] = args.paired_shadow_plan
         for index, path in enumerate(args.deployment_attachment, start=1):
             sources[f"deployment_attachment_{index}"] = path
     result["sources"] = {
@@ -259,4 +311,8 @@ if __name__ == "__main__":
     main()
 
 
-__all__ = ["compose_evidence_bundle", "revalidate_deployment_inputs"]
+__all__ = [
+    "compose_evidence_bundle",
+    "revalidate_deployment_inputs",
+    "revalidate_paired_shadow_inputs",
+]

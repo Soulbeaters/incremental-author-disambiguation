@@ -3,7 +3,7 @@
 This handoff is the remaining institution-side path from the current
 research/candidate framework to a machine-verifiable release decision. It does
 not authorize writes. A write-capable downstream adapter must remain absent
-until the final 21-check gate reports `release_ready: true`.
+until the final 22-check gate reports `release_ready: true`.
 
 ## Required private inputs
 
@@ -22,11 +22,14 @@ The institutional operator supplies the following outside Git:
    approval.
 4. Adjudication decisions for every issue emitted by
    `evaluation/istina_gold_readiness.py`.
-5. Four retained JSON deployment attachments: shadow telemetry, online-load
+5. A completed, statistician-approved copy of
+   `config/istina_paired_shadow_plan.template.json`, registered before the
+   shadow window begins.
+6. Four retained JSON deployment attachments: shadow telemetry, online-load
    output, a completed
    `config/istina_drift_monitor_verification.template.json`, and a completed
    `config/istina_audit_retention_verification.template.json`.
-6. A completed copy of
+7. A completed copy of
    `config/istina_deployment_evidence.template.json` that binds those four
    attachments, the exact data hash, and the exact 40-hex Git revision.
 
@@ -42,7 +45,8 @@ The code revision enforces these defaults:
 |---|---:|
 | Strict-temporal test | at least 10,000 mentions |
 | Known / genuinely unseen | at least 1,000 / 1,000 |
-| Fair live shadow | at least 500 known mentions, zero writes |
+| Fair live shadow | at least 500 known mentions and 100 papers, zero writes |
+| Powered paired comparison | maximum of the 500 floor, registered minimum, and computed requirement |
 | Cross-disciplinary scope | at least 5 disciplines and 3 years |
 | Gold/title/year coverage | at least 95% each |
 | Unresolved label issues | 0 |
@@ -59,7 +63,12 @@ The final model-quality thresholds remain those in
 at least 95%, automatic accuracy at least 98%, UNKNOWN at most 2%, wrong-merge
 and unseen-false-link rates at most 0.1%, local p95 at most 50 ms, and a
 statistically significant legacy-shadow gain of at least two percentage
-points.
+points. With the default registered assumptions (`alpha=0.05`, 80% power,
+2-point gain, and 10% anticipated discordance), the paired normal-approximation
+requirement is 1,960 mentions. Final inference also requires an exact two-sided
+McNemar p-value at most 0.05, a paper-cluster sign-flip p-value at most 0.05,
+and a paper-cluster bootstrap interval whose lower bound is above zero.
+Changing assumptions after observing outcomes invalidates the evidence.
 
 ## Execution sequence
 
@@ -73,8 +82,12 @@ python evaluation/istina_gold_readiness.py --dataset <private-istina-export.json
 
 python experiments/istina_runtime_replay.py --dataset <private-istina-export.json> --service-result <private-frozen-legacy.json> --split-strategy temporal --train-through-year <frozen-year> --compact-output --output <private-temporal-replay.json>
 
+# Complete and approve the paired-shadow plan before starting the live window.
+
 $env:ISTINA_AUDIT_SALT = <secret-manager-value>
-python experiments/istina_live_shadow.py --dataset <private-istina-export.json> --split-strategy temporal --train-through-year <frozen-year> --limit 500 --code-revision $revision --audit-output <private-retained-audit.jsonl> --output <private-live-shadow.json>
+python experiments/istina_live_shadow.py --dataset <private-istina-export.json> --split-strategy temporal --train-through-year <frozen-year> --limit <registered-required-mentions> --code-revision $revision --audit-output <private-retained-audit.jsonl> --output <private-live-shadow.json>
+
+python evaluation/istina_paired_shadow.py --live-shadow <private-live-shadow.json> --plan <private-paired-shadow-plan.json> --expected-dataset <private-istina-export.json> --expected-code-revision $revision --output <private-paired-shadow-analysis.json>
 
 # Run only inside an approved operations window. This endpoint is read-only,
 # but it intentionally generates service load and therefore requires both flags.
@@ -84,7 +97,7 @@ python evaluation/istina_deployment_evidence.py --manifest <private-deployment-m
 
 python experiments/istina_operational_validation.py --dataset <private-istina-export.json> --service-result <private-frozen-legacy.json> --live-shadow-evidence <private-live-shadow.json> --split-strategy temporal --train-through-year <frozen-year> --iterations 18 --tests-passed <pytest-pass-count> --test-warnings <pytest-warning-count> --output <private-operational-validation.json>
 
-python evaluation/istina_evidence_bundle.py --operational-validation <private-operational-validation.json> --gold-readiness <private-gold-readiness.json> --live-shadow <private-live-shadow.json> --deployment-manifest <private-deployment-manifest.json> --deployment-attachment <private-live-shadow.json> <private-online-load.json> <private-drift-verification.json> <private-audit-verification.json> --expected-code-revision $revision --output <private-release-bundle.json>
+python evaluation/istina_evidence_bundle.py --operational-validation <private-operational-validation.json> --gold-readiness <private-gold-readiness.json> --live-shadow <private-live-shadow.json> --deployment-manifest <private-deployment-manifest.json> --deployment-attachment <private-live-shadow.json> <private-online-load.json> <private-drift-verification.json> <private-audit-verification.json> --paired-shadow-plan <private-paired-shadow-plan.json> --expected-code-revision $revision --output <private-release-bundle.json>
 
 python evaluation/production_gate.py --replay-result <private-operational-validation.json> --evidence <private-release-bundle.json> --output <private-production-gate.json>
 ```
@@ -98,10 +111,11 @@ signals, monitoring window, paging proof, audit-chain head, retention policy,
 and exact file hashes. It also requires two distinct approval references.
 `istina_evidence_bundle.py` then checks that the deployment dataset hash is the
 same dataset audited by gold readiness and independently reruns the attachment
-checks from the raw files. The standalone deployment-validation JSON is a
-preflight report, not the bundle's sole trust source. A mismatched, incomplete,
-non-JSON, or edited artifact leaves online shadow, online load, and deployed
-monitoring false.
+checks from the raw files. It also reruns the 33-check paired analysis directly
+from live records and the registered plan. Standalone validation and analysis
+JSON files are preflight reports, not the bundle's trust source. A mismatched,
+incomplete, non-JSON, or edited artifact leaves online shadow, online load,
+paired comparison, and deployed monitoring false.
 
 The current repository evidence intentionally omits a deployment-validation
 artifact because no qualifying institutional run has occurred. Therefore the

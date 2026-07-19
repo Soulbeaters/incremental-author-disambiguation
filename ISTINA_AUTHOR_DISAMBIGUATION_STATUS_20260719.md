@@ -4,7 +4,7 @@
 
 The project now provides a reproducible article framework and a fail-closed
 shadow/candidate implementation. It is **not authorized for write-enabled
-replacement of the ISTINA service**. The current machine gate passes 8 of 21
+replacement of the ISTINA service**. The current machine gate passes 8 of 22
 checks and records `release_ready: false`.
 
 This revision supersedes the advisor-result interpretation in
@@ -31,13 +31,15 @@ artifact whose own `release_ready` value is true. No such artifact exists.
 | `evidence/istina_live_shadow_smoke_20260719.json` | bounded real-service no-write connectivity smoke |
 | `evidence/istina_operational_validation_20260719.json` | load, determinism, audit, rollback, circuit-breaker, and drift tests |
 | `evidence/istina_release_evidence_bundle_20260719.json` | SHA-256-bound composition of independently generated evidence |
-| `evidence/istina_production_gate_operational_20260719.json` | authoritative 21-check release decision |
+| `evidence/istina_production_gate_operational_20260719.json` | authoritative 22-check release decision |
 | `evaluation/istina_deployment_evidence.py` | 47-check, content-level institutional shadow/load/monitor/audit validator |
+| `evaluation/istina_paired_shadow.py` | pre-registered power, exact McNemar, paper-cluster randomization and bootstrap analysis |
 | `experiments/istina_online_read_load.py` | approval-gated, bounded-concurrency read-only online load generator |
 | `config/istina_provenance_manifest.template.json` | intentionally invalid institutional provenance template |
 | `config/istina_deployment_evidence.template.json` | intentionally invalid deployment evidence template |
 | `config/istina_drift_monitor_verification.template.json` | intentionally invalid deployed-monitor proof template |
 | `config/istina_audit_retention_verification.template.json` | intentionally invalid durable-audit proof template |
+| `config/istina_paired_shadow_plan.template.json` | intentionally invalid prospective comparison plan |
 | `docs/ISTINA_INSTITUTIONAL_HANDOFF.md` | exact private inputs, fixed thresholds, and release commands |
 | `evidence/openalex_confirmation_default_current_20260719.json` | current-runtime public OpenAlex confirmation |
 | `evidence/openalex_confirmation_rescue_ablation_current_20260719.json` | current-runtime in-domain OpenAlex rescue ablation |
@@ -51,7 +53,7 @@ artifact whose own `release_ready` value is true. No such artifact exists.
 | `paper/ISTINA_EMPIRICAL_EVIDENCE_20260719.md` | article-ready tables, claims, limitations, and source traceability |
 
 The current article package passes 51/51 integrity checks and has package ID
-`6b8f7c374c3510366eecc89e35d5b01374a97bbb334a7646bcc0aebddbd5cf1b`.
+`5eaba248bd86aeba42d008b8738bd853760fb3db48cfea047ee311be2619759f`.
 Its independent release field remains false.
 
 Mention-level advisor records and the private adjudication queue are excluded
@@ -172,8 +174,8 @@ The offline no-write operational run replayed all 753 temporal test mentions
 | Operational measure | Result |
 |---|---:|
 | Load operations | 13,554 |
-| Throughput | 199.21 mentions/s |
-| Local p95 | 21.42 ms |
+| Throughput | 186.54 mentions/s |
+| Local p95 | 23.06 ms |
 | Deterministic-hash mismatches | 0 |
 | Runtime safety/idempotency/redaction | passed |
 | Durable fsync audit hash chain / restart verification | passed (8 records) |
@@ -189,7 +191,7 @@ verification for the single-process sink. It does not claim deployed audit
 retention; multi-worker deployment requires separate per-worker chains or a
 transactional central append service.
 
-The final repository regression command reports 199 passed tests and one
+The final repository regression command reports 208 passed tests and one
 collection warning for a manual scenario class with a constructor. The ISTINA,
 provenance, audit-integrity, and production-control suites are included.
 
@@ -248,13 +250,16 @@ binds every source table row to a file SHA-256.
 ## Machine gate
 
 The release gate requires at least 10,000 test mentions, 1,000 known, 1,000
-unseen, and 500 fair shadow cases; merge precision at least 99.5%, recall at
+unseen, and 500 fair shadow cases as an absolute floor; merge precision at least 99.5%, recall at
 least 95%, automatic accuracy at least 98%, UNKNOWN at most 2%, wrong-merge and
 unseen-false-link rates at most 0.1%, and local p95 at most 50 ms. It also
 requires cross-disciplinary adjudicated ISTINA gold, online no-write shadow,
-online load, tested rollback, and deployed drift monitoring.
+online load, tested rollback, deployed drift monitoring, and a pre-registered,
+adequately powered, paper-cluster-aware paired comparison. Under the default
+2-point-gain and 10%-discordance assumptions, the power calculation requires
+1,960 paired mentions across at least 100 papers.
 
-Current result: **8 passed, 13 failed, 21 total; `release_ready: false`.**
+Current result: **8 passed, 14 failed, 22 total; `release_ready: false`.**
 
 Passed checks are merge precision, wrong-merge rate, unseen false-link rate,
 local p95, runtime safety contract, offline load, rollback/circuit breaker, and
@@ -262,8 +267,8 @@ drift-monitor fault testing.
 
 Failed checks are total, known, unseen, and shadow sample sizes; known recall,
 automatic accuracy, UNKNOWN; significant absolute legacy-shadow gain; paired
-significance; cross-disciplinary gold; 500-case online shadow; online load; and
-deployed drift monitoring.
+significance; cross-disciplinary gold; 500-case online shadow; online load;
+deployed drift monitoring; and the powered cluster-aware paired analysis.
 
 ## Defensible article claims
 
@@ -316,7 +321,7 @@ python experiments/aminer_kdd18_runtime_replay.py --data-root <aminer-data-globa
 $env:ISTINA_AUDIT_SALT = <secret-manager-value>
 python experiments/istina_live_shadow.py --dataset <advisor-export.json> --split-strategy temporal --train-through-year 2023 --limit 5 --audit-output <private-audit.jsonl> --output evidence/istina_live_shadow_smoke_20260719.json
 
-python experiments/istina_operational_validation.py --dataset <advisor-export.json> --service-result <frozen-service.json> --live-shadow-evidence evidence/istina_live_shadow_smoke_20260719.json --split-strategy temporal --train-through-year 2023 --iterations 18 --tests-passed 199 --test-warnings 1 --output evidence/istina_operational_validation_20260719.json
+python experiments/istina_operational_validation.py --dataset <advisor-export.json> --service-result <frozen-service.json> --live-shadow-evidence evidence/istina_live_shadow_smoke_20260719.json --split-strategy temporal --train-through-year 2023 --iterations 18 --tests-passed 208 --test-warnings 1 --output evidence/istina_operational_validation_20260719.json
 
 python evaluation/istina_evidence_bundle.py --operational-validation evidence/istina_operational_validation_20260719.json --gold-readiness evidence/istina_gold_readiness_20260719.json --live-shadow evidence/istina_live_shadow_smoke_20260719.json --output evidence/istina_release_evidence_bundle_20260719.json
 
@@ -329,12 +334,14 @@ python evaluation/istina_paper_package.py --temporal evidence/istina_temporal_ru
 
 Obtain an adjudicated, cross-disciplinary ISTINA export with at least 10,000
 future test mentions, 1,000 verified identities already present in frozen
-history, 1,000 genuine new identities, and 500 cases evaluated by both systems.
+history, 1,000 genuine new identities, and a prospectively powered paired
+comparison (500 is only the floor; the default plan requires 1,960 cases).
 The export must include discipline and sufficient affiliation/journal context,
 and all unresolved label conflicts must be adjudicated. Its provenance manifest
 must bind the exact file hashes, extraction time and method, label semantics,
-independent audit, cross-discipline scope, and custodian approval. Then run at
-least 500 cases through live no-write shadow, perform an online end-to-end load
+independent audit, cross-discipline scope, and custodian approval. Then run the
+registered number of cases through live no-write shadow across at least 100
+papers, perform an online end-to-end load
 test, deploy durable audit retention, and connect the tested drift monitor to
 production telemetry and paging. Only a fully passing gate may authorize write
 mode.

@@ -1,4 +1,8 @@
 import unittest
+from unittest.mock import patch
+import json
+import tempfile
+from pathlib import Path
 
 from evaluation.production_gate import ReleaseCriteria, assess_production_readiness
 
@@ -31,10 +35,13 @@ def passing_replay():
 class ProductionGateTests(unittest.TestCase):
     def test_gate_passes_only_with_quality_and_operational_evidence(self):
         evidence = {
+            "runtime_safety_contract_verified": True,
+            "offline_load_test_verified": True,
             "cross_domain_gold_verified": True,
             "online_shadow_verified": True,
             "online_load_test_verified": True,
             "rollback_verified": True,
+            "drift_monitor_test_verified": True,
             "drift_monitoring_verified": True,
         }
 
@@ -62,10 +69,13 @@ class ProductionGateTests(unittest.TestCase):
         replay = passing_replay()
         replay["stats"]["total"] = 1
         evidence = {
+            "runtime_safety_contract_verified": {"verified": True},
+            "offline_load_test_verified": {"verified": True},
             "cross_domain_gold_verified": True,
             "online_shadow_verified": True,
             "online_load_test_verified": True,
             "rollback_verified": True,
+            "drift_monitor_test_verified": {"verified": True},
             "drift_monitoring_verified": True,
         }
 
@@ -75,6 +85,39 @@ class ProductionGateTests(unittest.TestCase):
             check["passed"] for check in result["checks"]
             if check["name"] == "total_mentions"
         ))
+
+    def test_cli_accepts_operational_validation_artifact_as_evidence(self):
+        from evaluation.production_gate import main
+
+        evidence = {
+            "operational_evidence": {
+                "runtime_safety_contract_verified": {"verified": True},
+                "offline_load_test_verified": {"verified": True},
+                "cross_domain_gold_verified": {"verified": True},
+                "online_shadow_verified": {"verified": True},
+                "online_load_test_verified": {"verified": True},
+                "rollback_verified": {"verified": True},
+                "drift_monitor_test_verified": {"verified": True},
+                "drift_monitoring_verified": {"verified": True},
+            }
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            replay_path = root / "replay.json"
+            evidence_path = root / "evidence.json"
+            output_path = root / "gate.json"
+            replay_path.write_text(json.dumps(passing_replay()), encoding="utf-8")
+            evidence_path.write_text(json.dumps(evidence), encoding="utf-8")
+            with patch("sys.argv", [
+                "production_gate",
+                "--replay-result", str(replay_path),
+                "--evidence", str(evidence_path),
+                "--output", str(output_path),
+            ]):
+                main()
+
+            result = json.loads(output_path.read_text(encoding="utf-8"))
+            self.assertTrue(result["release_ready"])
 
 
 if __name__ == "__main__":

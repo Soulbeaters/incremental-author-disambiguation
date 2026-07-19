@@ -1,7 +1,8 @@
 # 增量作者消歧系统 / Система инкрементального устранения неоднозначности авторов
 
 > 当前发布状态、真实数据结果与上线限制见
-> [`ISTINA_AUTHOR_DISAMBIGUATION_STATUS_20260718.md`](ISTINA_AUTHOR_DISAMBIGUATION_STATUS_20260718.md)。当前版本仅批准离线评测和无写入 shadow 验证，尚未批准直接替换 ИСТИНА 服务。
+> [`ISTINA_AUTHOR_DISAMBIGUATION_STATUS_20260718.md`](ISTINA_AUTHOR_DISAMBIGUATION_STATUS_20260718.md)。生产安全运行手册见
+> [`docs/ISTINA_PRODUCTION_RUNBOOK.md`](docs/ISTINA_PRODUCTION_RUNBOOK.md)。当前版本已完成真实数据离线负载和熔断/回退/漂移故障注入，并尝试了小规模在线无写入 shadow；严格重跑发生服务超时并按设计安全熔断。数据规模、可靠在线 shadow、在线负载和部署漂移门禁仍未通过，因此未批准直接替换 ИСТИНА 服务。
 
 ## 项目概述 / Обзор проекта
 

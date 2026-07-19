@@ -6,16 +6,20 @@ This branch is a reproducible, high-precision **shadow/candidate release** and
 is suitable for an article comparison. It is **not yet authorized as a
 write-enabled replacement for the ISTINA service**. The machine release gate
 returns `release_ready: false`: the advisor export is too small for the
-predeclared ISTINA sample thresholds, and online shadow, load, rollback, and
-drift-monitoring evidence is still absent. Public open-world data also does not
-meet the deliberately strict recall and UNKNOWN targets.
+predeclared ISTINA sample thresholds. The production safety runtime, offline
+load replay, circuit breaker, automatic rollback, and drift fault injection are
+now verified. A bounded live no-write shadow was attempted and failed closed
+after three service timeouts, so cross-discipline ISTINA gold, a reliable
+500-mention live shadow, online load testing, and deployed drift monitoring are
+still absent. Public open-world data also does not meet the deliberately strict
+recall and UNKNOWN targets.
 
 ## Final default runtime
 
 The default pipeline contains:
 
 - multilingual Unicode/diacritic-aware candidate blocking without changing
-  stored source names;
+stored source names;
 - structured family/given-name, compound-name token, and conservative
   initials repair;
 - normalized order-insensitive coauthor evidence;
@@ -28,6 +32,48 @@ The default pipeline contains:
 - validation of returned legacy IDs against local candidates;
 - top-20 redacted, deterministic audit traces with score components and raw
   comparisons.
+
+## Production safety envelope — 2026-07-19
+
+`integrations.istina_production_runtime` now wraps the statistical runtime with
+a side-effect-free production boundary:
+
+- `shadow`, `candidate`, and `write` modes are explicit; the default is
+  `shadow`;
+- write mode cannot start without a non-expired production authorization whose
+  commit SHA and SHA-256 evidence hash match the running code and whose evidence
+  JSON itself reports `release_ready: true`;
+- the runtime emits deterministic, idempotent downstream commands and does not
+  write to ISTINA directly;
+- a closed/open/half-open circuit breaker isolates the legacy service;
+- any service error or rolling decision-drift alert automatically rolls an
+  intended write deployment back to `shadow` before an authorized command is
+  emitted;
+- rolling checks cover UNKNOWN and merge-rate shifts, stage-distribution total
+  variation, service errors, candidate truncation, and p95 latency;
+- production audit events hash names and publication identifiers and never
+  authorize writes in shadow/candidate mode.
+
+The no-write operational replay used the real advisor export and the frozen
+90-case service comparison. Eight repeats processed 10,112 operations over the
+same 1,264 genuine test mentions; repeated operations are explicitly **not**
+counted as additional gold. It achieved 610.30 mentions/second, local p95
+8.77 ms, and 0 deterministic-hash mismatches. The safety contract, circuit
+breaker recovery, automatic rollback, and injected drift alerts all passed.
+The final repository regression suite reports 157 passed tests and 27 warnings.
+
+A preliminary bounded connectivity check returned results for five known
+authors, but the final strict rerun (after strengthening the audit-redaction
+assertion) timed out on all three complete-paper requests. The final evidence
+therefore records five service-error decisions, zero authorized writes,
+paper-request p95 20.72 seconds, and an open circuit after the third failure.
+Audit redaction still passed and the local runtime continued fail-closed. This
+demonstrates the rollback path, but **does not verify online shadow
+availability**. Compact evidence is committed in:
+
+- `evidence/istina_operational_validation_20260719.json`;
+- `evidence/istina_live_shadow_smoke_20260719.json`;
+- `evidence/istina_production_gate_operational_20260719.json`.
 
 An interpretable L2-logistic candidate-rescue model is retained for explicit
 OpenAlex ablation, but is disabled in the production default because it did not
@@ -162,12 +208,13 @@ are also mandatory.
   merge precision, wrong-link safety, sample composition, and latency pass,
   while recall, automatic accuracy, UNKNOWN, shadow comparison, and operations
   fail.
-- Advisor ISTINA gate: 9/18 checks pass, but `release_ready` remains `false`:
-  the raw known-author
-  recall is 94.44%, just below the 95% threshold, and it also lacks the required
-  total/known/shadow sample sizes and five operational checks. Precision,
-  automatic accuracy, UNKNOWN, wrong-link, comparison, significance, and
-  latency requirements pass.
+- Advisor ISTINA operational gate: 13/21 checks pass, but `release_ready`
+  remains `false`. Runtime safety, offline load, rollback/circuit-breaker, and
+  drift fault testing pass. The eight remaining failures are total mentions
+  (1,264 / 10,000), existing mentions (90 / 1,000), shared shadow mentions
+  (90 / 500), raw known-author recall (94.44% / 95%), cross-discipline ISTINA
+  gold, reliable online shadow, online load testing, and deployed drift
+  monitoring.
 - Official AMiner `test_100` deterministic-default gate: 2/18 checks pass.
   Only the existing- and unseen-author sample counts pass; precision, recall,
   automatic accuracy, UNKNOWN, false links, latency, comparison, and operations
@@ -187,6 +234,8 @@ python experiments/openalex_runtime_replay.py --dataset <mentions.jsonl> --metad
 python experiments/istina_runtime_replay.py --dataset <advisor-export.json> --split-strategy per-author-holdout --service-result <frozen-service-result.json> --output <result.json>
 python experiments/aminer_kdd18_runtime_replay.py --data-root <na-data-kdd18/data/global> --label-split test_100 --archive <na-data-kdd18.zip> --output <result.json>
 python experiments/train_calibrated_candidate_model.py --train-result <seed19-risk-baseline.json> --validation-result <seed20-risk-baseline.json> --topk 20 --verify-runtime-model --output <model-artifact.json>
+python experiments/istina_live_shadow.py --dataset <advisor-export.json> --limit 5 --output <live-shadow.json>
+python experiments/istina_operational_validation.py --dataset <advisor-export.json> --service-result <frozen-service-result.json> --live-shadow-evidence <live-shadow.json> --iterations 8 --output <operational-evidence.json>
 python -m evaluation.production_gate --replay-result <result.json> --output <gate.json>
 ```
 
@@ -200,9 +249,12 @@ outside Git because they contain private records or large generated data.
 
 ## Minimum evidence still required for replacement
 
-Obtain at least 1,000 verified repeated-author ISTINA mentions and at least 500
-of those evaluated by both systems, covering multiple disciplines, common
-names, initials, Cyrillic/Latin/CJK variants, changed affiliations, and genuine
-new authors. Then run the same frozen protocol in no-write shadow mode and add
-load, rollback, and drift evidence. Only a fully passing machine gate can
-authorize write-enabled integration.
+Obtain at least 10,000 cross-disciplinary ISTINA test mentions, including at
+least 1,000 verified repeated-author mentions and at least 500 cases evaluated
+by both systems. The new gold must cover multiple disciplines, common names,
+initials, Cyrillic/Latin/CJK variants, changed affiliations, and genuine new
+authors. Run at least 500 of those cases through the live no-write runtime,
+perform online end-to-end load testing, and deploy the tested drift monitor.
+The available export cannot supply these missing identities: it contains only
+88 repeated gold authors and 90 known-author test mentions. Only a fully passing
+machine gate and matching evidence-bound authorization can enable write mode.

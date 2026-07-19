@@ -28,6 +28,16 @@ from .istina_pipeline import (
     article_mentions,
     build_istina_history_state,
 )
+from .istina_production_runtime import (
+    CircuitBreaker,
+    CircuitBreakerConfig,
+    DecisionDriftMonitor,
+    DriftBaseline,
+    DriftThresholds,
+    IstinaProductionRuntime,
+    ReleaseAuthorization,
+    RuntimeMode,
+)
 
 __all__ = [
     'CrossrefClient',
@@ -43,4 +53,12 @@ __all__ = [
     'IstinaPipelineDecision',
     'article_mentions',
     'build_istina_history_state',
+    'CircuitBreaker',
+    'CircuitBreakerConfig',
+    'DecisionDriftMonitor',
+    'DriftBaseline',
+    'DriftThresholds',
+    'IstinaProductionRuntime',
+    'ReleaseAuthorization',
+    'RuntimeMode',
 ]

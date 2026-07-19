@@ -70,6 +70,10 @@ Thumbs.db
 
 # Paper/LaTeX documentation (keep locally, not for GitHub)
 docs/
+# Keep the production runbook while leaving local paper/LaTeX material ignored.
+!docs/
+docs/*
+!docs/ISTINA_PRODUCTION_RUNBOOK.md
 *.pdf
 *.tex
 *.aux

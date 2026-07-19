@@ -42,6 +42,15 @@ def _check(
     }
 
 
+def _evidence_verified(evidence: Mapping[str, Any], name: str) -> bool:
+    """Read legacy booleans or structured operational evidence records."""
+
+    value = evidence.get(name, False)
+    if isinstance(value, Mapping):
+        return bool(value.get("verified", False))
+    return bool(value)
+
+
 def assess_production_readiness(
     replay: Mapping[str, Any],
     criteria: Optional[ReleaseCriteria] = None,
@@ -138,18 +147,22 @@ def assess_production_readiness(
     ]
 
     operational_requirements = {
+        "runtime_safety_contract_verified": "write authorization, idempotency, redaction, and fail-closed runtime contract",
+        "offline_load_test_verified": "deterministic no-write load replay on real ISTINA data",
         "cross_domain_gold_verified": "validated gold from multiple ISTINA disciplines",
         "online_shadow_verified": "live shadow run without writes",
         "online_load_test_verified": "online end-to-end load and latency test",
         "rollback_verified": "tested rollback/circuit-breaker procedure",
+        "drift_monitor_test_verified": "fault-injected drift monitor alert verification",
         "drift_monitoring_verified": "deployed data-quality and decision-drift monitoring",
     }
     for name, requirement in operational_requirements.items():
+        verified = _evidence_verified(evidence, name)
         checks.append(_check(
             name,
-            bool(evidence.get(name, False)),
+            verified,
             requirement,
-            bool(evidence.get(name, False)),
+            verified,
             "operations",
         ))
 
@@ -180,9 +193,15 @@ def main() -> None:
         json.loads(args.criteria.read_text(encoding="utf-8"))
         if args.criteria else {}
     ))
-    evidence = (
+    evidence_document = (
         json.loads(args.evidence.read_text(encoding="utf-8"))
         if args.evidence else {}
+    )
+    evidence = (
+        evidence_document.get("operational_evidence")
+        if isinstance(evidence_document, Mapping)
+        and isinstance(evidence_document.get("operational_evidence"), Mapping)
+        else evidence_document
     )
     result = assess_production_readiness(replay, criteria, evidence)
     if args.output:

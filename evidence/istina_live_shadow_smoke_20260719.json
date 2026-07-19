@@ -1,0 +1,124 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-19T10:28:54.886751+00:00",
+  "protocol": {
+    "dataset_name": "chinese_articles_with_authors.json",
+    "dataset_sha256": "515c2d5881970f4de1a412d94018fa1aee99b5069956a1e139358bfc0de715fb",
+    "mode": "shadow",
+    "service_url": "http://93.180.23.185:9091/",
+    "man_id": 4705445,
+    "selected_known_mentions": 5,
+    "paper_requests": 3,
+    "write_calls": 0
+  },
+  "stats": {
+    "attempted_mentions": 5,
+    "runtime_decisions": 5,
+    "service_successful_mentions": 0,
+    "service_errors": 5,
+    "runtime_correct": 3,
+    "legacy_correct": 0,
+    "legacy_result_present": 0,
+    "authorized_commands": 0
+  },
+  "metrics": {
+    "service_error_rate": 1.0,
+    "paper_round_trip_latency_ms_p50": 20051.863200002117,
+    "paper_round_trip_latency_ms_p95": 20724.62599999926,
+    "paper_round_trip_latency_ms_max": 20724.62599999926
+  },
+  "safety": {
+    "online_shadow_smoke_verified": false,
+    "audit_redacted": true,
+    "no_write_authorized": true,
+    "circuit_breaker": {
+      "state": "open",
+      "consecutive_failures": 3,
+      "total_successes": 0,
+      "total_failures": 3,
+      "total_rejected": 0,
+      "opened_at_monotonic": 17235.921
+    }
+  },
+  "operational_evidence": {
+    "online_shadow_verified": {
+      "verified": false,
+      "scope": "bounded live no-write smoke",
+      "mentions": 5,
+      "paper_requests": 3,
+      "minimum_release_shadow_mentions": 500,
+      "sufficient_release_volume": false
+    }
+  },
+  "records": [
+    {
+      "article_id_hash": "d51819877929c329",
+      "position": "21",
+      "gold_author_id_hash": "c7974ec95b9c14b4",
+      "runtime_correct": false,
+      "legacy_correct": false,
+      "decision": "new",
+      "stage": "local_fs",
+      "legacy_result_present": false,
+      "legacy_candidate_count": 0,
+      "service_error": "ReadTimeout: HTTPConnectionPool(host='127.0.0.1', port=10809): Read timed out. (read timeout=20.0)",
+      "deterministic_hash": "8bd2eadeb912"
+    },
+    {
+      "article_id_hash": "7c53691d9ef26abb",
+      "position": "2",
+      "gold_author_id_hash": "c7974ec95b9c14b4",
+      "runtime_correct": false,
+      "legacy_correct": false,
+      "decision": "new",
+      "stage": "local_fs",
+      "legacy_result_present": false,
+      "legacy_candidate_count": 0,
+      "service_error": "ReadTimeout: HTTPConnectionPool(host='127.0.0.1', port=10809): Read timed out. (read timeout=20.0)",
+      "deterministic_hash": "c245d4fcb542"
+    },
+    {
+      "article_id_hash": "8a3d97a2504ded18",
+      "position": "5",
+      "gold_author_id_hash": "426ca66ae962dd3c",
+      "runtime_correct": true,
+      "legacy_correct": false,
+      "decision": "merge",
+      "stage": "local_fs",
+      "legacy_result_present": false,
+      "legacy_candidate_count": 0,
+      "service_error": "ReadTimeout: HTTPConnectionPool(host='127.0.0.1', port=10809): Read timed out. (read timeout=20.0)",
+      "deterministic_hash": "1f3f7422bf27"
+    },
+    {
+      "article_id_hash": "8a3d97a2504ded18",
+      "position": "23",
+      "gold_author_id_hash": "fb5702d38022af91",
+      "runtime_correct": true,
+      "legacy_correct": false,
+      "decision": "merge",
+      "stage": "local_fs",
+      "legacy_result_present": false,
+      "legacy_candidate_count": 0,
+      "service_error": "ReadTimeout: HTTPConnectionPool(host='127.0.0.1', port=10809): Read timed out. (read timeout=20.0)",
+      "deterministic_hash": "9ab501b49e72"
+    },
+    {
+      "article_id_hash": "8a3d97a2504ded18",
+      "position": "36",
+      "gold_author_id_hash": "51e8ef1a0d9a12ee",
+      "runtime_correct": true,
+      "legacy_correct": false,
+      "decision": "merge",
+      "stage": "local_fs",
+      "legacy_result_present": false,
+      "legacy_candidate_count": 0,
+      "service_error": "ReadTimeout: HTTPConnectionPool(host='127.0.0.1', port=10809): Read timed out. (read timeout=20.0)",
+      "deterministic_hash": "8632e2297913"
+    }
+  ],
+  "release_constraints": {
+    "write_enabled_replacement_authorized": false,
+    "reason": "live connectivity is verified but release sample thresholds remain unmet"
+  }
+}

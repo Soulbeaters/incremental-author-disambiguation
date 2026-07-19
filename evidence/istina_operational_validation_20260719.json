@@ -1,0 +1,380 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-19T10:34:13.000940+00:00",
+  "protocol": {
+    "dataset": "C:\\program 2 in 2025\\istina test\\chinese_articles_with_authors.json",
+    "dataset_sha256": "515c2d5881970f4de1a412d94018fa1aee99b5069956a1e139358bfc0de715fb",
+    "service_result": "C:\\program 2 in 2025\\results\\istina_export_holdout_eval_shared_existing_paper_service90_20260717.json",
+    "service_result_sha256": "00d86db7994f5348d0b1805509ac2ad1a8be164b9eed59ea3721bea0635919b3",
+    "live_shadow_evidence_sha256": "53b9803cc2a210525b6eef21a0ddddd9864ac87064354a1e7ed9f46020aab537",
+    "split_strategy": "per-author-holdout",
+    "history_mentions": 88,
+    "test_mentions": 1264,
+    "load_iterations": 8,
+    "network_calls": 0,
+    "write_calls": 0
+  },
+  "tests": {
+    "command": "python -m pytest -q -p no:cacheprovider",
+    "passed": 157,
+    "warnings": 27
+  },
+  "stats": {
+    "total": 1264,
+    "existing_gold": 90,
+    "new_gold": 1174,
+    "merge": 85,
+    "new": 1165,
+    "unknown": 14,
+    "correct_merge": 85,
+    "wrong_merge": 0,
+    "correct_new": 1160,
+    "false_new_for_existing": 5,
+    "merge_for_new_gold": 0
+  },
+  "metrics": {
+    "precision": 1.0,
+    "existing_recall": 0.9444444444444444,
+    "auto_accuracy": 0.9849683544303798,
+    "unknown_rate": 0.011075949367088608,
+    "wrong_merge_rate": 0.0,
+    "latency_ms_p50": 0.2640999991854187,
+    "latency_ms_p95": 5.730600001697894,
+    "latency_ms_p99": 9.572700000717305
+  },
+  "stage_counts": {
+    "enhanced_blocking_source_guard": 1,
+    "legacy_service_validated_fallback": 1,
+    "local_fs": 1246,
+    "strict_structured_name_repair": 1,
+    "structured_coauthor_repair": 10,
+    "unique_non_cjk_initial_repair": 5
+  },
+  "legacy_shadow": {
+    "n": 90,
+    "paired_table": {
+      "both_correct": 31,
+      "runtime_only_correct": 54,
+      "legacy_only_correct": 4,
+      "both_incorrect": 1
+    },
+    "runtime_correct": 85,
+    "legacy_correct": 35,
+    "mcnemar_exact_two_sided_p": 3.1699504132731704e-12
+  },
+  "operational_validation": {
+    "runtime_safety_contract": {
+      "verified": true,
+      "mode": "candidate",
+      "commands": 4,
+      "idempotent_replay": true,
+      "audit_redacted": true,
+      "no_write_authorized": true
+    },
+    "offline_load_test": {
+      "verified": true,
+      "real_distinct_mentions": 1264,
+      "replay_iterations": 8,
+      "load_operations": 10112,
+      "elapsed_seconds": 16.568908599998394,
+      "throughput_mentions_per_second": 610.299703144055,
+      "latency_ms_p50": 0.37489999886020087,
+      "latency_ms_p95": 8.768600000621518,
+      "latency_ms_p99": 16.06059999903664,
+      "deterministic_hash_mismatches": 0,
+      "scope": "offline no-write load replay; repeated operations are not extra gold"
+    },
+    "circuit_breaker_fault_injection": {
+      "verified": true,
+      "method": "deterministic injected service failures and clock advance",
+      "opened_after_failures": true,
+      "rejected_while_open": true,
+      "entered_half_open": true,
+      "recovered_after_successful_probe": true,
+      "snapshot": {
+        "state": "closed",
+        "consecutive_failures": 0,
+        "total_successes": 1,
+        "total_failures": 2,
+        "total_rejected": 1,
+        "opened_at_monotonic": null
+      }
+    },
+    "drift_monitor_fault_injection": {
+      "verified": true,
+      "method": "fault-injected UNKNOWN/stage/service-error telemetry window",
+      "sample_mentions": 100,
+      "expected_alerts": [
+        "merge_rate_delta",
+        "service_error_rate",
+        "stage_total_variation",
+        "unknown_rate_increase"
+      ],
+      "observed_alerts": [
+        "merge_rate_delta",
+        "service_error_rate",
+        "stage_total_variation",
+        "unknown_rate_increase"
+      ],
+      "monitor_report": {
+        "status": "alert",
+        "alert": true,
+        "window_mentions": 100,
+        "observed": {
+          "unknown_rate": 1.0,
+          "merge_rate": 0.0,
+          "service_error_rate": 1.0,
+          "candidate_truncation_rate": 0.0,
+          "latency_p95_ms": 8.372599997528596,
+          "stage_total_variation": 1.0,
+          "stage_distribution": {
+            "fault_injection": 1.0
+          }
+        },
+        "checks": [
+          {
+            "name": "unknown_rate_increase",
+            "observed": 0.9889240506329114,
+            "limit": 0.01,
+            "passed": false
+          },
+          {
+            "name": "merge_rate_delta",
+            "observed": 0.06724683544303797,
+            "limit": 0.01,
+            "passed": false
+          },
+          {
+            "name": "stage_total_variation",
+            "observed": 1.0,
+            "limit": 0.01,
+            "passed": false
+          },
+          {
+            "name": "service_error_rate",
+            "observed": 1.0,
+            "limit": 0.0,
+            "passed": false
+          },
+          {
+            "name": "candidate_truncation_rate",
+            "observed": 0.0,
+            "limit": 1.0,
+            "passed": true
+          },
+          {
+            "name": "latency_p95_ms",
+            "observed": 8.372599997528596,
+            "limit": 10000.0,
+            "passed": true
+          }
+        ],
+        "failures": [
+          {
+            "name": "unknown_rate_increase",
+            "observed": 0.9889240506329114,
+            "limit": 0.01,
+            "passed": false
+          },
+          {
+            "name": "merge_rate_delta",
+            "observed": 0.06724683544303797,
+            "limit": 0.01,
+            "passed": false
+          },
+          {
+            "name": "stage_total_variation",
+            "observed": 1.0,
+            "limit": 0.01,
+            "passed": false
+          },
+          {
+            "name": "service_error_rate",
+            "observed": 1.0,
+            "limit": 0.0,
+            "passed": false
+          }
+        ]
+      }
+    },
+    "live_shadow": {
+      "stats": {
+        "attempted_mentions": 5,
+        "runtime_decisions": 5,
+        "service_successful_mentions": 0,
+        "service_errors": 5,
+        "runtime_correct": 3,
+        "legacy_correct": 0,
+        "legacy_result_present": 0,
+        "authorized_commands": 0
+      },
+      "metrics": {
+        "service_error_rate": 1.0,
+        "paper_round_trip_latency_ms_p50": 20051.863200002117,
+        "paper_round_trip_latency_ms_p95": 20724.62599999926,
+        "paper_round_trip_latency_ms_max": 20724.62599999926
+      },
+      "safety": {
+        "online_shadow_smoke_verified": false,
+        "audit_redacted": true,
+        "no_write_authorized": true,
+        "circuit_breaker": {
+          "state": "open",
+          "consecutive_failures": 3,
+          "total_successes": 0,
+          "total_failures": 3,
+          "total_rejected": 0,
+          "opened_at_monotonic": 17235.921
+        }
+      }
+    }
+  },
+  "operational_evidence": {
+    "runtime_safety_contract_verified": {
+      "verified": true,
+      "mode": "candidate",
+      "commands": 4,
+      "idempotent_replay": true,
+      "audit_redacted": true,
+      "no_write_authorized": true
+    },
+    "offline_load_test_verified": {
+      "verified": true,
+      "real_distinct_mentions": 1264,
+      "replay_iterations": 8,
+      "load_operations": 10112,
+      "elapsed_seconds": 16.568908599998394,
+      "throughput_mentions_per_second": 610.299703144055,
+      "latency_ms_p50": 0.37489999886020087,
+      "latency_ms_p95": 8.768600000621518,
+      "latency_ms_p99": 16.06059999903664,
+      "deterministic_hash_mismatches": 0,
+      "scope": "offline no-write load replay; repeated operations are not extra gold"
+    },
+    "rollback_verified": {
+      "verified": true,
+      "method": "circuit-breaker recovery plus fail-closed drift fault injection"
+    },
+    "drift_monitor_test_verified": {
+      "verified": true,
+      "method": "fault-injected UNKNOWN/stage/service-error telemetry window",
+      "sample_mentions": 100,
+      "expected_alerts": [
+        "merge_rate_delta",
+        "service_error_rate",
+        "stage_total_variation",
+        "unknown_rate_increase"
+      ],
+      "observed_alerts": [
+        "merge_rate_delta",
+        "service_error_rate",
+        "stage_total_variation",
+        "unknown_rate_increase"
+      ],
+      "monitor_report": {
+        "status": "alert",
+        "alert": true,
+        "window_mentions": 100,
+        "observed": {
+          "unknown_rate": 1.0,
+          "merge_rate": 0.0,
+          "service_error_rate": 1.0,
+          "candidate_truncation_rate": 0.0,
+          "latency_p95_ms": 8.372599997528596,
+          "stage_total_variation": 1.0,
+          "stage_distribution": {
+            "fault_injection": 1.0
+          }
+        },
+        "checks": [
+          {
+            "name": "unknown_rate_increase",
+            "observed": 0.9889240506329114,
+            "limit": 0.01,
+            "passed": false
+          },
+          {
+            "name": "merge_rate_delta",
+            "observed": 0.06724683544303797,
+            "limit": 0.01,
+            "passed": false
+          },
+          {
+            "name": "stage_total_variation",
+            "observed": 1.0,
+            "limit": 0.01,
+            "passed": false
+          },
+          {
+            "name": "service_error_rate",
+            "observed": 1.0,
+            "limit": 0.0,
+            "passed": false
+          },
+          {
+            "name": "candidate_truncation_rate",
+            "observed": 0.0,
+            "limit": 1.0,
+            "passed": true
+          },
+          {
+            "name": "latency_p95_ms",
+            "observed": 8.372599997528596,
+            "limit": 10000.0,
+            "passed": true
+          }
+        ],
+        "failures": [
+          {
+            "name": "unknown_rate_increase",
+            "observed": 0.9889240506329114,
+            "limit": 0.01,
+            "passed": false
+          },
+          {
+            "name": "merge_rate_delta",
+            "observed": 0.06724683544303797,
+            "limit": 0.01,
+            "passed": false
+          },
+          {
+            "name": "stage_total_variation",
+            "observed": 1.0,
+            "limit": 0.01,
+            "passed": false
+          },
+          {
+            "name": "service_error_rate",
+            "observed": 1.0,
+            "limit": 0.0,
+            "passed": false
+          }
+        ]
+      }
+    },
+    "cross_domain_gold_verified": {
+      "verified": false,
+      "reason": "available advisor export is not a verified multi-discipline ISTINA gold set"
+    },
+    "online_shadow_verified": {
+      "verified": false,
+      "scope": "bounded live no-write smoke",
+      "mentions": 5,
+      "paper_requests": 3,
+      "minimum_release_shadow_mentions": 500,
+      "sufficient_release_volume": false
+    },
+    "online_load_test_verified": {
+      "verified": false,
+      "reason": "local replay is not an online end-to-end ISTINA load test"
+    },
+    "drift_monitoring_verified": {
+      "verified": false,
+      "reason": "monitor is implemented and fault-tested but not yet deployed"
+    }
+  },
+  "release_constraints": {
+    "repeated_load_operations_are_distinct_gold": false,
+    "write_enabled_replacement_authorized": false
+  }
+}

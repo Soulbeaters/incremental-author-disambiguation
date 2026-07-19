@@ -29,8 +29,15 @@ def compose_evidence_bundle(
     disciplines = dict(
         ((gold_readiness.get("dataset") or {}).get("disciplines") or {})
     )
+    provenance_verified = bool(
+        ((gold_readiness.get("provenance") or {}).get("verified"))
+    )
+    cross_domain_ready = bool(
+        gold_readiness.get("data_ready") and provenance_verified
+    )
     evidence["cross_domain_gold_verified"] = {
-        "verified": bool(gold_readiness.get("data_ready")),
+        "verified": cross_domain_ready,
+        "provenance_verified": provenance_verified,
         "disciplines": len(disciplines),
         "unresolved_label_issues": int(
             ((gold_readiness.get("adjudication") or {}).get("unresolved") or 0)
@@ -38,8 +45,11 @@ def compose_evidence_bundle(
         "reason": (
             "gold-readiness audit passed all sample, coverage, leakage, and "
             "adjudication checks"
-            if gold_readiness.get("data_ready")
-            else "gold-readiness audit has unresolved release failures"
+            if cross_domain_ready
+            else (
+                "gold-readiness or ISTINA provenance audit has unresolved "
+                "release failures"
+            )
         ),
     }
     if live_shadow is not None:

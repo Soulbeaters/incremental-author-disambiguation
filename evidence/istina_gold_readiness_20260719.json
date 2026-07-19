@@ -11,12 +11,13 @@
     "min_gold_id_coverage": 0.95,
     "min_title_coverage": 0.95,
     "min_year_coverage": 0.95,
-    "max_unresolved_label_issues": 0
+    "max_unresolved_label_issues": 0,
+    "require_verified_provenance": true
   },
   "summary": {
     "passed": 4,
-    "failed": 7,
-    "total": 11
+    "failed": 8,
+    "total": 12
   },
   "dataset": {
     "articles": 90,
@@ -72,6 +73,132 @@
     "test_papers": 89,
     "paper_overlap": 13,
     "shared_shadow_mentions": 38
+  },
+  "provenance": {
+    "schema_version": 1,
+    "verified": false,
+    "summary": {
+      "passed": 7,
+      "failed": 5,
+      "total": 12
+    },
+    "checks": [
+      {
+        "name": "manifest_present",
+        "observed": true,
+        "required": true,
+        "passed": true
+      },
+      {
+        "name": "schema_version",
+        "observed": 1,
+        "required": 1,
+        "passed": true
+      },
+      {
+        "name": "source_system",
+        "observed": "istina",
+        "required": "istina",
+        "passed": true
+      },
+      {
+        "name": "source_record_type",
+        "observed": "publication_author_export",
+        "required": "publication_author_export",
+        "passed": true
+      },
+      {
+        "name": "identity_namespace",
+        "observed": "istina_author_id",
+        "required": "istina_author_id",
+        "passed": true
+      },
+      {
+        "name": "label_semantics",
+        "observed": "exported_person_identifier_unadjudicated",
+        "required": "adjudicated_person_identity",
+        "passed": false
+      },
+      {
+        "name": "exported_at",
+        "observed": null,
+        "required": "timezone-aware ISO-8601 timestamp",
+        "passed": false
+      },
+      {
+        "name": "extraction_method",
+        "observed": true,
+        "required": "non-empty documented method",
+        "passed": true
+      },
+      {
+        "name": "dataset_hashes",
+        "observed": [
+          [
+            "chinese_articles_with_authors.json",
+            "515c2d5881970f4de1a412d94018fa1aee99b5069956a1e139358bfc0de715fb"
+          ]
+        ],
+        "required": [
+          [
+            "chinese_articles_with_authors.json",
+            "515c2d5881970f4de1a412d94018fa1aee99b5069956a1e139358bfc0de715fb"
+          ]
+        ],
+        "passed": true
+      },
+      {
+        "name": "independent_label_audit",
+        "observed": false,
+        "required": true,
+        "passed": false
+      },
+      {
+        "name": "cross_discipline_scope",
+        "observed": false,
+        "required": true,
+        "passed": false
+      },
+      {
+        "name": "custodian_approval",
+        "observed": false,
+        "required": true,
+        "passed": false
+      }
+    ],
+    "failures": [
+      {
+        "name": "label_semantics",
+        "observed": "exported_person_identifier_unadjudicated",
+        "required": "adjudicated_person_identity",
+        "passed": false
+      },
+      {
+        "name": "exported_at",
+        "observed": null,
+        "required": "timezone-aware ISO-8601 timestamp",
+        "passed": false
+      },
+      {
+        "name": "independent_label_audit",
+        "observed": false,
+        "required": true,
+        "passed": false
+      },
+      {
+        "name": "cross_discipline_scope",
+        "observed": false,
+        "required": true,
+        "passed": false
+      },
+      {
+        "name": "custodian_approval",
+        "observed": false,
+        "required": true,
+        "passed": false
+      }
+    ],
+    "release_scope": "not eligible for ISTINA production-gold gates"
   },
   "adjudication": {
     "issues": 2,
@@ -161,6 +288,13 @@
       "observed": 2,
       "required": "<=0",
       "passed": false
+    },
+    {
+      "name": "verified_istina_provenance",
+      "category": "provenance",
+      "observed": false,
+      "required": true,
+      "passed": false
     }
   ],
   "failures": [
@@ -212,6 +346,13 @@
       "observed": 2,
       "required": "<=0",
       "passed": false
+    },
+    {
+      "name": "verified_istina_provenance",
+      "category": "provenance",
+      "observed": false,
+      "required": true,
+      "passed": false
     }
   ],
   "inputs": {
@@ -225,7 +366,11 @@
       "name": "istina_export_holdout_eval_shared_existing_paper_service90_20260717.json",
       "sha256": "00d86db7994f5348d0b1805509ac2ad1a8be164b9eed59ea3721bea0635919b3"
     },
-    "adjudication_decisions": null
+    "adjudication_decisions": null,
+    "provenance_manifest": {
+      "name": "istina_advisor_export_provenance_declaration_20260719.json",
+      "sha256": "9ad69e37a395d8a5f5f045f4842c0d7f8597f7719eced2c2d616d8183828ea16"
+    }
   },
-  "generated_at": "2026-07-19T11:33:59.235517+00:00"
+  "generated_at": "2026-07-19T11:51:59.496631+00:00"
 }

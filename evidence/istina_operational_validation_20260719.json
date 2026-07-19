@@ -1,12 +1,12 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-19T11:15:38.660808+00:00",
+  "generated_at": "2026-07-19T13:26:53.777300+00:00",
   "protocol": {
     "dataset": "C:\\program 2 in 2025\\istina test\\chinese_articles_with_authors.json",
     "dataset_sha256": "515c2d5881970f4de1a412d94018fa1aee99b5069956a1e139358bfc0de715fb",
     "service_result": "C:\\program 2 in 2025\\results\\istina_export_holdout_eval_shared_existing_paper_service90_20260717.json",
     "service_result_sha256": "00d86db7994f5348d0b1805509ac2ad1a8be164b9eed59ea3721bea0635919b3",
-    "live_shadow_evidence_sha256": null,
+    "live_shadow_evidence_sha256": "b0100dcab3c8f3229efbe7a0798063426999eb5f5c5fe14e0fe6d02e287ed595",
     "split_strategy": "temporal",
     "train_through_year": 2023,
     "history_mentions": 930,
@@ -21,8 +21,8 @@
   },
   "tests": {
     "command": "python -m pytest -q -p no:cacheprovider",
-    "passed": 164,
-    "warnings": 26
+    "passed": 178,
+    "warnings": 1
   },
   "stats": {
     "total": 571,
@@ -43,9 +43,9 @@
     "auto_accuracy": 0.9439579684763573,
     "unknown_rate": 0.04903677758318739,
     "wrong_merge_rate": 0.0,
-    "latency_ms_p50": 0.350799997249851,
-    "latency_ms_p95": 18.775799999275478,
-    "latency_ms_p99": 26.74729999853298
+    "latency_ms_p50": 0.2452000007906463,
+    "latency_ms_p95": 12.830299998313421,
+    "latency_ms_p99": 17.128499999671476
   },
   "stage_counts": {
     "legacy_service_validated_fallback": 1,
@@ -70,6 +70,14 @@
       "commands": 4,
       "idempotent_replay": true,
       "audit_redacted": true,
+      "durable_audit_chain": {
+        "verified": true,
+        "records": 8,
+        "head_hash": "fec7e21561daa9876a193d35dac266bb81f630e29df7e51b6e43baa49ee47c65",
+        "restart_verified": true,
+        "fsync": true,
+        "storage_scope": "ephemeral validation file; not deployed production storage"
+      },
       "no_write_authorized": true
     },
     "offline_load_test": {
@@ -77,11 +85,11 @@
       "real_distinct_mentions": 753,
       "replay_iterations": 18,
       "load_operations": 13554,
-      "elapsed_seconds": 88.95944220000092,
-      "throughput_mentions_per_second": 152.36156685343806,
-      "latency_ms_p50": 0.7988999968802091,
-      "latency_ms_p95": 28.916499999468215,
-      "latency_ms_p99": 43.05650000242167,
+      "elapsed_seconds": 67.31437530000039,
+      "throughput_mentions_per_second": 201.3537218401538,
+      "latency_ms_p50": 0.622200001089368,
+      "latency_ms_p95": 21.08340000268072,
+      "latency_ms_p99": 30.027299999346724,
       "deterministic_hash_mismatches": 0,
       "scope": "offline no-write load replay; repeated operations are not extra gold"
     },
@@ -126,7 +134,7 @@
           "merge_rate": 0.5,
           "service_error_rate": 1.0,
           "candidate_truncation_rate": 0.0,
-          "latency_p95_ms": 15.900099999271333,
+          "latency_p95_ms": 11.252799999056151,
           "stage_total_variation": 1.0,
           "stage_distribution": {
             "fault_injection": 1.0
@@ -165,7 +173,7 @@
           },
           {
             "name": "latency_p95_ms",
-            "observed": 15.900099999271333,
+            "observed": 11.252799999056151,
             "limit": 10000.0,
             "passed": true
           }
@@ -198,7 +206,46 @@
         ]
       }
     },
-    "live_shadow": null
+    "live_shadow": {
+      "stats": {
+        "attempted_mentions": 5,
+        "runtime_decisions": 5,
+        "service_successful_mentions": 5,
+        "service_errors": 0,
+        "runtime_correct": 1,
+        "legacy_correct": 3,
+        "legacy_result_present": 5,
+        "authorized_commands": 0
+      },
+      "metrics": {
+        "service_error_rate": 0.0,
+        "paper_round_trip_latency_ms_p50": 11603.138099999342,
+        "paper_round_trip_latency_ms_p95": 15462.99480000016,
+        "paper_round_trip_latency_ms_max": 15462.99480000016
+      },
+      "safety": {
+        "online_shadow_smoke_verified": true,
+        "audit_redacted": true,
+        "durable_audit_chain": {
+          "verified": true,
+          "records_appended": 223,
+          "chain_records_total": 223,
+          "head_hash": "fdfb36cd0403ca0f370b6d920c3fa87e506d4f6be4db98d97e1c0460a470ca65",
+          "fsync": true,
+          "retained": false,
+          "storage_scope": "ephemeral smoke validation JSONL"
+        },
+        "no_write_authorized": true,
+        "circuit_breaker": {
+          "state": "closed",
+          "consecutive_failures": 0,
+          "total_successes": 4,
+          "total_failures": 0,
+          "total_rejected": 0,
+          "opened_at_monotonic": null
+        }
+      }
+    }
   },
   "operational_evidence": {
     "runtime_safety_contract_verified": {
@@ -207,6 +254,14 @@
       "commands": 4,
       "idempotent_replay": true,
       "audit_redacted": true,
+      "durable_audit_chain": {
+        "verified": true,
+        "records": 8,
+        "head_hash": "fec7e21561daa9876a193d35dac266bb81f630e29df7e51b6e43baa49ee47c65",
+        "restart_verified": true,
+        "fsync": true,
+        "storage_scope": "ephemeral validation file; not deployed production storage"
+      },
       "no_write_authorized": true
     },
     "offline_load_test_verified": {
@@ -214,11 +269,11 @@
       "real_distinct_mentions": 753,
       "replay_iterations": 18,
       "load_operations": 13554,
-      "elapsed_seconds": 88.95944220000092,
-      "throughput_mentions_per_second": 152.36156685343806,
-      "latency_ms_p50": 0.7988999968802091,
-      "latency_ms_p95": 28.916499999468215,
-      "latency_ms_p99": 43.05650000242167,
+      "elapsed_seconds": 67.31437530000039,
+      "throughput_mentions_per_second": 201.3537218401538,
+      "latency_ms_p50": 0.622200001089368,
+      "latency_ms_p95": 21.08340000268072,
+      "latency_ms_p99": 30.027299999346724,
       "deterministic_hash_mismatches": 0,
       "scope": "offline no-write load replay; repeated operations are not extra gold"
     },
@@ -251,7 +306,7 @@
           "merge_rate": 0.5,
           "service_error_rate": 1.0,
           "candidate_truncation_rate": 0.0,
-          "latency_p95_ms": 15.900099999271333,
+          "latency_p95_ms": 11.252799999056151,
           "stage_total_variation": 1.0,
           "stage_distribution": {
             "fault_injection": 1.0
@@ -290,7 +345,7 @@
           },
           {
             "name": "latency_p95_ms",
-            "observed": 15.900099999271333,
+            "observed": 11.252799999056151,
             "limit": 10000.0,
             "passed": true
           }
@@ -329,7 +384,12 @@
     },
     "online_shadow_verified": {
       "verified": false,
-      "reason": "no live shadow evidence artifact was supplied"
+      "smoke_verified": true,
+      "scope": "bounded live no-write shadow",
+      "mentions": 5,
+      "paper_requests": 4,
+      "minimum_release_shadow_mentions": 500,
+      "sufficient_release_volume": false
     },
     "online_load_test_verified": {
       "verified": false,

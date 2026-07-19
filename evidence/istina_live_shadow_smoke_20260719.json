@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-19T11:19:55.917803+00:00",
+  "generated_at": "2026-07-19T13:18:28.538248+00:00",
   "protocol": {
     "dataset_name": "chinese_articles_with_authors.json",
     "dataset_sha256": "515c2d5881970f4de1a412d94018fa1aee99b5069956a1e139358bfc0de715fb",
@@ -8,7 +8,7 @@
     "split_strategy": "temporal",
     "train_through_year": 2023,
     "service_url": "http://93.180.23.185:9091/",
-    "man_id": 4705445,
+    "man_id_hash": "85a319447f84b5c8",
     "selected_known_mentions": 5,
     "paper_requests": 4,
     "write_calls": 0,
@@ -29,13 +29,22 @@
   },
   "metrics": {
     "service_error_rate": 0.0,
-    "paper_round_trip_latency_ms_p50": 10240.318500000285,
-    "paper_round_trip_latency_ms_p95": 14684.124799998244,
-    "paper_round_trip_latency_ms_max": 14684.124799998244
+    "paper_round_trip_latency_ms_p50": 11603.138099999342,
+    "paper_round_trip_latency_ms_p95": 15462.99480000016,
+    "paper_round_trip_latency_ms_max": 15462.99480000016
   },
   "safety": {
     "online_shadow_smoke_verified": true,
     "audit_redacted": true,
+    "durable_audit_chain": {
+      "verified": true,
+      "records_appended": 223,
+      "chain_records_total": 223,
+      "head_hash": "fdfb36cd0403ca0f370b6d920c3fa87e506d4f6be4db98d97e1c0460a470ca65",
+      "fsync": true,
+      "retained": false,
+      "storage_scope": "ephemeral smoke validation JSONL"
+    },
     "no_write_authorized": true,
     "circuit_breaker": {
       "state": "closed",
@@ -59,69 +68,69 @@
   },
   "records": [
     {
-      "article_id_hash": "f29ac046f24b1412",
+      "article_id_hash": "95c866a60a27ab4d",
       "position": "54",
-      "gold_author_id_hash": "a183b4cbe318784b",
+      "gold_author_id_hash": "c5723b7335d31a38",
       "runtime_correct": false,
       "legacy_correct": false,
       "decision": "new",
       "stage": "local_fs",
       "legacy_result_present": true,
       "legacy_candidate_count": 1,
-      "service_error": null,
-      "deterministic_hash": "2dbac5b3e276"
+      "service_error": false,
+      "deterministic_hash": "746b747867708075"
     },
     {
-      "article_id_hash": "d51819877929c329",
+      "article_id_hash": "f2e7b6dd74ad96f9",
       "position": "6",
-      "gold_author_id_hash": "7c6579d5f4c202b0",
+      "gold_author_id_hash": "484737464e68c472",
       "runtime_correct": false,
       "legacy_correct": true,
       "decision": "new",
       "stage": "local_fs",
       "legacy_result_present": true,
       "legacy_candidate_count": 19,
-      "service_error": null,
-      "deterministic_hash": "8bd2eadeb912"
+      "service_error": false,
+      "deterministic_hash": "df825f26af488956"
     },
     {
-      "article_id_hash": "d51819877929c329",
+      "article_id_hash": "f2e7b6dd74ad96f9",
       "position": "21",
-      "gold_author_id_hash": "c7974ec95b9c14b4",
+      "gold_author_id_hash": "7c64c6070795a388",
       "runtime_correct": false,
       "legacy_correct": true,
       "decision": "new",
       "stage": "local_fs",
       "legacy_result_present": true,
       "legacy_candidate_count": 8,
-      "service_error": null,
-      "deterministic_hash": "8bd2eadeb912"
+      "service_error": false,
+      "deterministic_hash": "df825f26af488956"
     },
     {
-      "article_id_hash": "f48335d51d700dd7",
+      "article_id_hash": "93216d9599aff5a4",
       "position": "46",
-      "gold_author_id_hash": "e3a0af53960e429d",
+      "gold_author_id_hash": "ddcff51d268ece43",
       "runtime_correct": true,
       "legacy_correct": true,
       "decision": "merge",
       "stage": "legacy_service_validated_fallback",
       "legacy_result_present": true,
       "legacy_candidate_count": 7,
-      "service_error": null,
-      "deterministic_hash": "4a54c320a4d0"
+      "service_error": false,
+      "deterministic_hash": "706b1300ded0bd3e"
     },
     {
-      "article_id_hash": "42062f81302e724d",
+      "article_id_hash": "25e4a94cf51f93d7",
       "position": "7",
-      "gold_author_id_hash": "d67dd75f38f12624",
+      "gold_author_id_hash": "cb179670958905f8",
       "runtime_correct": false,
       "legacy_correct": false,
       "decision": "new",
       "stage": "local_fs",
       "legacy_result_present": true,
       "legacy_candidate_count": 87,
-      "service_error": null,
-      "deterministic_hash": "2dbac5b3e276"
+      "service_error": false,
+      "deterministic_hash": "746b747867708075"
     }
   ],
   "release_constraints": {

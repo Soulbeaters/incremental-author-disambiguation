@@ -33,6 +33,7 @@ def compact_criteria(**overrides):
         "min_title_coverage": 1.0,
         "min_year_coverage": 1.0,
         "max_unresolved_label_issues": 0,
+        "require_verified_provenance": False,
     }
     values.update(overrides)
     return GoldReadinessCriteria(**values)

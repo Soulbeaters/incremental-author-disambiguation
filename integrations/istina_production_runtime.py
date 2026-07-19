@@ -10,6 +10,7 @@ idempotent write commands for a downstream ISTINA adapter.
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import math
 import time
@@ -482,6 +483,14 @@ class IstinaProductionRuntime:
         self.audit_sink = audit_sink
         self.rollback_reason: Optional[str] = None
 
+        if self.audit_sink and not self.audit_salt.strip():
+            message = (
+                "write mode requires a non-empty audit salt"
+                if self.requested_mode == RuntimeMode.WRITE
+                else "audit sink requires a non-empty audit salt"
+            )
+            raise ValueError(message)
+
         if self.pipeline.service_client and not isinstance(
             self.pipeline.service_client,
             CircuitBreakingIstinaClient,
@@ -505,14 +514,30 @@ class IstinaProductionRuntime:
                 raise ValueError("write mode requires an active drift monitor")
             if not self.audit_sink:
                 raise ValueError("write mode requires a redacted audit sink")
+            if getattr(self.audit_sink, "durable", False) is not True:
+                raise ValueError("write mode requires a durable audit sink")
 
     def force_rollback(self, reason: str) -> None:
         self.effective_mode = RuntimeMode.SHADOW
         self.rollback_reason = reason
 
     def _hash_identifier(self, value: Any) -> str:
-        payload = f"{value}|{self.audit_salt}".encode("utf-8")
-        return hashlib.sha256(payload).hexdigest()[:16]
+        return hmac.new(
+            self.audit_salt.encode("utf-8"),
+            str(value).encode("utf-8"),
+            hashlib.sha256,
+        ).hexdigest()[:16]
+
+    def _audit_rollback_reason(self) -> Optional[str]:
+        if self.rollback_reason is None:
+            return None
+        if self.rollback_reason.startswith("legacy service error:"):
+            return "legacy_service_error"
+        if self.rollback_reason.startswith("decision drift alert:"):
+            return "decision_drift_alert"
+        if self.rollback_reason == "legacy service circuit breaker is open":
+            return "legacy_service_circuit_open"
+        return "manual_or_unspecified_rollback"
 
     def _write_command(
         self,
@@ -546,6 +571,7 @@ class IstinaProductionRuntime:
         mention: Mapping[str, Any],
         decision: IstinaPipelineDecision,
         command: Optional[WriteCommand],
+        monitoring: Mapping[str, Any],
     ) -> Dict[str, Any]:
         return {
             "schema_version": 1,
@@ -553,9 +579,15 @@ class IstinaProductionRuntime:
             "name_hash": self._hash_identifier(mention.get("name") or ""),
             "position": str(mention.get("position") or "unknown"),
             "decision": decision.decision.value,
-            "author_id": decision.author_id,
+            "author_id_hash": (
+                self._hash_identifier(decision.author_id)
+                if decision.author_id is not None
+                else None
+            ),
             "stage": decision.stage,
-            "deterministic_hash": decision.deterministic_hash,
+            "deterministic_hash": self._hash_identifier(
+                decision.deterministic_hash
+            ),
             "candidate_count": decision.candidate_count,
             "candidate_pool_truncated": decision.candidate_pool_truncated,
             "latency_ms": decision.latency_ms,
@@ -564,6 +596,10 @@ class IstinaProductionRuntime:
             "effective_mode": self.effective_mode.value,
             "write_authorized": bool(command and command.authorized),
             "idempotency_key": command.idempotency_key if command else None,
+            "monitor_status": str(monitoring.get("status") or "unknown"),
+            "monitor_alert": bool(monitoring.get("alert")),
+            "rollback_reason": self._audit_rollback_reason(),
+            "circuit_state": self.circuit_breaker.state.value,
         }
 
     def decide_paper(
@@ -615,7 +651,15 @@ class IstinaProductionRuntime:
         if self.audit_sink:
             for mention, decision in zip(mentions, decisions):
                 command = self._write_command(mention, decision)
-                self.audit_sink(self._audit_event(mention, decision, command))
+                try:
+                    self.audit_sink(
+                        self._audit_event(mention, decision, command, monitoring)
+                    )
+                except Exception as exc:
+                    self.force_rollback("audit sink failure")
+                    raise RuntimeError(
+                        "audit sink failed; commands suppressed"
+                    ) from exc
 
         return ProductionPaperResult(
             decisions=decisions,

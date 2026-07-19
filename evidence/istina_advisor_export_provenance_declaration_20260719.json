@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "source_system": "istina",
+  "source_record_type": "publication_author_export",
+  "identity_namespace": "istina_author_id",
+  "label_semantics": "exported_person_identifier_unadjudicated",
+  "exported_at": null,
+  "extraction_method": "Advisor-provided offline JSON; the original export command and institutional export receipt are unavailable.",
+  "datasets": [
+    {
+      "name": "chinese_articles_with_authors.json",
+      "sha256": "515c2d5881970f4de1a412d94018fa1aee99b5069956a1e139358bfc0de715fb"
+    }
+  ],
+  "independent_label_audit_verified": false,
+  "cross_discipline_scope_verified": false,
+  "approval": {
+    "production_validation_approved": false,
+    "approved_at": null,
+    "reference": null
+  },
+  "allowed_current_uses": [
+    "offline research",
+    "data-quality diagnostics",
+    "bounded no-write shadow"
+  ],
+  "limitations": [
+    "The export contains no discipline, journal, affiliation, or ORCID fields.",
+    "Two potential conflicting identity labels remain unresolved.",
+    "No custodian approval for production validation is recorded.",
+    "This declaration must not be edited to claim approval; a new institutional provenance manifest is required."
+  ]
+}

@@ -70,6 +70,23 @@ def valid_authorization(evidence, commit_sha="f" * 40):
     )
 
 
+class DurableAuditCollector:
+    durable = True
+
+    def __init__(self):
+        self.events = []
+
+    def __call__(self, event):
+        self.events.append(event)
+
+
+class FailingDurableAuditSink:
+    durable = True
+
+    def __call__(self, event):
+        raise OSError("simulated durable storage failure")
+
+
 class IstinaProductionRuntimeTests(unittest.TestCase):
     def test_circuit_breaker_opens_and_recovers_via_half_open_probe(self):
         now = [0.0]
@@ -151,6 +168,8 @@ class IstinaProductionRuntimeTests(unittest.TestCase):
         raw_audit = json.dumps(audit_events, ensure_ascii=False)
         self.assertNotIn("Sensitive Person", raw_audit)
         self.assertNotIn("private-paper-id", raw_audit)
+        self.assertNotIn("author_id", audit_events[0])
+        self.assertRegex(audit_events[0]["author_id_hash"], r"^[0-9a-f]{16}$")
 
     def test_drift_monitor_detects_unknown_and_stage_shift(self):
         baseline = DriftBaseline.from_decisions([
@@ -208,6 +227,7 @@ class IstinaProductionRuntimeTests(unittest.TestCase):
             ),
             window_size=1,
         )
+        durable_audit = DurableAuditCollector()
         runtime = IstinaProductionRuntime(
             pipeline,
             mode=RuntimeMode.WRITE,
@@ -215,7 +235,8 @@ class IstinaProductionRuntimeTests(unittest.TestCase):
             authorization=valid_authorization(evidence, commit_sha),
             expected_commit_sha=commit_sha,
             evidence_bytes=evidence,
-            audit_sink=lambda event: None,
+            audit_salt="test-write-salt",
+            audit_sink=durable_audit,
             now=datetime(2026, 7, 19, 12, tzinfo=timezone.utc),
         )
 
@@ -228,6 +249,23 @@ class IstinaProductionRuntimeTests(unittest.TestCase):
         self.assertEqual(result.effective_mode, RuntimeMode.SHADOW)
         self.assertIn("decision drift alert", result.rollback_reason)
         self.assertFalse(any(command.authorized for command in result.commands))
+        self.assertEqual(
+            durable_audit.events[0]["rollback_reason"],
+            "decision_drift_alert",
+        )
+
+    def test_any_audit_sink_requires_a_non_empty_salt(self):
+        pipeline = IstinaDisambiguationPipeline.from_history_mentions(
+            [history_row("A1", "Known Person")],
+            config=IstinaPipelineConfig(use_remote_fallback=False),
+        )
+
+        with self.assertRaisesRegex(ValueError, "audit sink requires"):
+            IstinaProductionRuntime(
+                pipeline,
+                mode=RuntimeMode.SHADOW,
+                audit_sink=DurableAuditCollector(),
+            )
 
     def test_write_runtime_requires_monitor_and_audit_sink(self):
         evidence = (
@@ -249,6 +287,82 @@ class IstinaProductionRuntimeTests(unittest.TestCase):
                 evidence_bytes=evidence,
                 now=datetime(2026, 7, 19, 12, tzinfo=timezone.utc),
             )
+
+        monitor = DecisionDriftMonitor(
+            DriftBaseline.from_decisions([telemetry_decision()]),
+            DriftThresholds(min_window=100),
+            window_size=100,
+        )
+        with self.assertRaisesRegex(ValueError, "redacted audit sink"):
+            IstinaProductionRuntime(
+                pipeline,
+                mode=RuntimeMode.WRITE,
+                monitor=monitor,
+                authorization=authorization,
+                expected_commit_sha=commit_sha,
+                evidence_bytes=evidence,
+                audit_salt="test-write-salt",
+                now=datetime(2026, 7, 19, 12, tzinfo=timezone.utc),
+            )
+        with self.assertRaisesRegex(ValueError, "durable audit sink"):
+            IstinaProductionRuntime(
+                pipeline,
+                mode=RuntimeMode.WRITE,
+                monitor=monitor,
+                authorization=authorization,
+                expected_commit_sha=commit_sha,
+                evidence_bytes=evidence,
+                audit_salt="test-write-salt",
+                audit_sink=lambda event: None,
+                now=datetime(2026, 7, 19, 12, tzinfo=timezone.utc),
+            )
+        with self.assertRaisesRegex(ValueError, "non-empty audit salt"):
+            IstinaProductionRuntime(
+                pipeline,
+                mode=RuntimeMode.WRITE,
+                monitor=monitor,
+                authorization=authorization,
+                expected_commit_sha=commit_sha,
+                evidence_bytes=evidence,
+                audit_sink=DurableAuditCollector(),
+                now=datetime(2026, 7, 19, 12, tzinfo=timezone.utc),
+            )
+
+    def test_audit_failure_rolls_back_and_suppresses_commands(self):
+        evidence = (
+            b'{"release_ready": true, "summary": {"failed": 0}, '
+            b'"checks": [{"name": "fixture", "passed": true}]}'
+        )
+        commit_sha = "f" * 40
+        pipeline = IstinaDisambiguationPipeline.from_history_mentions(
+            [history_row("A1", "Known Person")],
+            config=IstinaPipelineConfig(use_remote_fallback=False),
+        )
+        monitor = DecisionDriftMonitor(
+            DriftBaseline.from_decisions([telemetry_decision()]),
+            DriftThresholds(min_window=100),
+            window_size=100,
+        )
+        runtime = IstinaProductionRuntime(
+            pipeline,
+            mode=RuntimeMode.WRITE,
+            monitor=monitor,
+            authorization=valid_authorization(evidence, commit_sha),
+            expected_commit_sha=commit_sha,
+            evidence_bytes=evidence,
+            audit_salt="test-write-salt",
+            audit_sink=FailingDurableAuditSink(),
+            now=datetime(2026, 7, 19, 12, tzinfo=timezone.utc),
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "commands suppressed"):
+            runtime.decide_paper({
+                "id": "new-paper",
+                "authors": [{"lastname": "Known", "firstname": "Person"}],
+            }, query_service=False)
+
+        self.assertEqual(runtime.effective_mode, RuntimeMode.SHADOW)
+        self.assertEqual(runtime.rollback_reason, "audit sink failure")
 
 
 if __name__ == "__main__":

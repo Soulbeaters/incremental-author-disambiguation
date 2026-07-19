@@ -24,6 +24,7 @@ artifact whose own `release_ready` value is true. No such artifact exists.
 
 | Artifact | Purpose |
 |---|---|
+| `evidence/istina_advisor_export_provenance_declaration_20260719.json` | fail-closed source, identity-label, audit, scope, and custodian declaration |
 | `evidence/istina_gold_readiness_20260719.json` | aggregate data-quality, leakage, coverage, and adjudication audit |
 | `evidence/istina_temporal_runtime_replay_20260719.json` | primary, leakage-free temporal quality replay |
 | `evidence/istina_holdout_runtime_replay_deduplicated_20260719.json` | secondary per-author diagnostic |
@@ -54,11 +55,31 @@ gold author IDs and 1,262 distinct gold IDs.
 | Affiliation / ORCID coverage | 0% / 0% |
 | Distinct years | 9 |
 | Unresolved potential label conflicts | 2 |
-| Gold-readiness checks passed | 4 / 11 |
+| Gold-readiness checks passed | 4 / 12 |
 
 The private adjudication queue identifies two potential conflicting-author
 identities. Resolution decisions can be supplied separately; raw review
 context is never written to the committed aggregate report.
+
+The new provenance audit passes 7 of 12 source checks and fails closed. The
+file hash, ISTINA source system, publication-author record type, ISTINA author
+ID namespace, extraction-method documentation, single-export consistency, and
+permitted offline use are declared. Production-gold status is withheld because
+the exported person IDs are not independently adjudicated identity labels, the
+export timestamp is unavailable, multi-discipline scope is absent, and neither
+an independent label audit nor a time-bound custodian approval is available.
+Changing a filename or copying an external dataset cannot satisfy these checks.
+
+A separate 10,000-record pilot was also located and integrity-checked. Its raw
+input hash is
+`3546bcf7fa3566ab5ddc7105829c28df890e34544700034c70efbe2af7639806`
+and its run-manifest hash is
+`f9dd270fce6f5e80507535137ea26357b41a296bc7a3a9cea4ad0419c89ebdb8`.
+Despite the historical `ISTINA_PILOT` run label, the rows are Crossref author
+name/ORCID/DOI records and the measured task is name-component parsing, not
+ISTINA person-identity disambiguation. It is real public scientific-author data
+and may support parser/performance context, but it is deliberately ineligible
+for the ISTINA identity-gold and release gates.
 
 ## Evaluation protocols
 
@@ -97,7 +118,7 @@ de-duplication are excluded from the paired table.
 | UNKNOWN rate | 4.90% | 3.25% |
 | Wrong merges | 0 | 0 |
 | Unseen false links | 0 | 0 |
-| Local p95 latency | 30.14 ms | 3.07 ms |
+| Local p95 latency | 12.83 ms | 3.07 ms |
 
 The production default now disables the unique-local-surname initial heuristic.
 The temporal audit showed that a historical “James A.” was wrongly merged to
@@ -118,8 +139,9 @@ mentions across four complete-paper requests:
 
 - 5 runtime decisions and 0 service errors;
 - 0 authorized commands and 0 write calls;
-- audit redaction passed and the circuit remained closed;
-- paper round-trip p95 was 14.684 seconds;
+- audit redaction and the ephemeral durable hash chain passed, and the circuit
+  remained closed;
+- paper round-trip p95 was 15.463 seconds;
 - smoke health passed, but release shadow verification failed because 5 is
   below the predeclared 500-mention minimum.
 
@@ -129,23 +151,26 @@ The offline no-write operational run replayed all 753 temporal test mentions
 | Operational measure | Result |
 |---|---:|
 | Load operations | 13,554 |
-| Throughput | 152.36 mentions/s |
-| Local p95 | 28.92 ms |
+| Throughput | 201.35 mentions/s |
+| Local p95 | 21.08 ms |
 | Deterministic-hash mismatches | 0 |
 | Runtime safety/idempotency/redaction | passed |
+| Durable fsync audit hash chain / restart verification | passed (8 records) |
 | Circuit open, rejection, half-open, recovery | passed |
 | Automatic rollback fault path | passed |
 | UNKNOWN, merge-rate, stage, service-error drift alerts | passed |
 
 This is valid local load and failure-injection evidence. It is not an online
 end-to-end load test and does not prove that the drift monitor is connected to
-production telemetry or paging.
+production telemetry or paging. The audit test uses a temporary local file and
+proves redaction, append durability, hash-chain integrity, and restart
+verification for the single-process sink. It does not claim deployed audit
+retention; multi-worker deployment requires separate per-worker chains or a
+transactional central append service.
 
-The final repository regression command reports 166 passed tests and 26
-existing deprecation warnings. The optional manual
-`scripts/test_full_scenario.py` collection is not included because the active
-Python environment lacks the optional `crossref` client dependency; the
-ISTINA and production-control suites are included.
+The final repository regression command reports 178 passed tests and one
+collection warning for a manual scenario class with a constructor. The ISTINA,
+provenance, audit-integrity, and production-control suites are included.
 
 ## Public real-data external validation
 
@@ -188,9 +213,9 @@ deployed drift monitoring.
 ## Defensible article claims
 
 1. A production-oriented, three-way author-disambiguation framework was
-   implemented with deterministic audit traces, idempotent commands,
-   evidence-bound authorization, circuit breaking, automatic rollback, and
-   drift monitoring.
+   implemented with deterministic audit traces, a redacted durable hash chain,
+   idempotent commands, evidence-bound authorization, circuit breaking,
+   automatic rollback, and drift monitoring.
 2. A raw-export audit found and corrected a concrete leakage mechanism that
    materially changed the ISTINA result; the cleaned primary analysis is
    reported even though it is weaker.
@@ -209,17 +234,18 @@ superiority, or authorization for production writes.
 ## Reproduction
 
 ```powershell
-python -m pytest -q -p no:cacheprovider test_author_merger_threeway.py test_blocking.py test_scorer_three_layers.py test_trace_redaction.py test_with_real_dois.py tests
+python -m pytest -q -p no:cacheprovider
 
-python evaluation/istina_gold_readiness.py --dataset <advisor-export.json> --service-result <frozen-service.json> --adjudication-output <private-queue.jsonl> --cleaned-output <private-cleaned.json> --output evidence/istina_gold_readiness_20260719.json
+python evaluation/istina_gold_readiness.py --dataset <advisor-export.json> --service-result <frozen-service.json> --provenance-manifest evidence/istina_advisor_export_provenance_declaration_20260719.json --adjudication-output <private-queue.jsonl> --cleaned-output <private-cleaned.json> --output evidence/istina_gold_readiness_20260719.json
 
 python experiments/istina_runtime_replay.py --dataset <advisor-export.json> --split-strategy temporal --train-through-year 2023 --service-result <frozen-service.json> --compact-output --output evidence/istina_temporal_runtime_replay_20260719.json
 
 python experiments/istina_runtime_replay.py --dataset <advisor-export.json> --split-strategy per-author-holdout --service-result <frozen-service.json> --compact-output --output evidence/istina_holdout_runtime_replay_deduplicated_20260719.json
 
-python experiments/istina_live_shadow.py --dataset <advisor-export.json> --split-strategy temporal --train-through-year 2023 --limit 5 --output evidence/istina_live_shadow_smoke_20260719.json
+$env:ISTINA_AUDIT_SALT = <secret-manager-value>
+python experiments/istina_live_shadow.py --dataset <advisor-export.json> --split-strategy temporal --train-through-year 2023 --limit 5 --audit-output <private-audit.jsonl> --output evidence/istina_live_shadow_smoke_20260719.json
 
-python experiments/istina_operational_validation.py --dataset <advisor-export.json> --service-result <frozen-service.json> --split-strategy temporal --train-through-year 2023 --iterations 18 --output evidence/istina_operational_validation_20260719.json
+python experiments/istina_operational_validation.py --dataset <advisor-export.json> --service-result <frozen-service.json> --live-shadow-evidence evidence/istina_live_shadow_smoke_20260719.json --split-strategy temporal --train-through-year 2023 --iterations 18 --tests-passed 178 --test-warnings 1 --output evidence/istina_operational_validation_20260719.json
 
 python evaluation/istina_evidence_bundle.py --operational-validation evidence/istina_operational_validation_20260719.json --gold-readiness evidence/istina_gold_readiness_20260719.json --live-shadow evidence/istina_live_shadow_smoke_20260719.json --output evidence/istina_release_evidence_bundle_20260719.json
 
@@ -232,7 +258,10 @@ Obtain an adjudicated, cross-disciplinary ISTINA export with at least 10,000
 future test mentions, 1,000 verified identities already present in frozen
 history, 1,000 genuine new identities, and 500 cases evaluated by both systems.
 The export must include discipline and sufficient affiliation/journal context,
-and all unresolved label conflicts must be adjudicated. Then run at least 500
-cases through live no-write shadow, perform an online end-to-end load test, and
-connect the tested drift monitor to production telemetry and paging. Only a
-fully passing gate may authorize write mode.
+and all unresolved label conflicts must be adjudicated. Its provenance manifest
+must bind the exact file hashes, extraction time and method, label semantics,
+independent audit, cross-discipline scope, and custodian approval. Then run at
+least 500 cases through live no-write shadow, perform an online end-to-end load
+test, deploy durable audit retention, and connect the tested drift monitor to
+production telemetry and paging. Only a fully passing gate may authorize write
+mode.

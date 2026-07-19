@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-19T11:34:16.533405+00:00",
+  "generated_at": "2026-07-19T13:27:30.671558+00:00",
   "operational_evidence": {
     "runtime_safety_contract_verified": {
       "verified": true,
@@ -8,6 +8,14 @@
       "commands": 4,
       "idempotent_replay": true,
       "audit_redacted": true,
+      "durable_audit_chain": {
+        "verified": true,
+        "records": 8,
+        "head_hash": "fec7e21561daa9876a193d35dac266bb81f630e29df7e51b6e43baa49ee47c65",
+        "restart_verified": true,
+        "fsync": true,
+        "storage_scope": "ephemeral validation file; not deployed production storage"
+      },
       "no_write_authorized": true
     },
     "offline_load_test_verified": {
@@ -15,11 +23,11 @@
       "real_distinct_mentions": 753,
       "replay_iterations": 18,
       "load_operations": 13554,
-      "elapsed_seconds": 88.95944220000092,
-      "throughput_mentions_per_second": 152.36156685343806,
-      "latency_ms_p50": 0.7988999968802091,
-      "latency_ms_p95": 28.916499999468215,
-      "latency_ms_p99": 43.05650000242167,
+      "elapsed_seconds": 67.31437530000039,
+      "throughput_mentions_per_second": 201.3537218401538,
+      "latency_ms_p50": 0.622200001089368,
+      "latency_ms_p95": 21.08340000268072,
+      "latency_ms_p99": 30.027299999346724,
       "deterministic_hash_mismatches": 0,
       "scope": "offline no-write load replay; repeated operations are not extra gold"
     },
@@ -52,7 +60,7 @@
           "merge_rate": 0.5,
           "service_error_rate": 1.0,
           "candidate_truncation_rate": 0.0,
-          "latency_p95_ms": 15.900099999271333,
+          "latency_p95_ms": 11.252799999056151,
           "stage_total_variation": 1.0,
           "stage_distribution": {
             "fault_injection": 1.0
@@ -91,7 +99,7 @@
           },
           {
             "name": "latency_p95_ms",
-            "observed": 15.900099999271333,
+            "observed": 11.252799999056151,
             "limit": 10000.0,
             "passed": true
           }
@@ -126,9 +134,10 @@
     },
     "cross_domain_gold_verified": {
       "verified": false,
+      "provenance_verified": false,
       "disciplines": 0,
       "unresolved_label_issues": 2,
-      "reason": "gold-readiness audit has unresolved release failures"
+      "reason": "gold-readiness or ISTINA provenance audit has unresolved release failures"
     },
     "online_shadow_verified": {
       "verified": false,
@@ -151,15 +160,15 @@
   "sources": {
     "operational_validation": {
       "name": "istina_operational_validation_20260719.json",
-      "sha256": "b9b51e8ac1e58884b7a0af3f91d0c32fa4989d62f2650befafd8c4451a768d3f"
+      "sha256": "9073664353b59c3e7426816cd24e1ee8ffdde29c13a23ca78698be9c65191501"
     },
     "gold_readiness": {
       "name": "istina_gold_readiness_20260719.json",
-      "sha256": "f0d194ef4ed6bcba48a317e3a39e054fd26bdf8df75006f64fc9e5ed1c713197"
+      "sha256": "e337fbe9a9f8428353851d3b0626a5bc2ff3163856dca866db66c96972eea4ed"
     },
     "live_shadow": {
       "name": "istina_live_shadow_smoke_20260719.json",
-      "sha256": "17c33a7c462134913c5a7f158b4fcccd20d525e08090db2dd05d96757ed0e623"
+      "sha256": "b0100dcab3c8f3229efbe7a0798063426999eb5f5c5fe14e0fe6d02e287ed595"
     }
   }
 }

@@ -34,6 +34,21 @@ class IstinaEvidenceBundleTests(unittest.TestCase):
         self.assertFalse(evidence["online_shadow_verified"]["verified"])
         self.assertTrue(evidence["online_shadow_verified"]["smoke_verified"])
 
+    def test_data_ready_without_verified_istina_provenance_fails_closed(self):
+        result = compose_evidence_bundle(
+            {"operational_evidence": {}},
+            {
+                "data_ready": True,
+                "provenance": {"verified": False},
+                "dataset": {"disciplines": {"physics": 10}},
+                "adjudication": {"unresolved": 0},
+            },
+        )
+
+        evidence = result["operational_evidence"]["cross_domain_gold_verified"]
+        self.assertFalse(evidence["verified"])
+        self.assertFalse(evidence["provenance_verified"])
+
 
 if __name__ == "__main__":
     unittest.main()

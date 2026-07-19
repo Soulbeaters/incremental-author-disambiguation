@@ -32,6 +32,7 @@ from experiments.istina_export_temporal_evaluation import (
 )
 from experiments.istina_runtime_replay import load_service_records
 from disambiguation_engine.structured_name_repair import structured_name_parts
+from evaluation.istina_dataset_provenance import assess_istina_provenance
 from integrations.istina_export_quality import deduplicate_exact_author_rows
 
 
@@ -47,6 +48,7 @@ class GoldReadinessCriteria:
     min_title_coverage: float = 0.95
     min_year_coverage: float = 0.95
     max_unresolved_label_issues: int = 0
+    require_verified_provenance: bool = True
 
     def __post_init__(self) -> None:
         for name, value in asdict(self).items():
@@ -246,11 +248,16 @@ def assess_gold_readiness(
         Mapping[Tuple[str, str, str, str, str], Mapping[str, Any]]
     ] = None,
     decisions: Optional[Mapping[str, str]] = None,
+    provenance_report: Optional[Mapping[str, Any]] = None,
     criteria: Optional[GoldReadinessCriteria] = None,
     train_through_year: int = 2023,
 ) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
     criteria = criteria or GoldReadinessCriteria()
     service_records = service_records or {}
+    provenance_report = dict(provenance_report or {
+        "verified": False,
+        "reason": "no provenance assessment supplied",
+    })
     decisions = {str(key): str(value) for key, value in (decisions or {}).items()}
     cleaned_articles, exact_duplicates_removed = deduplicate_exact_author_rows(
         articles
@@ -353,6 +360,16 @@ def assess_gold_readiness(
         _check("year_coverage", year_coverage, f">={criteria.min_year_coverage}", year_coverage >= criteria.min_year_coverage, "quality"),
         _check("paper_overlap", temporal["paper_overlap"], "0", temporal["paper_overlap"] == 0, "leakage"),
         _check("unresolved_label_issues", len(unresolved), f"<={criteria.max_unresolved_label_issues}", len(unresolved) <= criteria.max_unresolved_label_issues, "adjudication"),
+        _check(
+            "verified_istina_provenance",
+            bool(provenance_report.get("verified")),
+            True if criteria.require_verified_provenance else "not required",
+            (
+                bool(provenance_report.get("verified"))
+                or not criteria.require_verified_provenance
+            ),
+            "provenance",
+        ),
     ]
     failures = [check for check in checks if not check["passed"]]
     report = {
@@ -385,6 +402,7 @@ def assess_gold_readiness(
         },
         "production_temporal_split": temporal,
         "diagnostic_per_author_holdout": holdout,
+        "provenance": provenance_report,
         "adjudication": {
             "issues": len(issues),
             "unresolved": len(unresolved),
@@ -408,11 +426,21 @@ def _load_decisions(path: Optional[Path]) -> Dict[str, str]:
     return {str(key): str(value) for key, value in document.items()}
 
 
+def _load_mapping(path: Optional[Path]) -> Dict[str, Any]:
+    if not path:
+        return {}
+    document = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(document, Mapping):
+        raise ValueError(f"expected a JSON object in {path}")
+    return dict(document)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset", type=Path, nargs="+", required=True)
     parser.add_argument("--service-result", type=Path)
     parser.add_argument("--adjudication-decisions", type=Path)
+    parser.add_argument("--provenance-manifest", type=Path)
     parser.add_argument("--adjudication-output", type=Path)
     parser.add_argument("--cleaned-output", type=Path)
     parser.add_argument("--train-through-year", type=int, default=2023)
@@ -422,21 +450,27 @@ def main() -> None:
     articles: List[Dict[str, Any]] = []
     for dataset_path in args.dataset:
         articles.extend(load_articles(dataset_path))
+    dataset_inputs = [
+        {
+            "name": path.name,
+            "sha256": sha256_file(path),
+        }
+        for path in args.dataset
+    ]
+    provenance_report = assess_istina_provenance(
+        _load_mapping(args.provenance_manifest),
+        dataset_inputs,
+    )
     service_records = load_service_records(args.service_result)
     report, issues = assess_gold_readiness(
         articles,
         service_records=service_records,
         decisions=_load_decisions(args.adjudication_decisions),
+        provenance_report=provenance_report,
         train_through_year=args.train_through_year,
     )
     report["inputs"] = {
-        "datasets": [
-            {
-                "name": path.name,
-                "sha256": sha256_file(path),
-            }
-            for path in args.dataset
-        ],
+        "datasets": dataset_inputs,
         "service_result": ({
             "name": args.service_result.name,
             "sha256": sha256_file(args.service_result),
@@ -445,6 +479,10 @@ def main() -> None:
             "name": args.adjudication_decisions.name,
             "sha256": sha256_file(args.adjudication_decisions),
         } if args.adjudication_decisions else None),
+        "provenance_manifest": ({
+            "name": args.provenance_manifest.name,
+            "sha256": sha256_file(args.provenance_manifest),
+        } if args.provenance_manifest else None),
     }
     report["generated_at"] = datetime.now(timezone.utc).isoformat()
     args.output.parent.mkdir(parents=True, exist_ok=True)

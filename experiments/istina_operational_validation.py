@@ -13,6 +13,7 @@ import argparse
 import hashlib
 import json
 import sys
+import tempfile
 import time
 from collections import Counter
 from dataclasses import replace
@@ -41,6 +42,10 @@ from integrations.istina_pipeline import (  # noqa: E402
     IstinaDisambiguationPipeline,
     IstinaPipelineConfig,
     article_mentions,
+)
+from integrations.istina_observability import (  # noqa: E402
+    TamperEvidentJsonlAuditSink,
+    verify_audit_chain,
 )
 from integrations.istina_export_quality import (  # noqa: E402
     deduplicate_exact_author_rows,
@@ -244,18 +249,23 @@ def runtime_contract_validation(
     pipeline: IstinaDisambiguationPipeline,
     article: Mapping[str, Any],
 ) -> Dict[str, Any]:
-    audit_events: List[Mapping[str, Any]] = []
-    runtime = IstinaProductionRuntime(
-        pipeline,
-        mode=RuntimeMode.CANDIDATE,
-        audit_salt="operational-validation",
-        audit_sink=audit_events.append,
-    )
-    first = runtime.decide_paper(article, query_service=False)
-    second = runtime.decide_paper(article, query_service=False)
+    with tempfile.TemporaryDirectory(prefix="istina-audit-validation-") as directory:
+        audit_path = Path(directory) / "runtime_audit.jsonl"
+        audit_sink = TamperEvidentJsonlAuditSink(audit_path, fsync=True)
+        runtime = IstinaProductionRuntime(
+            pipeline,
+            mode=RuntimeMode.CANDIDATE,
+            audit_salt="operational-validation",
+            audit_sink=audit_sink,
+        )
+        first = runtime.decide_paper(article, query_service=False)
+        second = runtime.decide_paper(article, query_service=False)
+        serialized_audit = audit_path.read_text(encoding="utf-8")
+        chain_report = verify_audit_chain(audit_path)
+        restarted_sink = TamperEvidentJsonlAuditSink(audit_path, fsync=True)
+        restart_append_state = restarted_sink.snapshot()
     first_keys = [command.idempotency_key for command in first.commands]
     second_keys = [command.idempotency_key for command in second.commands]
-    serialized_audit = json.dumps(audit_events, ensure_ascii=False)
     raw_names = [
         str(mention.get("name") or "").strip()
         for mention in article_mentions(article)
@@ -265,13 +275,31 @@ def runtime_contract_validation(
     no_write_authorized = not any(
         command.authorized for command in first.commands + second.commands
     )
+    expected_records = len(first.decisions) + len(second.decisions)
+    durable_audit_verified = bool(
+        chain_report["verified"]
+        and chain_report["records"] == expected_records
+        and restart_append_state["records"] == expected_records
+        and restart_append_state["head_hash"] == chain_report["head_hash"]
+        and restart_append_state["fsync"]
+    )
     return {
         "verified": bool(first_keys) and first_keys == second_keys
-        and audit_redacted and no_write_authorized,
+        and audit_redacted and no_write_authorized and durable_audit_verified,
         "mode": RuntimeMode.CANDIDATE.value,
         "commands": len(first_keys),
         "idempotent_replay": first_keys == second_keys,
         "audit_redacted": audit_redacted,
+        "durable_audit_chain": {
+            "verified": durable_audit_verified,
+            "records": chain_report["records"],
+            "head_hash": chain_report["head_hash"],
+            "restart_verified": (
+                restart_append_state["head_hash"] == chain_report["head_hash"]
+            ),
+            "fsync": restart_append_state["fsync"],
+            "storage_scope": "ephemeral validation file; not deployed production storage",
+        },
         "no_write_authorized": no_write_authorized,
     }
 
@@ -476,6 +504,9 @@ def main() -> None:
         "load_operations": load["load_operations"],
         "load_verified": load["verified"],
         "runtime_safety_contract_verified": runtime_contract["verified"],
+        "durable_audit_chain_verified": runtime_contract[
+            "durable_audit_chain"
+        ]["verified"],
         "circuit_breaker_verified": circuit["verified"],
         "drift_monitor_verified": drift["verified"],
     }, ensure_ascii=False))

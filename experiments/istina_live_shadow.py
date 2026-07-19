@@ -4,8 +4,12 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import hmac
 import json
+import os
+import secrets
 import sys
+import tempfile
 import time
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -33,6 +37,10 @@ from integrations.istina_pipeline import (  # noqa: E402
     IstinaPipelineConfig,
     article_mentions,
 )
+from integrations.istina_observability import (  # noqa: E402
+    TamperEvidentJsonlAuditSink,
+    verify_audit_chain,
+)
 from integrations.istina_export_quality import (  # noqa: E402
     deduplicate_exact_author_rows,
 )
@@ -53,7 +61,22 @@ def sha256_file(path: Path) -> str:
 
 
 def hash_identifier(value: Any, salt: str) -> str:
-    return hashlib.sha256(f"{value}|{salt}".encode("utf-8")).hexdigest()[:16]
+    return hmac.new(
+        salt.encode("utf-8"),
+        str(value).encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()[:16]
+
+
+def audit_stream_is_redacted(path: Path, forbidden_values: List[str]) -> bool:
+    """Scan line-by-line so release-scale audit files are never loaded whole."""
+
+    needles = [value for value in forbidden_values if value]
+    with path.open("r", encoding="utf-8") as handle:
+        return all(
+            not any(needle in line for needle in needles)
+            for line in handle
+        )
 
 
 def release_shadow_is_verified(
@@ -74,6 +97,16 @@ def main() -> None:
     parser.add_argument("--service-url", default=DEFAULT_ISTINA_DISAMBIGUATION_URL)
     parser.add_argument("--service-timeout", type=float, default=20.0)
     parser.add_argument("--sleep", type=float, default=0.1)
+    parser.add_argument(
+        "--audit-output",
+        type=Path,
+        help="Retained private audit JSONL; omit only for an ephemeral smoke chain.",
+    )
+    parser.add_argument(
+        "--audit-salt-env",
+        default="ISTINA_AUDIT_SALT",
+        help="Environment variable containing the private HMAC audit salt.",
+    )
     parser.add_argument(
         "--split-strategy",
         choices=["temporal", "per-author-holdout"],
@@ -125,7 +158,24 @@ def main() -> None:
     for mention in selected:
         selected_by_article[int(mention["article_index"])].append(mention)
 
-    audit_events: List[Mapping[str, Any]] = []
+    configured_audit_salt = os.environ.get(args.audit_salt_env, "").strip()
+    if args.audit_output and not configured_audit_salt:
+        raise ValueError(
+            f"retained audit output requires non-empty {args.audit_salt_env}"
+        )
+    audit_salt = configured_audit_salt or secrets.token_hex(32)
+    temporary_audit_directory = None
+    if args.audit_output:
+        audit_path = args.audit_output
+        audit_retained = True
+    else:
+        temporary_audit_directory = tempfile.TemporaryDirectory(
+            prefix="istina-live-shadow-audit-"
+        )
+        audit_path = Path(temporary_audit_directory.name) / "audit.jsonl"
+        audit_retained = False
+    audit_sink = TamperEvidentJsonlAuditSink(audit_path, fsync=True)
+    audit_start_records = audit_sink.snapshot()["records"]
     breaker = CircuitBreaker(CircuitBreakerConfig(
         failure_threshold=3,
         recovery_timeout_seconds=30.0,
@@ -134,13 +184,14 @@ def main() -> None:
         pipeline,
         mode=RuntimeMode.SHADOW,
         circuit_breaker=breaker,
-        audit_salt="istina-live-shadow",
-        audit_sink=audit_events.append,
+        audit_salt=audit_salt,
+        audit_sink=audit_sink,
     )
     paper_latencies = []
     records = []
     authorized_commands = 0
     service_errors = 0
+    expected_audit_records = 0
     for request_index, (article_index, paper_mentions) in enumerate(
         sorted(selected_by_article.items()),
         start=1,
@@ -155,6 +206,7 @@ def main() -> None:
             capture_legacy_shadow=True,
         )
         paper_latencies.append((time.perf_counter() - started) * 1000.0)
+        expected_audit_records += len(result.decisions)
         authorized_commands += sum(command.authorized for command in result.commands)
         decisions_by_position = {
             str(runtime_mention.get("position") or ""): decision
@@ -169,7 +221,7 @@ def main() -> None:
             if decision is None:
                 records.append({
                     "article_id_hash": hash_identifier(
-                        mention.get("article_id"), "istina-live-shadow"
+                        mention.get("article_id"), audit_salt
                     ),
                     "position": position,
                     "error": "selected position missing from runtime result",
@@ -181,10 +233,10 @@ def main() -> None:
                 service_errors += 1
             records.append({
                 "article_id_hash": hash_identifier(
-                    mention.get("article_id"), "istina-live-shadow"
+                    mention.get("article_id"), audit_salt
                 ),
                 "position": position,
-                "gold_author_id_hash": hash_identifier(gold, "istina-live-shadow"),
+                "gold_author_id_hash": hash_identifier(gold, audit_salt),
                 "runtime_correct": bool(
                     decision.decision == Decision.MERGE
                     and decision.author_id == gold
@@ -196,8 +248,11 @@ def main() -> None:
                     None, "0", "", "None"
                 },
                 "legacy_candidate_count": decision.legacy_candidate_count,
-                "service_error": decision.service_error,
-                "deterministic_hash": decision.deterministic_hash,
+                "service_error": bool(decision.service_error),
+                "deterministic_hash": hash_identifier(
+                    decision.deterministic_hash,
+                    audit_salt,
+                ),
             })
         if request_index < len(selected_by_article) and args.sleep:
             time.sleep(args.sleep)
@@ -210,11 +265,14 @@ def main() -> None:
             article_index=article_index,
         )
     ]
-    serialized_audit = json.dumps(audit_events, ensure_ascii=False)
-    audit_redacted = all(
-        not name or name not in serialized_audit
-        for name in raw_names
+    chain_report = verify_audit_chain(audit_path)
+    audit_records_appended = chain_report["records"] - audit_start_records
+    durable_audit_verified = bool(
+        chain_report["verified"]
+        and audit_records_appended == expected_audit_records
+        and audit_sink.snapshot()["fsync"]
     )
+    audit_redacted = audit_stream_is_redacted(audit_path, raw_names)
     successful = [record for record in records if not record.get("error")]
     circuit_snapshot = breaker.snapshot()
     smoke_verified = bool(
@@ -222,6 +280,7 @@ def main() -> None:
         and service_errors == 0
         and authorized_commands == 0
         and audit_redacted
+        and durable_audit_verified
         and circuit_snapshot["state"] == "closed"
     )
     minimum_release_shadow_mentions = 500
@@ -240,7 +299,7 @@ def main() -> None:
             "split_strategy": args.split_strategy,
             "train_through_year": args.train_through_year,
             "service_url": args.service_url,
-            "man_id": args.man_id,
+            "man_id_hash": hash_identifier(args.man_id, audit_salt),
             "selected_known_mentions": args.limit,
             "paper_requests": len(selected_by_article),
             "write_calls": 0,
@@ -270,6 +329,19 @@ def main() -> None:
         "safety": {
             "online_shadow_smoke_verified": smoke_verified,
             "audit_redacted": audit_redacted,
+            "durable_audit_chain": {
+                "verified": durable_audit_verified,
+                "records_appended": audit_records_appended,
+                "chain_records_total": chain_report["records"],
+                "head_hash": chain_report["head_hash"],
+                "fsync": audit_sink.snapshot()["fsync"],
+                "retained": audit_retained,
+                "storage_scope": (
+                    "operator-supplied retained private JSONL"
+                    if audit_retained
+                    else "ephemeral smoke validation JSONL"
+                ),
+            },
             "no_write_authorized": authorized_commands == 0,
             "circuit_breaker": circuit_snapshot,
         },
@@ -297,6 +369,8 @@ def main() -> None:
         json.dumps(result, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
+    if temporary_audit_directory is not None:
+        temporary_audit_directory.cleanup()
     print(json.dumps({
         "output": str(args.output),
         "online_shadow_smoke_verified": smoke_verified,
@@ -304,6 +378,8 @@ def main() -> None:
         "paper_requests": len(selected_by_article),
         "service_errors": service_errors,
         "authorized_commands": authorized_commands,
+        "durable_audit_chain_verified": durable_audit_verified,
+        "audit_retained": audit_retained,
         "paper_latency_p95_ms": result["metrics"]["paper_round_trip_latency_ms_p95"],
     }, ensure_ascii=False))
 

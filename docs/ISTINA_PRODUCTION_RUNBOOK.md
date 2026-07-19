@@ -4,8 +4,9 @@
 
 The current branch is authorized for offline replay, live no-write shadow, and
 candidate generation only. It is not authorized to write identity decisions
-back to ISTINA. The latest machine gate passes 14 of 21 checks and reports
-`release_ready: false`.
+back to ISTINA. The 2026-07-19 machine gate passes 8 of 21 checks and reports
+`release_ready: false`. The five-mention live smoke passed, but release shadow
+verification remains false because the predeclared minimum is 500 mentions.
 
 ## Runtime boundary
 
@@ -27,19 +28,25 @@ the supplied idempotency key to prevent duplicate mutations.
 ## Safe deployment sequence
 
 1. Freeze the code revision, data hashes, legacy responses, criteria, and
-   evidence artifact.
-2. Run the full test suite and all three public/private frozen replays.
-3. Run `experiments/istina_operational_validation.py` on the approved ISTINA
+   evidence artifacts.
+2. Run the gold-readiness audit. Exact duplicate author objects within a paper
+   are removed automatically; other identity conflicts require adjudication.
+3. Run the full test suite and the strict temporal replay. Per-author holdout
+   is diagnostic only and must not replace the zero-paper-overlap result.
+4. Run `experiments/istina_operational_validation.py` on the approved ISTINA
    export. Repeated load operations must not be counted as extra gold.
-4. Run `experiments/istina_live_shadow.py` in no-write mode. Production release
+5. Run `experiments/istina_live_shadow.py` in no-write mode. Production release
    requires at least 500 shared, adjudicated shadow mentions.
-5. Run the machine gate with the replay as `--replay-result` and the operational
-   artifact as `--evidence`.
-6. Deploy in `shadow`, verify online latency and drift for the agreed window,
+6. Compose operational, gold-readiness, and live artifacts with
+   `evaluation/istina_evidence_bundle.py`. The bundle records each source
+   SHA-256 and preserves fail-closed verification flags.
+7. Run the machine gate with the strict temporal operational replay as
+   `--replay-result` and the composed bundle as `--evidence`.
+8. Deploy in `shadow`, verify online latency and drift for the agreed window,
    then progress to `candidate`.
-7. Create a short-lived production authorization only after every gate passes.
-   Never hand-edit `release_ready` or reuse an authorization for another commit
-   or evidence hash.
+9. Create a short-lived production authorization only after every gate passes.
+   Never hand-edit `release_ready` or reuse an authorization for another
+   commit or evidence hash.
 
 ## Circuit breaker and rollback
 
@@ -71,19 +78,25 @@ The rolling monitor checks:
 - local p95 latency.
 
 An alert is a rollback signal, not permission to relax thresholds. The monitor
-must be connected to the production metrics and paging system before the
+must be connected to production metrics and paging before the
 `drift_monitoring_verified` gate can pass.
 
 ## Evidence still required
 
-The available advisor export contains 1,264 test mentions but only 90 known
-mentions from 88 repeated gold authors. It cannot satisfy the required 10,000
-total, 1,000 known, or 500 shared-shadow thresholds. Obtain an adjudicated,
-cross-disciplinary ISTINA export of the required size, then perform a 500-case
-live shadow, an online end-to-end load test, and deployed drift monitoring.
+The available advisor export contains 1,735 raw authorship rows. After removing
+52 exact within-paper duplicates, the strict temporal gold test contains 571
+mentions but only 5 known identities and 5 fair frozen-service comparisons. It
+cannot satisfy the required 10,000 total, 1,000 known, 1,000 unseen, or 500
+shared-shadow thresholds. It also lacks discipline, journal, affiliation, and
+ORCID fields and has two unresolved potential label conflicts.
 
-Do not duplicate, resample, or repeatedly replay existing mentions to claim a
-larger gold set. Until these requirements pass, the defensible production mode
-is shadow/candidate and the defensible article claim is a statistically strong
-improvement on the available advisor-labelled sample with explicit risk
-control—not universal replacement readiness.
+Obtain an adjudicated, cross-disciplinary ISTINA export of the required size,
+then perform a 500-case live shadow, an online end-to-end load test, and
+deployed drift monitoring. Do not duplicate, resample, or repeatedly replay
+existing mentions to claim a larger gold set. A successful bounded smoke is not
+release-scale shadow verification.
+
+Until these requirements pass, the defensible production mode is
+shadow/candidate. The cleaned advisor sample does not establish a statistically
+significant advantage over the legacy service; see
+`ISTINA_AUTHOR_DISAMBIGUATION_STATUS_20260719.md` for article-safe claims.

@@ -233,7 +233,10 @@ class IstinaPipelineConfig:
     use_remote_fallback: bool = True
     enable_strict_name_repair: bool = True
     enable_exact_name_token_repair: bool = True
-    enable_unique_non_cjk_initial_repair: bool = True
+    # Local surname uniqueness is not global identity evidence.  Keep this
+    # heuristic opt-in for ablations; production defaults fail closed unless a
+    # stricter rule has independent context.
+    enable_unique_non_cjk_initial_repair: bool = False
     enable_calibrated_candidate_rescue: bool = False
     candidate_pool_limit: int = 100
     calibrated_candidate_threshold: float = CALIBRATED_ACCEPT_THRESHOLD

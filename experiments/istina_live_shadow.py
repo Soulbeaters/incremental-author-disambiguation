@@ -33,6 +33,9 @@ from integrations.istina_pipeline import (  # noqa: E402
     IstinaPipelineConfig,
     article_mentions,
 )
+from integrations.istina_export_quality import (  # noqa: E402
+    deduplicate_exact_author_rows,
+)
 from integrations.istina_production_runtime import (  # noqa: E402
     CircuitBreaker,
     CircuitBreakerConfig,
@@ -53,6 +56,16 @@ def hash_identifier(value: Any, salt: str) -> str:
     return hashlib.sha256(f"{value}|{salt}".encode("utf-8")).hexdigest()[:16]
 
 
+def release_shadow_is_verified(
+    smoke_verified: bool,
+    mentions: int,
+    minimum_mentions: int = 500,
+) -> bool:
+    """Require both a healthy smoke and release-scale online volume."""
+
+    return bool(smoke_verified and mentions >= minimum_mentions)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset", type=Path, required=True)
@@ -61,14 +74,30 @@ def main() -> None:
     parser.add_argument("--service-url", default=DEFAULT_ISTINA_DISAMBIGUATION_URL)
     parser.add_argument("--service-timeout", type=float, default=20.0)
     parser.add_argument("--sleep", type=float, default=0.1)
+    parser.add_argument(
+        "--split-strategy",
+        choices=["temporal", "per-author-holdout"],
+        default="temporal",
+    )
+    parser.add_argument("--train-through-year", type=int, default=2023)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if args.limit < 1:
         raise ValueError("limit must be positive")
 
-    articles = load_articles(args.dataset)
+    raw_articles = load_articles(args.dataset)
+    raw_mentions = sum(
+        len(article.get("authors") or []) for article in raw_articles
+    )
+    articles, exact_duplicates_removed = deduplicate_exact_author_rows(
+        raw_articles
+    )
     mentions = list(iter_mentions(articles))
-    history, test = split_mentions(mentions, "per-author-holdout", 2023)
+    history, test = split_mentions(
+        mentions,
+        args.split_strategy,
+        args.train_through_year,
+    )
     client = IstinaDisambiguationClient(
         service_url=args.service_url,
         timeout=args.service_timeout,
@@ -195,6 +224,12 @@ def main() -> None:
         and audit_redacted
         and circuit_snapshot["state"] == "closed"
     )
+    minimum_release_shadow_mentions = 500
+    release_shadow_verified = release_shadow_is_verified(
+        smoke_verified,
+        args.limit,
+        minimum_release_shadow_mentions,
+    )
     result = {
         "schema_version": 1,
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -202,11 +237,17 @@ def main() -> None:
             "dataset_name": args.dataset.name,
             "dataset_sha256": sha256_file(args.dataset),
             "mode": RuntimeMode.SHADOW.value,
+            "split_strategy": args.split_strategy,
+            "train_through_year": args.train_through_year,
             "service_url": args.service_url,
             "man_id": args.man_id,
             "selected_known_mentions": args.limit,
             "paper_requests": len(selected_by_article),
             "write_calls": 0,
+            "raw_mentions": raw_mentions,
+            "effective_mentions": len(mentions),
+            "exact_duplicate_author_rows_removed": exact_duplicates_removed,
+            "exact_duplicate_cleaning_applied": True,
         },
         "stats": {
             "attempted_mentions": args.limit,
@@ -234,12 +275,15 @@ def main() -> None:
         },
         "operational_evidence": {
             "online_shadow_verified": {
-                "verified": smoke_verified,
-                "scope": "bounded live no-write smoke",
+                "verified": release_shadow_verified,
+                "smoke_verified": smoke_verified,
+                "scope": "bounded live no-write shadow",
                 "mentions": args.limit,
                 "paper_requests": len(selected_by_article),
-                "minimum_release_shadow_mentions": 500,
-                "sufficient_release_volume": args.limit >= 500,
+                "minimum_release_shadow_mentions": minimum_release_shadow_mentions,
+                "sufficient_release_volume": (
+                    args.limit >= minimum_release_shadow_mentions
+                ),
             }
         },
         "records": records,

@@ -1,0 +1,68 @@
+{
+  "protocol": {
+    "dataset": "C:\\program 2 in 2025\\istina test\\chinese_articles_with_authors.json",
+    "split_strategy": "per-author-holdout",
+    "train_through_year": 2023,
+    "history_mentions": 37,
+    "test_mentions": 1263,
+    "raw_mentions": 1735,
+    "effective_mentions": 1683,
+    "exact_duplicate_author_rows_removed": 52,
+    "exact_duplicate_cleaning_applied": true,
+    "service_result": "C:\\program 2 in 2025\\results\\istina_export_holdout_eval_shared_existing_paper_service90_20260717.json",
+    "runtime_class": "integrations.istina_pipeline.IstinaDisambiguationPipeline"
+  },
+  "stats": {
+    "total": 1263,
+    "existing_gold": 38,
+    "new_gold": 1225,
+    "merge": 28,
+    "new": 1194,
+    "unknown": 41,
+    "correct_merge": 28,
+    "wrong_merge": 0,
+    "correct_new": 1184,
+    "false_new_for_existing": 10,
+    "merge_for_new_gold": 0
+  },
+  "metrics": {
+    "precision": 1.0,
+    "existing_recall": 0.7368421052631579,
+    "f1_existing": 0.8484848484848484,
+    "auto_accuracy": 0.9596199524940617,
+    "unknown_rate": 0.03246239113222486,
+    "wrong_merge_rate": 0.0,
+    "throughput_mentions_per_second": 1419.2114712739433,
+    "latency_ms_p50": 0.3522000006341841,
+    "latency_ms_p95": 3.0719000023964327,
+    "latency_ms_p99": 4.269599998224294,
+    "latency_ms_max": 6.606200000533136
+  },
+  "stage_counts": {
+    "enhanced_blocking_source_guard": 2,
+    "legacy_service_validated_fallback": 1,
+    "local_fs": 1250,
+    "strict_structured_name_repair": 1,
+    "structured_coauthor_repair": 9
+  },
+  "candidate_retrieval": {
+    "truncated_mentions": 0,
+    "candidate_pool_total": 717,
+    "scored_candidate_total": 717,
+    "average_candidate_pool_size": 0.5676959619952494,
+    "average_scored_candidate_count": 0.5676959619952494
+  },
+  "legacy_shadow": {
+    "n": 38,
+    "paired_table": {
+      "both_correct": 18,
+      "runtime_only_correct": 10,
+      "legacy_only_correct": 6,
+      "both_incorrect": 4
+    },
+    "runtime_correct": 28,
+    "legacy_correct": 24,
+    "mcnemar_exact_two_sided_p": 0.454498291015625
+  },
+  "elapsed_seconds": 0.8899308000000019
+}

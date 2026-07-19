@@ -42,6 +42,9 @@ from integrations.istina_pipeline import (  # noqa: E402
     IstinaPipelineConfig,
     article_mentions,
 )
+from integrations.istina_export_quality import (  # noqa: E402
+    deduplicate_exact_author_rows,
+)
 from integrations.istina_production_runtime import (  # noqa: E402
     CircuitBreaker,
     CircuitBreakerConfig,
@@ -109,7 +112,7 @@ def evaluate_quality(
             stats["false_new_for_existing" if seen else "correct_new"] += 1
 
         service_record = service_records.get(mention_identity(dict(mention)))
-        if service_record:
+        if service_record and seen:
             legacy_correct = str(service_record.get("result_id")) == gold
             paired[
                 "both_correct" if correct_merge and legacy_correct else
@@ -206,15 +209,18 @@ def drift_fault_injection(decisions: List[Any]) -> Dict[str, Any]:
         ),
         window_size=sample_size,
     )
+    # Alternate two extreme invalid states so the test deterministically moves
+    # both UNKNOWN and MERGE rates, even when the source window contains no
+    # merges.  All rows also move stage and carry a service error.
     injected = [
         replace(
             decision,
-            decision=Decision.UNKNOWN,
-            author_id=None,
+            decision=(Decision.UNKNOWN if index % 2 == 0 else Decision.MERGE),
+            author_id=(None if index % 2 == 0 else "fault-injected-author"),
             stage="fault_injection",
             service_error="injected upstream failure",
         )
-        for decision in decisions[:sample_size]
+        for index, decision in enumerate(decisions[:sample_size])
     ]
     report = monitor.observe_many(injected)
     failures = {failure["name"] for failure in report.get("failures", [])}
@@ -313,6 +319,12 @@ def main() -> None:
     parser.add_argument("--dataset", type=Path, required=True)
     parser.add_argument("--service-result", type=Path)
     parser.add_argument("--live-shadow-evidence", type=Path)
+    parser.add_argument(
+        "--split-strategy",
+        choices=["temporal", "per-author-holdout"],
+        default="temporal",
+    )
+    parser.add_argument("--train-through-year", type=int, default=2023)
     parser.add_argument("--iterations", type=int, default=8)
     parser.add_argument("--tests-passed", type=int)
     parser.add_argument("--test-warnings", type=int)
@@ -321,9 +333,19 @@ def main() -> None:
     if args.iterations < 1:
         raise ValueError("iterations must be positive")
 
-    articles = load_articles(args.dataset)
+    raw_articles = load_articles(args.dataset)
+    raw_mentions = sum(
+        len(article.get("authors") or []) for article in raw_articles
+    )
+    articles, exact_duplicates_removed = deduplicate_exact_author_rows(
+        raw_articles
+    )
     mentions = list(iter_mentions(articles))
-    history, test = split_mentions(mentions, "per-author-holdout", 2023)
+    history, test = split_mentions(
+        mentions,
+        args.split_strategy,
+        args.train_through_year,
+    )
     pipeline = IstinaDisambiguationPipeline.from_history_mentions(
         history,
         config=IstinaPipelineConfig(
@@ -387,9 +409,14 @@ def main() -> None:
                 sha256_file(args.live_shadow_evidence)
                 if args.live_shadow_evidence else None
             ),
-            "split_strategy": "per-author-holdout",
+            "split_strategy": args.split_strategy,
+            "train_through_year": args.train_through_year,
             "history_mentions": len(history),
             "test_mentions": len(test),
+            "raw_mentions": raw_mentions,
+            "effective_mentions": len(mentions),
+            "exact_duplicate_author_rows_removed": exact_duplicates_removed,
+            "exact_duplicate_cleaning_applied": True,
             "load_iterations": args.iterations,
             "network_calls": 0,
             "write_calls": 0,

@@ -517,7 +517,11 @@ class IstinaPipelineTests(unittest.TestCase):
     def test_unique_non_cjk_initial_signature_is_repaired(self):
         pipeline = IstinaDisambiguationPipeline.from_history_mentions(
             [history_row("A1", "J. M. Almira", lastname="Almira", firstname="J", middlename="M")],
-            config=IstinaPipelineConfig(accept_threshold=100.0, reject_threshold=99.0),
+            config=IstinaPipelineConfig(
+                accept_threshold=100.0,
+                reject_threshold=99.0,
+                enable_unique_non_cjk_initial_repair=True,
+            ),
             surname_risk_checker=lambda surname: surname in {"li", "qian", "zhang"},
         )
 
@@ -533,6 +537,26 @@ class IstinaPipelineTests(unittest.TestCase):
         self.assertEqual(result.decision, Decision.MERGE)
         self.assertEqual(result.author_id, "A1")
         self.assertEqual(result.stage, "unique_non_cjk_initial_repair")
+
+    def test_unique_local_surname_initial_does_not_merge_without_context_by_default(self):
+        pipeline = IstinaDisambiguationPipeline.from_history_mentions(
+            [history_row("394890", "James A.", lastname="James", firstname="A")],
+            config=IstinaPipelineConfig(
+                accept_threshold=100.0,
+                reject_threshold=99.0,
+            ),
+            surname_risk_checker=lambda _surname: False,
+        )
+
+        result = pipeline.decide_mention({
+            "article_id": "future-paper",
+            "name": "James Alexander",
+            "lastname": "James",
+            "firstname": "Alexander",
+            "coauthors": [],
+        })
+
+        self.assertNotEqual(result.decision, Decision.MERGE)
 
     def test_unique_cjk_initial_signature_requires_context(self):
         pipeline = IstinaDisambiguationPipeline.from_history_mentions(

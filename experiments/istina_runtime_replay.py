@@ -26,6 +26,9 @@ from integrations.istina_pipeline import (  # noqa: E402
     IstinaDisambiguationPipeline,
     IstinaPipelineConfig,
 )
+from integrations.istina_export_quality import (  # noqa: E402
+    deduplicate_exact_author_rows,
+)
 
 
 def percentile(values: Iterable[float], quantile: float) -> Optional[float]:
@@ -135,7 +138,10 @@ def evaluate(
             else:
                 stats["correct_new"] += 1
 
-        if service_record:
+        # A fair incumbent comparison is defined only for gold identities that
+        # are present in the frozen history.  After export de-duplication, some
+        # records from an older sample are correctly reclassified as new.
+        if service_record and seen:
             legacy_correct = str(service_record.get("result_id")) == gold
             cell = (
                 "both_correct" if correct_merge and legacy_correct else
@@ -221,10 +227,29 @@ def main() -> None:
     parser.add_argument("--split-strategy", choices=["temporal", "per-author-holdout"], default="per-author-holdout")
     parser.add_argument("--train-through-year", type=int, default=2023)
     parser.add_argument("--service-result", type=Path)
+    parser.add_argument(
+        "--keep-exact-duplicate-author-rows",
+        action="store_true",
+        help="diagnostic only: bypass safe exact-row de-duplication",
+    )
+    parser.add_argument(
+        "--compact-output",
+        action="store_true",
+        help="omit mention-level records and error samples from the output file",
+    )
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
 
-    mentions = list(iter_mentions(load_articles(args.dataset)))
+    raw_articles = load_articles(args.dataset)
+    raw_mentions = sum(len(article.get("authors") or []) for article in raw_articles)
+    if args.keep_exact_duplicate_author_rows:
+        articles = raw_articles
+        exact_duplicates_removed = 0
+    else:
+        articles, exact_duplicates_removed = deduplicate_exact_author_rows(
+            raw_articles
+        )
+    mentions = list(iter_mentions(articles))
     history, test = split_mentions(
         mentions,
         args.split_strategy,
@@ -245,15 +270,29 @@ def main() -> None:
             "train_through_year": args.train_through_year,
             "history_mentions": len(history),
             "test_mentions": len(test),
+            "raw_mentions": raw_mentions,
+            "effective_mentions": len(mentions),
+            "exact_duplicate_author_rows_removed": exact_duplicates_removed,
+            "exact_duplicate_cleaning_applied": (
+                not args.keep_exact_duplicate_author_rows
+            ),
             "service_result": str(args.service_result) if args.service_result else None,
             "runtime_class": "integrations.istina_pipeline.IstinaDisambiguationPipeline",
         },
         **evaluate(pipeline, test, load_service_records(args.service_result)),
     }
+    summary = {
+        key: value
+        for key, value in result.items()
+        if key not in {"records", "error_samples"}
+    }
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
-    summary = {key: value for key, value in result.items() if key not in {"records", "error_samples"}}
+        output_document = summary if args.compact_output else result
+        args.output.write_text(
+            json.dumps(output_document, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
     print(json.dumps(summary, ensure_ascii=False, indent=2))
 
 

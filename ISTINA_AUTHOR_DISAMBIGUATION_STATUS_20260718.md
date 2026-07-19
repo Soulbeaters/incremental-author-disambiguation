@@ -1,5 +1,9 @@
 # ISTINA author-disambiguation evidence — 2026-07-18
 
+> Historical snapshot. The advisor-export result in this file is superseded by
+> `ISTINA_AUTHOR_DISAMBIGUATION_STATUS_20260719.md`, which corrects exact
+> duplicate author rows and reports the strict temporal production protocol.
+
 ## Release verdict
 
 This branch is a reproducible, high-precision **shadow/candidate release** and

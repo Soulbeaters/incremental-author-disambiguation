@@ -1,0 +1,231 @@
+{
+  "schema_version": 1,
+  "data_ready": false,
+  "criteria": {
+    "min_test_mentions": 10000,
+    "min_existing_mentions": 1000,
+    "min_new_mentions": 1000,
+    "min_shared_shadow_mentions": 500,
+    "min_disciplines": 5,
+    "min_distinct_years": 3,
+    "min_gold_id_coverage": 0.95,
+    "min_title_coverage": 0.95,
+    "min_year_coverage": 0.95,
+    "max_unresolved_label_issues": 0
+  },
+  "summary": {
+    "passed": 4,
+    "failed": 7,
+    "total": 11
+  },
+  "dataset": {
+    "articles": 90,
+    "raw_mentions": 1735,
+    "mentions": 1683,
+    "mentions_with_gold": 1300,
+    "unique_gold_author_ids": 1262,
+    "cleaned_canonical_sha256": "0d59a4cf9efc74121b709bfa2b408d62b0c8483d65fee17741275deb6d0d45b0",
+    "disciplines": {},
+    "years": {
+      "2018": 10,
+      "2019": 10,
+      "2020": 10,
+      "2021": 10,
+      "2022": 10,
+      "2023": 10,
+      "2024": 10,
+      "2025": 10,
+      "2026": 10
+    },
+    "context_coverage": {
+      "title": 1.0,
+      "year": 1.0,
+      "doi": 0.8555555555555555,
+      "journal": 0.0,
+      "discipline": 0.0,
+      "affiliation": 0.0,
+      "orcid": 0.0
+    },
+    "automatic_cleaning": {
+      "exact_duplicate_author_rows_removed": 52,
+      "policy": "only byte-equivalent author objects within the same paper"
+    }
+  },
+  "production_temporal_split": {
+    "history_mentions": 729,
+    "test_mentions": 571,
+    "existing_mentions": 5,
+    "new_mentions": 566,
+    "known_author_ids": 698,
+    "history_papers": 60,
+    "test_papers": 30,
+    "paper_overlap": 0,
+    "shared_shadow_mentions": 5
+  },
+  "diagnostic_per_author_holdout": {
+    "history_mentions": 37,
+    "test_mentions": 1263,
+    "existing_mentions": 38,
+    "new_mentions": 1225,
+    "known_author_ids": 37,
+    "history_papers": 14,
+    "test_papers": 89,
+    "paper_overlap": 13,
+    "shared_shadow_mentions": 38
+  },
+  "adjudication": {
+    "issues": 2,
+    "unresolved": 2,
+    "issue_types": {
+      "potential_conflicting_author_identity": 2
+    },
+    "issue_ids": [
+      "514b4ef0f192ed8c006f",
+      "9ce855246293aa4bc236"
+    ]
+  },
+  "checks": [
+    {
+      "name": "test_mentions",
+      "category": "sample",
+      "observed": 571,
+      "required": ">=10000",
+      "passed": false
+    },
+    {
+      "name": "existing_mentions",
+      "category": "sample",
+      "observed": 5,
+      "required": ">=1000",
+      "passed": false
+    },
+    {
+      "name": "new_mentions",
+      "category": "sample",
+      "observed": 566,
+      "required": ">=1000",
+      "passed": false
+    },
+    {
+      "name": "shared_shadow_mentions",
+      "category": "sample",
+      "observed": 5,
+      "required": ">=500",
+      "passed": false
+    },
+    {
+      "name": "disciplines",
+      "category": "coverage",
+      "observed": 0,
+      "required": ">=5",
+      "passed": false
+    },
+    {
+      "name": "distinct_years",
+      "category": "coverage",
+      "observed": 9,
+      "required": ">=3",
+      "passed": true
+    },
+    {
+      "name": "gold_id_coverage",
+      "category": "quality",
+      "observed": 0.7724301841948901,
+      "required": ">=0.95",
+      "passed": false
+    },
+    {
+      "name": "title_coverage",
+      "category": "quality",
+      "observed": 1.0,
+      "required": ">=0.95",
+      "passed": true
+    },
+    {
+      "name": "year_coverage",
+      "category": "quality",
+      "observed": 1.0,
+      "required": ">=0.95",
+      "passed": true
+    },
+    {
+      "name": "paper_overlap",
+      "category": "leakage",
+      "observed": 0,
+      "required": "0",
+      "passed": true
+    },
+    {
+      "name": "unresolved_label_issues",
+      "category": "adjudication",
+      "observed": 2,
+      "required": "<=0",
+      "passed": false
+    }
+  ],
+  "failures": [
+    {
+      "name": "test_mentions",
+      "category": "sample",
+      "observed": 571,
+      "required": ">=10000",
+      "passed": false
+    },
+    {
+      "name": "existing_mentions",
+      "category": "sample",
+      "observed": 5,
+      "required": ">=1000",
+      "passed": false
+    },
+    {
+      "name": "new_mentions",
+      "category": "sample",
+      "observed": 566,
+      "required": ">=1000",
+      "passed": false
+    },
+    {
+      "name": "shared_shadow_mentions",
+      "category": "sample",
+      "observed": 5,
+      "required": ">=500",
+      "passed": false
+    },
+    {
+      "name": "disciplines",
+      "category": "coverage",
+      "observed": 0,
+      "required": ">=5",
+      "passed": false
+    },
+    {
+      "name": "gold_id_coverage",
+      "category": "quality",
+      "observed": 0.7724301841948901,
+      "required": ">=0.95",
+      "passed": false
+    },
+    {
+      "name": "unresolved_label_issues",
+      "category": "adjudication",
+      "observed": 2,
+      "required": "<=0",
+      "passed": false
+    }
+  ],
+  "inputs": {
+    "datasets": [
+      {
+        "name": "chinese_articles_with_authors.json",
+        "sha256": "515c2d5881970f4de1a412d94018fa1aee99b5069956a1e139358bfc0de715fb"
+      }
+    ],
+    "service_result": {
+      "name": "istina_export_holdout_eval_shared_existing_paper_service90_20260717.json",
+      "sha256": "00d86db7994f5348d0b1805509ac2ad1a8be164b9eed59ea3721bea0635919b3"
+    },
+    "adjudication_decisions": null
+  },
+  "generated_at": "2026-07-19T11:33:59.235517+00:00"
+}

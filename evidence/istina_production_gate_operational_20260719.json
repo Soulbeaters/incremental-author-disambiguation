@@ -16,8 +16,8 @@
     "max_shadow_p_value": 0.05
   },
   "summary": {
-    "passed": 13,
-    "failed": 8,
+    "passed": 8,
+    "failed": 13,
     "total": 21
   },
   "checks": [
@@ -25,28 +25,28 @@
       "name": "total_mentions",
       "category": "data",
       "passed": false,
-      "observed": 1264,
+      "observed": 571,
       "required": ">=10000"
     },
     {
       "name": "existing_mentions",
       "category": "data",
       "passed": false,
-      "observed": 90,
+      "observed": 5,
       "required": ">=1000"
     },
     {
       "name": "new_mentions",
       "category": "data",
-      "passed": true,
-      "observed": 1174,
+      "passed": false,
+      "observed": 566,
       "required": ">=1000"
     },
     {
       "name": "shadow_mentions",
       "category": "data",
       "passed": false,
-      "observed": 90,
+      "observed": 5,
       "required": ">=500"
     },
     {
@@ -60,21 +60,21 @@
       "name": "existing_recall",
       "category": "quality",
       "passed": false,
-      "observed": 0.9444444444444444,
+      "observed": 0.2,
       "required": ">=0.95"
     },
     {
       "name": "auto_accuracy",
       "category": "quality",
-      "passed": true,
-      "observed": 0.9849683544303798,
+      "passed": false,
+      "observed": 0.9439579684763573,
       "required": ">=0.98"
     },
     {
       "name": "unknown_rate",
       "category": "quality",
-      "passed": true,
-      "observed": 0.011075949367088608,
+      "passed": false,
+      "observed": 0.04903677758318739,
       "required": "<=0.02"
     },
     {
@@ -95,21 +95,21 @@
       "name": "local_p95_latency_ms",
       "category": "performance",
       "passed": true,
-      "observed": 5.730600001697894,
+      "observed": 18.775799999275478,
       "required": "<=50.0"
     },
     {
       "name": "shadow_absolute_gain",
       "category": "comparison",
-      "passed": true,
-      "observed": 0.5555555555555556,
+      "passed": false,
+      "observed": -0.4,
       "required": ">=0.02"
     },
     {
       "name": "shadow_significance",
       "category": "comparison",
-      "passed": true,
-      "observed": 3.1699504132731704e-12,
+      "passed": false,
+      "observed": 0.5,
       "required": "<=0.05"
     },
     {
@@ -174,29 +174,64 @@
       "name": "total_mentions",
       "category": "data",
       "passed": false,
-      "observed": 1264,
+      "observed": 571,
       "required": ">=10000"
     },
     {
       "name": "existing_mentions",
       "category": "data",
       "passed": false,
-      "observed": 90,
+      "observed": 5,
+      "required": ">=1000"
+    },
+    {
+      "name": "new_mentions",
+      "category": "data",
+      "passed": false,
+      "observed": 566,
       "required": ">=1000"
     },
     {
       "name": "shadow_mentions",
       "category": "data",
       "passed": false,
-      "observed": 90,
+      "observed": 5,
       "required": ">=500"
     },
     {
       "name": "existing_recall",
       "category": "quality",
       "passed": false,
-      "observed": 0.9444444444444444,
+      "observed": 0.2,
       "required": ">=0.95"
+    },
+    {
+      "name": "auto_accuracy",
+      "category": "quality",
+      "passed": false,
+      "observed": 0.9439579684763573,
+      "required": ">=0.98"
+    },
+    {
+      "name": "unknown_rate",
+      "category": "quality",
+      "passed": false,
+      "observed": 0.04903677758318739,
+      "required": "<=0.02"
+    },
+    {
+      "name": "shadow_absolute_gain",
+      "category": "comparison",
+      "passed": false,
+      "observed": -0.4,
+      "required": ">=0.02"
+    },
+    {
+      "name": "shadow_significance",
+      "category": "comparison",
+      "passed": false,
+      "observed": 0.5,
+      "required": "<=0.05"
     },
     {
       "name": "cross_domain_gold_verified",

@@ -1,0 +1,65 @@
+{
+  "protocol": {
+    "dataset": "C:\\program 2 in 2025\\istina test\\chinese_articles_with_authors.json",
+    "split_strategy": "temporal",
+    "train_through_year": 2023,
+    "history_mentions": 930,
+    "test_mentions": 753,
+    "raw_mentions": 1735,
+    "effective_mentions": 1683,
+    "exact_duplicate_author_rows_removed": 52,
+    "exact_duplicate_cleaning_applied": true,
+    "service_result": "C:\\program 2 in 2025\\results\\istina_export_holdout_eval_shared_existing_paper_service90_20260717.json",
+    "runtime_class": "integrations.istina_pipeline.IstinaDisambiguationPipeline"
+  },
+  "stats": {
+    "total": 571,
+    "existing_gold": 5,
+    "new_gold": 566,
+    "merge": 1,
+    "new": 542,
+    "unknown": 28,
+    "correct_merge": 1,
+    "wrong_merge": 0,
+    "correct_new": 538,
+    "false_new_for_existing": 4,
+    "merge_for_new_gold": 0
+  },
+  "metrics": {
+    "precision": 1.0,
+    "existing_recall": 0.2,
+    "f1_existing": 0.33333333333333337,
+    "auto_accuracy": 0.9439579684763573,
+    "unknown_rate": 0.04903677758318739,
+    "wrong_merge_rate": 0.0,
+    "throughput_mentions_per_second": 144.83690426063364,
+    "latency_ms_p50": 0.6806999990658369,
+    "latency_ms_p95": 30.13970000029076,
+    "latency_ms_p99": 62.3715000001539,
+    "latency_ms_max": 84.7864000024856
+  },
+  "stage_counts": {
+    "legacy_service_validated_fallback": 1,
+    "local_fs": 570
+  },
+  "candidate_retrieval": {
+    "truncated_mentions": 0,
+    "candidate_pool_total": 4155,
+    "scored_candidate_total": 4155,
+    "average_candidate_pool_size": 7.276707530647986,
+    "average_scored_candidate_count": 7.276707530647986
+  },
+  "legacy_shadow": {
+    "n": 5,
+    "paired_table": {
+      "both_correct": 1,
+      "runtime_only_correct": 0,
+      "legacy_only_correct": 2,
+      "both_incorrect": 2
+    },
+    "runtime_correct": 1,
+    "legacy_correct": 3,
+    "mcnemar_exact_two_sided_p": 0.5
+  },
+  "elapsed_seconds": 3.94236539999838
+}

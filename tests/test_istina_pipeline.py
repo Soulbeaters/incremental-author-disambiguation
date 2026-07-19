@@ -40,6 +40,60 @@ class IstinaPipelineTests(unittest.TestCase):
     def test_calibrated_rescue_is_disabled_by_default(self):
         self.assertFalse(IstinaPipelineConfig().enable_calibrated_candidate_rescue)
 
+    def test_history_rebuild_preserves_external_ids_and_decision_order(self):
+        history = [
+            history_row("author-b", "Alex Smith", article_id="P1"),
+            history_row("author-a", "Alex Smith", article_id="P2"),
+        ]
+        mention = {
+            "article_id": "P3",
+            "name": "Alex Smith",
+            "lastname": "Smith",
+            "firstname": "Alex",
+            "coauthors": [],
+        }
+
+        pipelines = [
+            IstinaDisambiguationPipeline.from_history_mentions(history)
+            for _ in range(2)
+        ]
+        results = [pipeline.decide_mention(mention) for pipeline in pipelines]
+
+        for pipeline in pipelines:
+            self.assertEqual(
+                pipeline.history_state.external_to_database_id,
+                {"author-a": "author-a", "author-b": "author-b"},
+            )
+        self.assertEqual(results[0].topk, results[1].topk)
+        self.assertEqual(results[0].author_id, results[1].author_id)
+        self.assertEqual(results[0].deterministic_hash, results[1].deterministic_hash)
+
+    def test_bounded_context_blocking_keys_use_stable_lexical_order(self):
+        state = build_istina_history_state([
+            history_row(
+                "A1",
+                "Alex Smith",
+                article_id=f"P{index}",
+                affiliation=affiliation,
+                journal=journal,
+            )
+            for index, (affiliation, journal) in enumerate((
+                ("Zeta University", "Zeta Journal"),
+                ("Alpha University", "Alpha Journal"),
+                ("Mu University", "Mu Journal"),
+                ("Beta University", "Beta Journal"),
+            ), start=1)
+        ])
+
+        keys = state.database.blocking_key_index
+        self.assertIn("affil:alpha_university", keys)
+        self.assertIn("affil:beta_university", keys)
+        self.assertNotIn("affil:zeta_university", keys)
+        self.assertIn("journal:alpha_journal", keys)
+        self.assertIn("journal:beta_journal", keys)
+        self.assertIn("journal:mu_journal", keys)
+        self.assertNotIn("journal:zeta_journal", keys)
+
     def test_structured_surname_recovers_candidate_when_free_text_order_differs(self):
         state = build_istina_history_state([{
             "gold_author_id": "A1",

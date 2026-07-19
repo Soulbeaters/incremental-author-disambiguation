@@ -88,6 +88,11 @@ def evaluate(
         "merge_for_new_gold": 0,
     }
     stage_counts: Counter[str] = Counter()
+    retrieval = {
+        "truncated_mentions": 0,
+        "candidate_pool_total": 0,
+        "scored_candidate_total": 0,
+    }
     latencies = []
     records = []
     error_samples = []
@@ -114,6 +119,10 @@ def evaluate(
         stats["existing_gold" if seen else "new_gold"] += 1
         stats[result.decision.value] += 1
         stage_counts[result.stage] += 1
+        retrieval["candidate_pool_total"] += result.candidate_count
+        retrieval["scored_candidate_total"] += result.scored_candidate_count
+        if result.candidate_pool_truncated:
+            retrieval["truncated_mentions"] += 1
         latencies.append(result.latency_ms)
 
         if result.decision == Decision.MERGE:
@@ -179,6 +188,17 @@ def evaluate(
             "latency_ms_max": max(latencies) if latencies else None,
         },
         "stage_counts": dict(sorted(stage_counts.items())),
+        "candidate_retrieval": {
+            **retrieval,
+            "average_candidate_pool_size": (
+                retrieval["candidate_pool_total"] / stats["total"]
+                if stats["total"] else 0.0
+            ),
+            "average_scored_candidate_count": (
+                retrieval["scored_candidate_total"] / stats["total"]
+                if stats["total"] else 0.0
+            ),
+        },
         "legacy_shadow": {
             "n": shadow_total,
             "paired_table": paired,

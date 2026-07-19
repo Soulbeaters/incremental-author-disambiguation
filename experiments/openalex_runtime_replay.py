@@ -220,6 +220,14 @@ def main() -> None:
     parser.add_argument("--reject-threshold", type=float, default=-4.0)
     parser.add_argument("--min-accept-margin", type=float, default=1e-9)
     parser.add_argument("--topk", type=int, default=5)
+    parser.add_argument(
+        "--enable-calibrated-candidate-rescue",
+        action="store_true",
+        help=(
+            "Enable the OpenAlex-calibrated rescue model for an explicit "
+            "in-domain ablation; the cross-domain production default is off."
+        ),
+    )
     args = parser.parse_args()
 
     mentions = load_mentions(args.dataset)
@@ -256,6 +264,9 @@ def main() -> None:
         require_context_for_low_name_accept=True,
         use_remote_fallback=False,
         topk=args.topk,
+        enable_calibrated_candidate_rescue=(
+            args.enable_calibrated_candidate_rescue
+        ),
     )
     pipeline = IstinaDisambiguationPipeline.from_history_mentions(history, config=config)
     evaluation = evaluate(pipeline, test, service_records={})
@@ -293,6 +304,9 @@ def main() -> None:
             "test_mentions": len(test),
             "runtime_class": "integrations.istina_pipeline.IstinaDisambiguationPipeline",
             "topk": args.topk,
+            "calibrated_candidate_rescue": (
+                args.enable_calibrated_candidate_rescue
+            ),
             "metadata": metadata,
         },
         **evaluation,

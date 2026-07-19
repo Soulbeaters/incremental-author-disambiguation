@@ -157,7 +157,12 @@ def build_istina_history_state(
         names = [str(mention["name"]) for mention in mentions if mention.get("name")]
         canonical_name = Counter(names).most_common(1)[0][0]
         author = database.add_author({
+            "author_id": author_id,
             "name": canonical_name,
+            "orcid": next(
+                (str(mention["orcid"]) for mention in mentions if mention.get("orcid")),
+                None,
+            ),
             "coauthors": sorted({
                 str(coauthor)
                 for mention in mentions
@@ -230,6 +235,7 @@ class IstinaPipelineConfig:
     enable_exact_name_token_repair: bool = True
     enable_unique_non_cjk_initial_repair: bool = True
     enable_calibrated_candidate_rescue: bool = False
+    candidate_pool_limit: int = 100
     calibrated_candidate_threshold: float = CALIBRATED_ACCEPT_THRESHOLD
     require_strong_context_for_weak_name_accept: bool = True
     dense_name_candidate_limit: int = 5
@@ -241,6 +247,8 @@ class IstinaPipelineConfig:
             raise ValueError("mode must be 'baseline' or 'fs'")
         if self.dense_name_candidate_limit < 1:
             raise ValueError("dense_name_candidate_limit must be positive")
+        if self.candidate_pool_limit < self.topk:
+            raise ValueError("candidate_pool_limit must be at least topk")
         if self.reject_threshold >= self.accept_threshold:
             raise ValueError("reject_threshold must be below accept_threshold")
         if self.topk <= 0:
@@ -262,6 +270,8 @@ class IstinaPipelineDecision:
     base_decision: Decision
     local_score: float
     candidate_count: int
+    scored_candidate_count: int = 0
+    candidate_pool_truncated: bool = False
     topk: Tuple[Dict[str, Any], ...] = field(default_factory=tuple)
     structured_relation: Optional[str] = None
     structured_coauthor_jaccard: float = 0.0
@@ -283,6 +293,8 @@ class IstinaPipelineDecision:
             "base_decision": self.base_decision.value,
             "local_score": self.local_score,
             "candidate_count": self.candidate_count,
+            "scored_candidate_count": self.scored_candidate_count,
+            "candidate_pool_truncated": self.candidate_pool_truncated,
             "topk": list(self.topk),
             "structured_relation": self.structured_relation,
             "structured_coauthor_jaccard": self.structured_coauthor_jaccard,
@@ -554,9 +566,24 @@ class IstinaDisambiguationPipeline:
         raw_payload["_include_enhanced_blocking"] = False
         raw_candidate_ids = {
             candidate.author_id
-            for candidate in self.history_state.database.get_candidates(raw_payload)
+            for candidate in self.history_state.database.get_candidates(
+                raw_payload,
+                max_candidates=None,
+            )
         }
-        local = self._merger.make_decision(payload, metadata=None)
+        candidate_pool = self.history_state.database.get_candidates(
+            payload,
+            max_candidates=None,
+        )
+        candidate_pool_size = len(candidate_pool)
+        candidate_pool_truncated = candidate_pool_size > self.config.candidate_pool_limit
+        scored_candidates = candidate_pool[:self.config.candidate_pool_limit]
+        local = self._merger.make_decision(
+            payload,
+            metadata=None,
+            candidates=scored_candidates,
+        )
+        local.candidate_count = candidate_pool_size
         topk = self._external_topk(local)
         final_decision = local.decision
         final_author_id: Optional[str] = None
@@ -565,7 +592,17 @@ class IstinaDisambiguationPipeline:
         structured = StructuredRepairDecision(False, "not_attempted")
         calibrated_probability: Optional[float] = None
         calibrated_model_version: Optional[str] = None
-
+        compatible_ids = compatible_structured_author_ids(
+            mention,
+            self.history_state.repair_profiles,
+        )
+        family_key, _ = structured_name_parts(mention)
+        high_risk_surname = self._surname_risk_checker(family_key)
+        dense_or_ambiguous_name = (
+            high_risk_surname
+            or local.candidate_count >= self.config.dense_name_candidate_limit
+            or len(compatible_ids) > 1
+        )
         if local.decision == Decision.MERGE:
             structured_only_candidate = bool(
                 raw_candidate_ids is not None
@@ -573,18 +610,6 @@ class IstinaDisambiguationPipeline:
             )
             weak_name = local.comparisons.get("name_bin") in {"medium", "low", "none"}
             strong_context = local.comparisons.get("coauthor_bin") in {"high", "medium"}
-            compatible_ids = compatible_structured_author_ids(
-                mention,
-                self.history_state.repair_profiles,
-            )
-            family_key, _ = structured_name_parts(mention)
-            high_risk_surname = self._surname_risk_checker(family_key)
-            dense_or_ambiguous_name = (
-                high_risk_surname
-                or
-                local.candidate_count >= self.config.dense_name_candidate_limit
-                or len(compatible_ids) > 1
-            )
             if (
                 structured_only_candidate
                 and local.comparisons.get("orcid_bin") != "match"
@@ -864,6 +889,8 @@ class IstinaDisambiguationPipeline:
                 "legacy_agrees": legacy_agrees,
                 "calibrated_probability": calibrated_probability,
                 "calibrated_model_version": calibrated_model_version,
+                "scored_candidate_count": len(scored_candidates),
+                "candidate_pool_truncated": candidate_pool_truncated,
             })
             self.trace_logger.append_trace(final_trace, payload, metadata)
 
@@ -875,6 +902,8 @@ class IstinaDisambiguationPipeline:
             base_decision=local.decision,
             local_score=local.score_total,
             candidate_count=local.candidate_count,
+            scored_candidate_count=len(scored_candidates),
+            candidate_pool_truncated=candidate_pool_truncated,
             topk=topk,
             structured_relation=structured.relation,
             structured_coauthor_jaccard=structured.coauthor_jaccard,

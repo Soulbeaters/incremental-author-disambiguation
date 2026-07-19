@@ -108,7 +108,7 @@ class AuthorDatabase:
         # 创建Author对象 / Создание объекта Author
         # Author构造函数只需要author_id和canonical_name
         author = Author(
-            author_id=f"au_{uuid.uuid4().hex[:8]}",
+            author_id=str(author_data.get('author_id') or f"au_{uuid.uuid4().hex[:8]}"),
             canonical_name=author_data.get('name', author_data.get('full_name', '')),
             orcid=author_data.get('orcid')
         )
@@ -412,14 +412,14 @@ class AuthorDatabase:
             keys.append(f"name_tokens:{name_multiset_key}")
 
         # 4. 机构键（如果有）/ Ключи аффилиаций
-        for affiliation in list(author.affiliations)[:2]:  # 限制前2个机构 / первые 2
+        for affiliation in sorted(author.affiliations)[:2]:  # 限制前2个机构 / первые 2
             if affiliation:
                 # 简化机构名称 / Упрощение названия
                 aff_normalized = affiliation.lower().replace(' ', '_')[:30]
                 keys.append(f"affil:{aff_normalized}")
 
         # 5. 期刊键（如果有）/ Ключи журналов
-        for journal in list(author.journals)[:3]:  # 限制前3个期刊 / первые 3
+        for journal in sorted(author.journals)[:3]:  # 限制前3个期刊 / первые 3
             if journal:
                 journal_normalized = journal.lower().replace(' ', '_')[:30]
                 keys.append(f"journal:{journal_normalized}")
@@ -431,7 +431,7 @@ class AuthorDatabase:
     def get_candidates(
         self,
         mention: Dict[str, Any],
-        max_candidates: int = 100
+        max_candidates: Optional[int] = 100
     ) -> List[Author]:
         """
         获取候选作者（blocking策略）/ Получение кандидатов (стратегия блокировки)
@@ -557,7 +557,7 @@ class AuthorDatabase:
         candidates_list.sort(key=lambda a: a.author_id)  # 稳定排序 / стабильная сортировка
 
         # 限制候选数量 / Ограничение количества
-        if len(candidates_list) > max_candidates:
+        if max_candidates is not None and len(candidates_list) > max_candidates:
             self.logger.warning(
                 f"Candidate set size ({len(candidates_list)}) exceeds max_candidates "
                 f"({max_candidates}), truncating"

@@ -29,13 +29,14 @@ The default pipeline contains:
 - top-20 redacted, deterministic audit traces with score components and raw
   comparisons.
 
-An interpretable L2-logistic candidate-rescue model is enabled after the
-deterministic guards. It was fitted on seed 20260719, its threshold was selected
-once on seed 20260720 under a 0.1% unseen-author false-link budget, and it was
-then frozen before seeds 20260721–20260724 and ISTINA evaluation. The offline
-Newton fitting script reproduces every runtime mean, scale, coefficient, and
-threshold with zero numeric delta; runtime inference remains standard-library
-only. Common-name guards use official aggregate surname statistics, including
+An interpretable L2-logistic candidate-rescue model is retained for explicit
+OpenAlex ablation, but is disabled in the production default because it did not
+transfer safely to the official AMiner benchmark. It was fitted on seed
+20260719 and its threshold was selected once on seed 20260720 under a 0.1%
+unseen-author false-link budget. The offline Newton fitting script reproduces
+every runtime mean, scale, coefficient, and threshold with zero numeric delta;
+runtime inference remains standard-library only. Common-name guards use
+official aggregate surname statistics, including
 the [U.S. Census surname files](https://www.census.gov/data/developers/data-sets/surnames.html)
 and the [UK government 2026 top-five table](https://www.gov.uk/csv-preview/69cb9f30a60a12ca3913c603/sia-4b-top-5-last-names.csv).
 
@@ -75,7 +76,7 @@ independent context after the official high-frequency-surname guard. The
 result is statistically strong, but the sample is still only 90 shared cases
 and the suspected labels require advisor verification.
 
-## Six OpenAlex/ORCID-blind runs
+## Six OpenAlex/ORCID-blind calibrated-rescue ablations
 
 Data were collected from the OpenAlex API. ORCID defines hidden identity gold
 and is removed from runtime input. The split assigns known and unseen authors
@@ -83,6 +84,13 @@ deterministically, gives each known author one complete history paper, and has
 zero publication overlap. Seed 20260719 is training, 20260720 is threshold
 validation, and 20260721–20260724 are untouched confirmation runs. Seeds are
 experiment identifiers, not collection dates.
+
+The table below is the explicit in-domain calibrated-rescue ablation, not the
+cross-domain production default. The rescue is disabled by default after the
+official AMiner test showed that it does not transfer safely. On the untouched
+20260721 confirmation set, the deterministic default without rescue has 100%
+merge precision, 81.98% known-author recall, 84.84% automatic accuracy, and
+12.48% UNKNOWN; the corresponding rescue ablation is the 20260721 row below.
 
 | Seed | Authors | Test | Known | New | Precision | Known recall | Auto accuracy | UNKNOWN | Unseen false links | p95 ms |
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -102,6 +110,41 @@ points and automatic accuracy by 0.46 points.
 The three remaining wrong merges are information-poor initial-only names; the
 system intentionally does not hide this open-world limitation.
 
+## Official AMiner KDD'18 stress test
+
+The public archive is downloaded from the official AMiner URL and is not
+redistributed. Its SHA-256 is
+`d3912ea052afed43eeb401788312ab936055b02c2a52fd790c5c69e13db9defd`.
+All 35,129 labelled mentions in `test_100` were checked against the stated
+paper author position and entity ID before evaluation. A complete-paper
+last-test split produces 28,717 history mentions and 6,412 test mentions with
+zero publication overlap; 2,744 test authorships belong to identities present
+in history and 3,668 belong to unseen identities.
+
+| Metric | Deterministic default |
+|---|---:|
+| Correct known-author merges | 1,773 / 2,744 |
+| Merge precision | 70.02% |
+| Known-author recall | 64.61% |
+| Existing-author F1 | 67.21% |
+| Wrong merges | 759 / 6,412 (11.84%) |
+| UNKNOWN | 3,880 / 6,412 (60.51%) |
+| Automatically accepted NEW | 0 |
+| Automatic accuracy | 27.65% |
+| Local p95 latency | 624.70 ms |
+| Candidate pool truncated | 3,326 / 6,412 (51.87%) |
+| Average complete / scored candidates | 111.21 / 78.94 |
+
+This is an intentionally difficult same-name, open-world stress test. It
+falsifies any claim that the current generic runtime is universally
+production-ready. A learned bibliographic candidate retriever and a stricter
+context guard were also tested on all 6,412 mentions; they reduced wrong merges
+but lowered F1 and increased UNKNOWN, so they were removed from the final
+runtime. The retained engineering improvement is reproducibility: external
+author IDs are stable, and bounded affiliation/journal blocking keys are sorted
+before truncation. Three independent processes then produced the same candidate
+count and SHA-256 digest on the dense 554-mention diagnostic subset.
+
 ## Production gate
 
 The predeclared gate requires at least 10,000 test mentions, 1,000 known and
@@ -113,13 +156,22 @@ shadowing, load testing, tested rollback/circuit breaker, and drift monitoring
 are also mandatory.
 
 - Public 20260719 gate: 7/18 checks pass; recall, automatic accuracy, UNKNOWN,
-  shadow comparison, and operations fail.
+  shadow comparison, and operations fail. This is the in-domain calibrated
+  rescue ablation, not the production default.
+- Untouched OpenAlex 20260721 deterministic-default gate: 6/18 checks pass;
+  merge precision, wrong-link safety, sample composition, and latency pass,
+  while recall, automatic accuracy, UNKNOWN, shadow comparison, and operations
+  fail.
 - Advisor ISTINA gate: 9/18 checks pass, but `release_ready` remains `false`:
   the raw known-author
   recall is 94.44%, just below the 95% threshold, and it also lacks the required
   total/known/shadow sample sizes and five operational checks. Precision,
   automatic accuracy, UNKNOWN, wrong-link, comparison, significance, and
   latency requirements pass.
+- Official AMiner `test_100` deterministic-default gate: 2/18 checks pass.
+  Only the existing- and unseen-author sample counts pass; precision, recall,
+  automatic accuracy, UNKNOWN, false links, latency, comparison, and operations
+  fail.
 
 Therefore the defensible article claim is: **the framework significantly
 improves the existing ISTINA service on the available advisor-labelled shadow
@@ -131,8 +183,9 @@ replacement.
 
 ```powershell
 python -B -m unittest discover -s tests -v
-python experiments/openalex_runtime_replay.py --dataset <mentions.jsonl> --metadata <metadata.json> --split-strategy orcid-author-holdout --history-papers-per-known-author 1 --topk 20 --output <result.json>
+python experiments/openalex_runtime_replay.py --dataset <mentions.jsonl> --metadata <metadata.json> --split-strategy orcid-author-holdout --history-papers-per-known-author 1 --topk 20 --enable-calibrated-candidate-rescue --output <ablation-result.json>
 python experiments/istina_runtime_replay.py --dataset <advisor-export.json> --split-strategy per-author-holdout --service-result <frozen-service-result.json> --output <result.json>
+python experiments/aminer_kdd18_runtime_replay.py --data-root <na-data-kdd18/data/global> --label-split test_100 --archive <na-data-kdd18.zip> --output <result.json>
 python experiments/train_calibrated_candidate_model.py --train-result <seed19-risk-baseline.json> --validation-result <seed20-risk-baseline.json> --topk 20 --verify-runtime-model --output <model-artifact.json>
 python -m evaluation.production_gate --replay-result <result.json> --output <gate.json>
 ```
@@ -141,6 +194,9 @@ Private advisor data and frozen service responses are intentionally not
 committed. Public datasets can be rebuilt with
 `data/build_openalex_orcid_benchmark.py`; experiment metadata, source URLs,
 collector parameters, and SHA-256 checksums must be retained with each build.
+The compact machine-readable validation record is committed as
+`evidence/runtime_validation_20260719.json`; full per-mention replay files stay
+outside Git because they contain private records or large generated data.
 
 ## Minimum evidence still required for replacement
 

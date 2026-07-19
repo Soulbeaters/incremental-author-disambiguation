@@ -112,6 +112,9 @@ def load_aminer_mentions(
                     "journal": str(publication.get("venue") or ""),
                     "affiliation": str(target.get("org") or ""),
                     "year": int(publication.get("year") or 0),
+                    "title": str(publication.get("title") or ""),
+                    "abstract": str(publication.get("abstract") or ""),
+                    "keywords": list(publication.get("keywords") or []),
                     "block_name": str(block_name),
                     "source": "aminer_kdd18",
                 })

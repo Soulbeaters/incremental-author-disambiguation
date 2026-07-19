@@ -135,7 +135,8 @@ class AuthorMerger:
     def make_decision(
         self,
         mention: Dict[str, Any],
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
+        candidates: Optional[List[Author]] = None,
     ) -> DecisionResult:
         """
         对候选mention做三分决策 / Тройное решение для упоминания кандидата
@@ -160,7 +161,8 @@ class AuthorMerger:
                 - deterministic_hash: 可复现性hash
         """
         # 1. Blocking检索候选作者 / Блокирующий поиск кандидатов
-        candidates = self.database.get_candidates(mention, max_candidates=100)
+        if candidates is None:
+            candidates = self.database.get_candidates(mention, max_candidates=100)
         blocking_keys_used = self._extract_blocking_keys(mention)
 
         self.logger.debug(

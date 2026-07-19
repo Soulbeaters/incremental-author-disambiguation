@@ -11,6 +11,7 @@ import argparse
 import hashlib
 import json
 import math
+import re
 import sys
 import threading
 import time
@@ -121,6 +122,7 @@ def main() -> None:
     parser.add_argument("--man-id", type=int, required=True)
     parser.add_argument("--service-url", default=DEFAULT_ISTINA_DISAMBIGUATION_URL)
     parser.add_argument("--service-timeout", type=float, default=30.0)
+    parser.add_argument("--code-revision", required=True)
     parser.add_argument("--approved-change-reference", required=True)
     parser.add_argument("--acknowledge-read-only-load", action="store_true")
     parser.add_argument("--output", type=Path, required=True)
@@ -136,6 +138,8 @@ def main() -> None:
         raise ValueError("max-rps must be within [0.1, 20]")
     if args.requests < 1:
         raise ValueError("requests must be positive")
+    if re.fullmatch(r"[0-9a-fA-F]{40}", args.code_revision) is None:
+        raise ValueError("code-revision must be a full 40-hex Git commit")
 
     raw_articles = load_articles(args.dataset)
     articles, duplicate_rows_removed = deduplicate_exact_author_rows(raw_articles)
@@ -173,6 +177,7 @@ def main() -> None:
             "mode": "read_only_candidate_lookup",
             "dataset_name": args.dataset.name,
             "dataset_sha256": sha256_file(args.dataset),
+            "code_revision": args.code_revision.lower(),
             "service_url_sha256": hashlib.sha256(
                 args.service_url.encode("utf-8")
             ).hexdigest(),

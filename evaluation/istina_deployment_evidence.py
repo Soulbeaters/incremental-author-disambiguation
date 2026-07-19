@@ -96,9 +96,23 @@ def _rate(numerator: int | None, denominator: int | None) -> float | None:
     return numerator / denominator
 
 
+def _mapping(value: Any) -> Dict[str, Any]:
+    return dict(value) if isinstance(value, Mapping) else {}
+
+
+def _same_number(left: Any, right: Any, tolerance: float = 1e-9) -> bool:
+    left_number = _number(left)
+    right_number = _number(right)
+    return bool(
+        left_number is not None
+        and right_number is not None
+        and abs(left_number - right_number) <= tolerance
+    )
+
+
 def assess_deployment_evidence(
     manifest: Mapping[str, Any] | None,
-    observed_attachments: Sequence[Mapping[str, str]],
+    observed_attachments: Sequence[Mapping[str, Any]],
     *,
     expected_dataset_sha256: str,
     expected_code_revision: str,
@@ -131,7 +145,7 @@ def assess_deployment_evidence(
     drift_hours = _number(drift.get("observation_hours"))
     retention_days = _integer(audit.get("retention_days"))
 
-    declared_attachments = {
+    declared_attachment_rows = [
         (
             str(item.get("role") or ""),
             str(item.get("name") or ""),
@@ -139,21 +153,50 @@ def assess_deployment_evidence(
         )
         for item in document.get("attachments") or []
         if isinstance(item, Mapping)
-    }
-    observed = {
+    ]
+    declared_attachments = set(declared_attachment_rows)
+    observed_rows = [
         (
             str(item.get("name") or ""),
             str(item.get("sha256") or "").lower(),
         )
         for item in observed_attachments
         if isinstance(item, Mapping)
-    }
+    ]
+    observed = set(observed_rows)
     declared_files = {(name, digest) for _role, name, digest in declared_attachments}
     declared_roles = {role for role, _name, _digest in declared_attachments}
+    declared_names = {name for _role, name, _digest in declared_attachments}
     attachment_hashes_valid = bool(declared_attachments) and all(
         role and name and re.fullmatch(r"[0-9a-f]{64}", digest)
         for role, name, digest in declared_attachments
     )
+    attachment_cardinality_valid = bool(
+        len(declared_attachment_rows) == len(REQUIRED_ATTACHMENT_ROLES)
+        and len(declared_attachments) == len(REQUIRED_ATTACHMENT_ROLES)
+        and len(declared_names) == len(REQUIRED_ATTACHMENT_ROLES)
+        and len(observed_rows) == len(REQUIRED_ATTACHMENT_ROLES)
+        and len(observed) == len(REQUIRED_ATTACHMENT_ROLES)
+    )
+    roles_by_name = {
+        name: role for role, name, _digest in declared_attachment_rows
+    }
+    documents_by_role: Dict[str, Dict[str, Any]] = {}
+    document_errors: Dict[str, str] = {}
+    for item in observed_attachments:
+        if not isinstance(item, Mapping):
+            continue
+        name = str(item.get("name") or "")
+        role = roles_by_name.get(name)
+        if not role:
+            continue
+        attachment_document = item.get("document")
+        if isinstance(attachment_document, Mapping):
+            documents_by_role[role] = dict(attachment_document)
+        else:
+            document_errors[role] = str(
+                item.get("document_error") or "JSON object was not loaded"
+            )
 
     expected_dataset_sha256 = str(expected_dataset_sha256 or "").lower()
     expected_code_revision = str(expected_code_revision or "").lower()
@@ -164,6 +207,113 @@ def assess_deployment_evidence(
     review_reference = str(
         approval.get("independent_review_reference") or ""
     ).strip()
+
+    shadow_document = documents_by_role.get("shadow_telemetry", {})
+    shadow_protocol = _mapping(shadow_document.get("protocol"))
+    shadow_stats = _mapping(shadow_document.get("stats"))
+    shadow_metrics = _mapping(shadow_document.get("metrics"))
+    shadow_safety = _mapping(shadow_document.get("safety"))
+    shadow_release = _mapping(
+        _mapping(shadow_document.get("operational_evidence")).get(
+            "online_shadow_verified"
+        )
+    )
+    shadow_audit = _mapping(shadow_safety.get("durable_audit_chain"))
+
+    load_document = documents_by_role.get("online_load", {})
+    load_protocol = _mapping(load_document.get("protocol"))
+    load_stats = _mapping(load_document.get("stats"))
+    load_metrics = _mapping(load_document.get("metrics"))
+    load_safety = _mapping(load_document.get("safety"))
+
+    drift_document = documents_by_role.get("drift_monitor", {})
+    drift_window = _mapping(drift_document.get("window"))
+    drift_proof = _mapping(drift_document.get("verification"))
+
+    audit_document = documents_by_role.get("audit_verification", {})
+    audit_proof = _mapping(audit_document.get("verification"))
+    audit_records = _integer(audit_proof.get("records"))
+
+    shadow_attachment_identity = [
+        shadow_document.get("schema_version"),
+        shadow_protocol.get("dataset_sha256"),
+        shadow_protocol.get("code_revision"),
+        shadow_protocol.get("mode"),
+    ]
+    expected_shadow_attachment_identity = [
+        1,
+        expected_dataset_sha256,
+        expected_code_revision,
+        "shadow",
+    ]
+    shadow_attachment_counts = [
+        shadow_stats.get("attempted_mentions"),
+        shadow_stats.get("service_errors"),
+        shadow_protocol.get("write_calls"),
+        shadow_stats.get("authorized_commands"),
+    ]
+    expected_shadow_attachment_counts = [shadow_mentions, shadow_errors, 0, 0]
+    load_attachment_identity = [
+        load_document.get("schema_version"),
+        load_protocol.get("dataset_sha256"),
+        load_protocol.get("code_revision"),
+        load_protocol.get("mode"),
+    ]
+    expected_load_attachment_identity = [
+        1,
+        expected_dataset_sha256,
+        expected_code_revision,
+        "read_only_candidate_lookup",
+    ]
+    load_attachment_counts = [
+        load_stats.get("requests"),
+        load_stats.get("completed"),
+        load_stats.get("errors"),
+        load_stats.get("write_calls"),
+    ]
+    expected_load_attachment_counts = [load_requests, load_requests, load_errors, 0]
+    drift_attachment_identity = [
+        drift_document.get("schema_version"),
+        drift_document.get("source_system"),
+        drift_document.get("dataset_sha256"),
+        drift_document.get("code_revision"),
+    ]
+    expected_deployment_attachment_identity = [
+        1,
+        "istina",
+        expected_dataset_sha256,
+        expected_code_revision,
+    ]
+    drift_attachment_window = [drift_window.get("start"), drift_window.get("end")]
+    expected_attachment_window = [window.get("start"), window.get("end")]
+    drift_attachment_values = [
+        drift_proof.get("active"),
+        drift_proof.get("observation_hours"),
+        drift_proof.get("paging_route_verified"),
+        drift_proof.get("injected_alert_received"),
+    ]
+    expected_drift_attachment_values = [
+        drift.get("active"),
+        drift.get("observation_hours"),
+        drift.get("paging_route_verified"),
+        drift.get("injected_alert_received"),
+    ]
+    audit_attachment_identity = [
+        audit_document.get("schema_version"),
+        audit_document.get("source_system"),
+        audit_document.get("dataset_sha256"),
+        audit_document.get("code_revision"),
+    ]
+    audit_attachment_values = [
+        audit_proof.get("durable"),
+        audit_proof.get("chain_verified"),
+        audit_proof.get("retention_days"),
+    ]
+    expected_audit_attachment_values = [
+        audit.get("durable"),
+        audit.get("chain_verified"),
+        audit.get("retention_days"),
+    ]
 
     checks = [
         _check("manifest_present", bool(document), True, bool(document), "identity"),
@@ -188,8 +338,162 @@ def assess_deployment_evidence(
         _check("audit_chain_verified", audit.get("chain_verified"), True, audit.get("chain_verified") is True, "audit"),
         _check("audit_retention_days", retention_days, f">={criteria.min_audit_retention_days}", retention_days is not None and retention_days >= criteria.min_audit_retention_days, "audit"),
         _check("attachment_roles", sorted(declared_roles), sorted(REQUIRED_ATTACHMENT_ROLES), declared_roles == REQUIRED_ATTACHMENT_ROLES, "attachments"),
+        _check("attachment_cardinality", {"declared": len(declared_attachment_rows), "observed": len(observed_rows)}, {"declared": 4, "observed": 4}, attachment_cardinality_valid, "attachments"),
         _check("attachment_hash_format", attachment_hashes_valid, True, attachment_hashes_valid, "attachments"),
         _check("attachment_hashes", sorted(declared_files), sorted(observed), declared_files == observed, "attachments"),
+        _check("attachment_documents", sorted(documents_by_role), sorted(REQUIRED_ATTACHMENT_ROLES), set(documents_by_role) == REQUIRED_ATTACHMENT_ROLES and not document_errors, "attachments"),
+        _check(
+            "shadow_attachment_identity",
+            shadow_attachment_identity,
+            expected_shadow_attachment_identity,
+            shadow_attachment_identity == expected_shadow_attachment_identity,
+            "shadow_attachment",
+        ),
+        _check(
+            "shadow_attachment_counts",
+            shadow_attachment_counts,
+            expected_shadow_attachment_counts,
+            shadow_attachment_counts == expected_shadow_attachment_counts,
+            "shadow_attachment",
+        ),
+        _check(
+            "shadow_attachment_error_rate",
+            shadow_metrics.get("service_error_rate"),
+            shadow_error_rate,
+            _same_number(
+                shadow_metrics.get("service_error_rate"), shadow_error_rate
+            ),
+            "shadow_attachment",
+        ),
+        _check(
+            "shadow_attachment_safety",
+            [
+                shadow_release.get("verified"),
+                shadow_safety.get("no_write_authorized"),
+                shadow_audit.get("verified"),
+                shadow_audit.get("retained"),
+            ],
+            [True, True, True, True],
+            [
+                shadow_release.get("verified"),
+                shadow_safety.get("no_write_authorized"),
+                shadow_audit.get("verified"),
+                shadow_audit.get("retained"),
+            ] == [True, True, True, True],
+            "shadow_attachment",
+        ),
+        _check(
+            "load_attachment_identity",
+            load_attachment_identity,
+            expected_load_attachment_identity,
+            load_attachment_identity == expected_load_attachment_identity,
+            "load_attachment",
+        ),
+        _check(
+            "load_attachment_counts",
+            load_attachment_counts,
+            expected_load_attachment_counts,
+            load_attachment_counts == expected_load_attachment_counts,
+            "load_attachment",
+        ),
+        _check(
+            "load_attachment_metrics",
+            [
+                load_metrics.get("error_rate"),
+                load_metrics.get("latency_ms_p95"),
+            ],
+            [load_error_rate, load_p95],
+            _same_number(load_metrics.get("error_rate"), load_error_rate)
+            and _same_number(load_metrics.get("latency_ms_p95"), load_p95),
+            "load_attachment",
+        ),
+        _check(
+            "load_attachment_safety",
+            [
+                load_safety.get("verified"),
+                load_safety.get("write_client_present"),
+                load_safety.get("write_calls"),
+            ],
+            [True, False, 0],
+            [
+                load_safety.get("verified"),
+                load_safety.get("write_client_present"),
+                load_safety.get("write_calls"),
+            ] == [True, False, 0],
+            "load_attachment",
+        ),
+        _check(
+            "drift_attachment_identity",
+            drift_attachment_identity,
+            expected_deployment_attachment_identity,
+            drift_attachment_identity == expected_deployment_attachment_identity,
+            "monitoring_attachment",
+        ),
+        _check(
+            "drift_attachment_window",
+            drift_attachment_window,
+            expected_attachment_window,
+            drift_attachment_window == expected_attachment_window,
+            "monitoring_attachment",
+        ),
+        _check(
+            "drift_attachment_values",
+            drift_attachment_values,
+            expected_drift_attachment_values,
+            drift_attachment_values == expected_drift_attachment_values,
+            "monitoring_attachment",
+        ),
+        _check(
+            "drift_attachment_references",
+            {
+                "monitor_config_sha256": drift_proof.get("monitor_config_sha256"),
+                "telemetry_source_reference": drift_proof.get("telemetry_source_reference"),
+                "paging_test_reference": drift_proof.get("paging_test_reference"),
+            },
+            "64-hex monitor hash and non-empty telemetry/paging references",
+            re.fullmatch(
+                r"[0-9a-f]{64}",
+                str(drift_proof.get("monitor_config_sha256") or "").lower(),
+            ) is not None
+            and bool(str(drift_proof.get("telemetry_source_reference") or "").strip())
+            and bool(str(drift_proof.get("paging_test_reference") or "").strip()),
+            "monitoring_attachment",
+        ),
+        _check("drift_attachment_timestamp", drift_document.get("generated_at"), "timezone-aware ISO-8601", _timestamp(drift_document.get("generated_at")) is not None, "monitoring_attachment"),
+        _check(
+            "audit_attachment_identity",
+            audit_attachment_identity,
+            expected_deployment_attachment_identity,
+            audit_attachment_identity == expected_deployment_attachment_identity,
+            "audit_attachment",
+        ),
+        _check(
+            "audit_attachment_values",
+            audit_attachment_values,
+            expected_audit_attachment_values,
+            audit_attachment_values == expected_audit_attachment_values,
+            "audit_attachment",
+        ),
+        _check(
+            "audit_attachment_references",
+            {
+                "records": audit_proof.get("records"),
+                "head_hash": audit_proof.get("head_hash"),
+                "storage_reference": audit_proof.get("storage_reference"),
+                "retention_policy_reference": audit_proof.get("retention_policy_reference"),
+            },
+            "positive records, 64-hex head hash, storage and retention references",
+            audit_records is not None
+            and audit_records > 0
+            and re.fullmatch(
+                r"[0-9a-f]{64}",
+                str(audit_proof.get("head_hash") or "").lower(),
+            ) is not None
+            and bool(str(audit_proof.get("storage_reference") or "").strip())
+            and bool(str(audit_proof.get("retention_policy_reference") or "").strip()),
+            "audit_attachment",
+        ),
+        _check("audit_attachment_timestamp", audit_document.get("generated_at"), "timezone-aware ISO-8601", _timestamp(audit_document.get("generated_at")) is not None, "audit_attachment"),
         _check("operations_approval", bool(operations_reference), "non-empty reference", bool(operations_reference), "approval"),
         _check("independent_review", review_reference, "distinct non-empty reference", bool(review_reference) and review_reference != operations_reference, "approval"),
         _check("approval_timestamp", approval.get("approved_at"), "timezone-aware ISO-8601", approval_time is not None, "approval"),
@@ -209,7 +513,16 @@ def assess_deployment_evidence(
         "expected_dataset_sha256": expected_dataset_sha256,
         "expected_code_revision": expected_code_revision,
         "manifest": document,
-        "observed_attachments": [dict(item) for item in observed_attachments],
+        "observed_attachments": [
+            {
+                "name": str(item.get("name") or ""),
+                "sha256": str(item.get("sha256") or "").lower(),
+                "document_loaded": isinstance(item.get("document"), Mapping),
+                "document_error": item.get("document_error"),
+            }
+            for item in observed_attachments
+            if isinstance(item, Mapping)
+        ],
         "summary": {
             "passed": len(checks) - len(failures),
             "failed": len(failures),
@@ -219,26 +532,26 @@ def assess_deployment_evidence(
         "failures": failures,
         "operational_evidence": {
             "online_shadow_verified": {
-                "verified": category_verified({"identity", "binding", "shadow", "attachments", "approval"}),
+                "verified": category_verified({"identity", "binding", "shadow", "attachments", "shadow_attachment", "approval"}),
                 "mentions": shadow_mentions,
                 "write_calls": shadow_writes,
                 "service_error_rate": shadow_error_rate,
                 "observation_hours": observation_hours,
             },
             "online_load_test_verified": {
-                "verified": category_verified({"identity", "binding", "load", "attachments", "approval"}),
+                "verified": category_verified({"identity", "binding", "load", "attachments", "load_attachment", "approval"}),
                 "requests": load_requests,
                 "error_rate": load_error_rate,
                 "p95_latency_ms": load_p95,
             },
             "drift_monitoring_verified": {
-                "verified": category_verified({"identity", "binding", "monitoring", "attachments", "approval"}),
+                "verified": category_verified({"identity", "binding", "monitoring", "attachments", "monitoring_attachment", "approval"}),
                 "observation_hours": drift_hours,
                 "paging_route_verified": drift.get("paging_route_verified"),
                 "injected_alert_received": drift.get("injected_alert_received"),
             },
             "durable_audit_retention_verified": {
-                "verified": category_verified({"identity", "binding", "audit", "attachments", "approval"}),
+                "verified": category_verified({"identity", "binding", "audit", "attachments", "audit_attachment", "approval"}),
                 "retention_days": retention_days,
                 "chain_verified": audit.get("chain_verified"),
             },
@@ -253,6 +566,18 @@ def _load(path: Path) -> Dict[str, Any]:
     return dict(document)
 
 
+def _load_attachment(path: Path) -> Dict[str, Any]:
+    result: Dict[str, Any] = {
+        "name": path.name,
+        "sha256": sha256_file(path),
+    }
+    try:
+        result["document"] = _load(path)
+    except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as exc:
+        result["document_error"] = f"{type(exc).__name__}: {str(exc)[:200]}"
+    return result
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", type=Path, required=True)
@@ -262,10 +587,7 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
 
-    observed_attachments = [
-        {"name": path.name, "sha256": sha256_file(path)}
-        for path in args.attachment
-    ]
+    observed_attachments = [_load_attachment(path) for path in args.attachment]
     result = assess_deployment_evidence(
         _load(args.manifest),
         observed_attachments,

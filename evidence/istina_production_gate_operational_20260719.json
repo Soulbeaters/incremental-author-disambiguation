@@ -95,7 +95,7 @@
       "name": "local_p95_latency_ms",
       "category": "performance",
       "passed": true,
-      "observed": 13.705800000025192,
+      "observed": 12.785399994754698,
       "required": "<=50.0"
     },
     {

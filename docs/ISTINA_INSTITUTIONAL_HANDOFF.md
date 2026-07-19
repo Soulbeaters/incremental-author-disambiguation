@@ -22,8 +22,10 @@ The institutional operator supplies the following outside Git:
    approval.
 4. Adjudication decisions for every issue emitted by
    `evaluation/istina_gold_readiness.py`.
-5. Four retained deployment attachments: shadow telemetry, online-load output,
-   drift-monitor verification, and durable-audit verification.
+5. Four retained JSON deployment attachments: shadow telemetry, online-load
+   output, a completed
+   `config/istina_drift_monitor_verification.template.json`, and a completed
+   `config/istina_audit_retention_verification.template.json`.
 6. A completed copy of
    `config/istina_deployment_evidence.template.json` that binds those four
    attachments, the exact data hash, and the exact 40-hex Git revision.
@@ -72,17 +74,17 @@ python evaluation/istina_gold_readiness.py --dataset <private-istina-export.json
 python experiments/istina_runtime_replay.py --dataset <private-istina-export.json> --service-result <private-frozen-legacy.json> --split-strategy temporal --train-through-year <frozen-year> --compact-output --output <private-temporal-replay.json>
 
 $env:ISTINA_AUDIT_SALT = <secret-manager-value>
-python experiments/istina_live_shadow.py --dataset <private-istina-export.json> --split-strategy temporal --train-through-year <frozen-year> --limit 500 --audit-output <private-retained-audit.jsonl> --output <private-live-shadow.json>
+python experiments/istina_live_shadow.py --dataset <private-istina-export.json> --split-strategy temporal --train-through-year <frozen-year> --limit 500 --code-revision $revision --audit-output <private-retained-audit.jsonl> --output <private-live-shadow.json>
 
 # Run only inside an approved operations window. This endpoint is read-only,
 # but it intentionally generates service load and therefore requires both flags.
-python experiments/istina_online_read_load.py --dataset <private-istina-export.json> --requests 1000 --concurrency 4 --max-rps 2 --man-id <approved-man-id> --approved-change-reference <change-ticket> --acknowledge-read-only-load --output <private-online-load.json>
+python experiments/istina_online_read_load.py --dataset <private-istina-export.json> --requests 1000 --concurrency 4 --max-rps 2 --man-id <approved-man-id> --code-revision $revision --approved-change-reference <change-ticket> --acknowledge-read-only-load --output <private-online-load.json>
 
 python evaluation/istina_deployment_evidence.py --manifest <private-deployment-manifest.json> --attachment <private-live-shadow.json> <private-online-load.json> <private-drift-verification.json> <private-audit-verification.json> --expected-dataset <private-istina-export.json> --expected-code-revision $revision --output <private-deployment-validation.json>
 
 python experiments/istina_operational_validation.py --dataset <private-istina-export.json> --service-result <private-frozen-legacy.json> --live-shadow-evidence <private-live-shadow.json> --split-strategy temporal --train-through-year <frozen-year> --iterations 18 --tests-passed <pytest-pass-count> --test-warnings <pytest-warning-count> --output <private-operational-validation.json>
 
-python evaluation/istina_evidence_bundle.py --operational-validation <private-operational-validation.json> --gold-readiness <private-gold-readiness.json> --live-shadow <private-live-shadow.json> --deployment-validation <private-deployment-validation.json> --output <private-release-bundle.json>
+python evaluation/istina_evidence_bundle.py --operational-validation <private-operational-validation.json> --gold-readiness <private-gold-readiness.json> --live-shadow <private-live-shadow.json> --deployment-manifest <private-deployment-manifest.json> --deployment-attachment <private-live-shadow.json> <private-online-load.json> <private-drift-verification.json> <private-audit-verification.json> --expected-code-revision $revision --output <private-release-bundle.json>
 
 python evaluation/production_gate.py --replay-result <private-operational-validation.json> --evidence <private-release-bundle.json> --output <private-production-gate.json>
 ```
@@ -90,12 +92,16 @@ python evaluation/production_gate.py --replay-result <private-operational-valida
 ## Fail-closed interpretation
 
 `istina_deployment_evidence.py` ignores any hand-written `verified` field. It
-recomputes 28 checks from the manifest, exact observed attachment hashes,
-dataset hash, code revision, fixed thresholds, and two distinct approval
-references. `istina_evidence_bundle.py` then checks that the deployment dataset
-hash is the same dataset audited by gold readiness. A mismatched, incomplete,
-or edited artifact leaves online shadow, online load, and deployed monitoring
-false.
+recomputes 47 checks from the manifest, parses all four JSON attachments, and
+compares their dataset hash, code revision, counts, rates, latency, zero-write
+signals, monitoring window, paging proof, audit-chain head, retention policy,
+and exact file hashes. It also requires two distinct approval references.
+`istina_evidence_bundle.py` then checks that the deployment dataset hash is the
+same dataset audited by gold readiness and independently reruns the attachment
+checks from the raw files. The standalone deployment-validation JSON is a
+preflight report, not the bundle's sole trust source. A mismatched, incomplete,
+non-JSON, or edited artifact leaves online shadow, online load, and deployed
+monitoring false.
 
 The current repository evidence intentionally omits a deployment-validation
 artifact because no qualifying institutional run has occurred. Therefore the

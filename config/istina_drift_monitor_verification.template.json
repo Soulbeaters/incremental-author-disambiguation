@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "source_system": "istina",
+  "dataset_sha256": "REPLACE_WITH_64_HEX_DATASET_SHA256",
+  "code_revision": "REPLACE_WITH_40_HEX_GIT_COMMIT",
+  "generated_at": "REPLACE_WITH_TIMEZONE_AWARE_ISO8601",
+  "window": {
+    "start": "REPLACE_WITH_SAME_START_AS_DEPLOYMENT_MANIFEST",
+    "end": "REPLACE_WITH_SAME_END_AS_DEPLOYMENT_MANIFEST"
+  },
+  "verification": {
+    "active": false,
+    "observation_hours": 0,
+    "paging_route_verified": false,
+    "injected_alert_received": false,
+    "monitor_config_sha256": "REPLACE_WITH_64_HEX_MONITOR_CONFIG_SHA256",
+    "telemetry_source_reference": "",
+    "paging_test_reference": ""
+  }
+}

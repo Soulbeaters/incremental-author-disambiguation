@@ -32,10 +32,12 @@ artifact whose own `release_ready` value is true. No such artifact exists.
 | `evidence/istina_operational_validation_20260719.json` | load, determinism, audit, rollback, circuit-breaker, and drift tests |
 | `evidence/istina_release_evidence_bundle_20260719.json` | SHA-256-bound composition of independently generated evidence |
 | `evidence/istina_production_gate_operational_20260719.json` | authoritative 21-check release decision |
-| `evaluation/istina_deployment_evidence.py` | fail-closed institutional shadow/load/monitor/audit validator |
+| `evaluation/istina_deployment_evidence.py` | 47-check, content-level institutional shadow/load/monitor/audit validator |
 | `experiments/istina_online_read_load.py` | approval-gated, bounded-concurrency read-only online load generator |
 | `config/istina_provenance_manifest.template.json` | intentionally invalid institutional provenance template |
 | `config/istina_deployment_evidence.template.json` | intentionally invalid deployment evidence template |
+| `config/istina_drift_monitor_verification.template.json` | intentionally invalid deployed-monitor proof template |
+| `config/istina_audit_retention_verification.template.json` | intentionally invalid durable-audit proof template |
 | `docs/ISTINA_INSTITUTIONAL_HANDOFF.md` | exact private inputs, fixed thresholds, and release commands |
 | `evidence/openalex_confirmation_default_current_20260719.json` | current-runtime public OpenAlex confirmation |
 | `evidence/openalex_confirmation_rescue_ablation_current_20260719.json` | current-runtime in-domain OpenAlex rescue ablation |
@@ -49,7 +51,7 @@ artifact whose own `release_ready` value is true. No such artifact exists.
 | `paper/ISTINA_EMPIRICAL_EVIDENCE_20260719.md` | article-ready tables, claims, limitations, and source traceability |
 
 The current article package passes 51/51 integrity checks and has package ID
-`3b4df548276d11a88c7cdf3c0549cd447ad06860965e759791e64f4a09e997e5`.
+`6b8f7c374c3510366eecc89e35d5b01374a97bbb334a7646bcc0aebddbd5cf1b`.
 Its independent release field remains false.
 
 Mention-level advisor records and the private adjudication queue are excluded
@@ -170,8 +172,8 @@ The offline no-write operational run replayed all 753 temporal test mentions
 | Operational measure | Result |
 |---|---:|
 | Load operations | 13,554 |
-| Throughput | 191.97 mentions/s |
-| Local p95 | 22.26 ms |
+| Throughput | 199.21 mentions/s |
+| Local p95 | 21.42 ms |
 | Deterministic-hash mismatches | 0 |
 | Runtime safety/idempotency/redaction | passed |
 | Durable fsync audit hash chain / restart verification | passed (8 records) |
@@ -187,7 +189,7 @@ verification for the single-process sink. It does not claim deployed audit
 retention; multi-worker deployment requires separate per-worker chains or a
 transactional central append service.
 
-The final repository regression command reports 192 passed tests and one
+The final repository regression command reports 199 passed tests and one
 collection warning for a manual scenario class with a constructor. The ISTINA,
 provenance, audit-integrity, and production-control suites are included.
 
@@ -314,7 +316,7 @@ python experiments/aminer_kdd18_runtime_replay.py --data-root <aminer-data-globa
 $env:ISTINA_AUDIT_SALT = <secret-manager-value>
 python experiments/istina_live_shadow.py --dataset <advisor-export.json> --split-strategy temporal --train-through-year 2023 --limit 5 --audit-output <private-audit.jsonl> --output evidence/istina_live_shadow_smoke_20260719.json
 
-python experiments/istina_operational_validation.py --dataset <advisor-export.json> --service-result <frozen-service.json> --live-shadow-evidence evidence/istina_live_shadow_smoke_20260719.json --split-strategy temporal --train-through-year 2023 --iterations 18 --tests-passed 192 --test-warnings 1 --output evidence/istina_operational_validation_20260719.json
+python experiments/istina_operational_validation.py --dataset <advisor-export.json> --service-result <frozen-service.json> --live-shadow-evidence evidence/istina_live_shadow_smoke_20260719.json --split-strategy temporal --train-through-year 2023 --iterations 18 --tests-passed 199 --test-warnings 1 --output evidence/istina_operational_validation_20260719.json
 
 python evaluation/istina_evidence_bundle.py --operational-validation evidence/istina_operational_validation_20260719.json --gold-readiness evidence/istina_gold_readiness_20260719.json --live-shadow evidence/istina_live_shadow_smoke_20260719.json --output evidence/istina_release_evidence_bundle_20260719.json
 

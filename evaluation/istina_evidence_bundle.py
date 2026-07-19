@@ -5,9 +5,18 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Mapping, Optional
+from typing import Any, Dict, Mapping, Optional, Sequence
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from evaluation.istina_deployment_evidence import (
+    _load_attachment,
+    assess_deployment_evidence,
+)
 
 
 def sha256_file(path: Path) -> str:
@@ -16,6 +25,31 @@ def sha256_file(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def revalidate_deployment_inputs(
+    gold_readiness: Mapping[str, Any],
+    manifest: Mapping[str, Any],
+    observed_attachments: Sequence[Mapping[str, Any]],
+    *,
+    expected_code_revision: str,
+) -> Dict[str, Any]:
+    dataset_hashes = {
+        str(item.get("sha256") or "").lower()
+        for item in ((gold_readiness.get("inputs") or {}).get("datasets") or [])
+        if isinstance(item, Mapping) and item.get("sha256")
+    }
+    expected_dataset_sha256 = (
+        next(iter(dataset_hashes)) if len(dataset_hashes) == 1 else ""
+    )
+    result = assess_deployment_evidence(
+        manifest,
+        observed_attachments,
+        expected_dataset_sha256=expected_dataset_sha256,
+        expected_code_revision=expected_code_revision,
+    )
+    result["validation_mode"] = "bundle_raw_attachment_revalidation"
+    return result
 
 
 def compose_evidence_bundle(
@@ -153,15 +187,43 @@ def main() -> None:
     parser.add_argument("--operational-validation", type=Path, required=True)
     parser.add_argument("--gold-readiness", type=Path, required=True)
     parser.add_argument("--live-shadow", type=Path)
-    parser.add_argument("--deployment-validation", type=Path)
+    parser.add_argument("--deployment-manifest", type=Path)
+    parser.add_argument("--deployment-attachment", type=Path, nargs="+")
+    parser.add_argument("--expected-code-revision")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
 
+    operational = _load(args.operational_validation)
+    gold_readiness = _load(args.gold_readiness)
+    live_shadow = _load(args.live_shadow) if args.live_shadow else None
+    raw_deployment_requested = bool(
+        args.deployment_manifest
+        or args.deployment_attachment
+        or args.expected_code_revision
+    )
+    if raw_deployment_requested and not (
+        args.deployment_manifest
+        and args.deployment_attachment
+        and args.expected_code_revision
+    ):
+        parser.error(
+            "--deployment-manifest, --deployment-attachment, and "
+            "--expected-code-revision are required together"
+        )
+    if raw_deployment_requested:
+        deployment_validation = revalidate_deployment_inputs(
+            gold_readiness,
+            _load(args.deployment_manifest),
+            [_load_attachment(path) for path in args.deployment_attachment],
+            expected_code_revision=args.expected_code_revision,
+        )
+    else:
+        deployment_validation = None
     result = compose_evidence_bundle(
-        _load(args.operational_validation),
-        _load(args.gold_readiness),
-        _load(args.live_shadow) if args.live_shadow else None,
-        _load(args.deployment_validation) if args.deployment_validation else None,
+        operational,
+        gold_readiness,
+        live_shadow,
+        deployment_validation,
     )
     sources = {
         "operational_validation": args.operational_validation,
@@ -169,8 +231,10 @@ def main() -> None:
     }
     if args.live_shadow:
         sources["live_shadow"] = args.live_shadow
-    if args.deployment_validation:
-        sources["deployment_validation"] = args.deployment_validation
+    if raw_deployment_requested:
+        sources["deployment_manifest"] = args.deployment_manifest
+        for index, path in enumerate(args.deployment_attachment, start=1):
+            sources[f"deployment_attachment_{index}"] = path
     result["sources"] = {
         name: {"name": path.name, "sha256": sha256_file(path)}
         for name, path in sources.items()
@@ -195,4 +259,4 @@ if __name__ == "__main__":
     main()
 
 
-__all__ = ["compose_evidence_bundle"]
+__all__ = ["compose_evidence_bundle", "revalidate_deployment_inputs"]

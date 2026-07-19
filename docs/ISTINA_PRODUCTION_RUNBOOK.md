@@ -59,7 +59,9 @@ service; sharing one JSONL file between processes is unsupported.
    artifacts with
    `evaluation/istina_evidence_bundle.py`. The bundle records each source
    SHA-256, rejects a deployment-to-gold dataset mismatch, and preserves
-   fail-closed verification flags.
+   fail-closed verification flags. Its release workflow must receive the raw
+   deployment manifest and all four attachments so it can rerun content checks;
+   a previously generated validation JSON is diagnostic convenience only.
 9. Run the machine gate with the strict temporal operational replay as
    `--replay-result` and the composed bundle as `--evidence`.
 10. Generate the article evidence with `evaluation/istina_paper_package.py`.
@@ -72,8 +74,10 @@ service; sharing one JSONL file between processes is unsupported.
    commit or evidence hash.
 
 The exact institution-side inputs, fixed thresholds, and commands are in
-`docs/ISTINA_INSTITUTIONAL_HANDOFF.md`. Both JSON templates are deliberately
-invalid until completed and approved.
+`docs/ISTINA_INSTITUTIONAL_HANDOFF.md`. The provenance, deployment,
+drift-monitor, and audit-retention JSON templates are deliberately invalid
+until completed and approved. The deployment validator parses each attachment;
+matching only its filename and hash is insufficient.
 
 ## Article evidence hygiene
 

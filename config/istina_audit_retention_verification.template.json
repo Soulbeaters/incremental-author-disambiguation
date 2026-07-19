@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "source_system": "istina",
+  "dataset_sha256": "REPLACE_WITH_64_HEX_DATASET_SHA256",
+  "code_revision": "REPLACE_WITH_40_HEX_GIT_COMMIT",
+  "generated_at": "REPLACE_WITH_TIMEZONE_AWARE_ISO8601",
+  "verification": {
+    "durable": false,
+    "chain_verified": false,
+    "retention_days": 0,
+    "records": 0,
+    "head_hash": "REPLACE_WITH_64_HEX_AUDIT_CHAIN_HEAD_HASH",
+    "storage_reference": "",
+    "retention_policy_reference": ""
+  }
+}

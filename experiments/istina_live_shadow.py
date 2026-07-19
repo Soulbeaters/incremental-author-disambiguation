@@ -7,6 +7,7 @@ import hashlib
 import hmac
 import json
 import os
+import re
 import secrets
 import sys
 import tempfile
@@ -96,6 +97,13 @@ def main() -> None:
     parser.add_argument("--man-id", type=int, default=4705445)
     parser.add_argument("--service-url", default=DEFAULT_ISTINA_DISAMBIGUATION_URL)
     parser.add_argument("--service-timeout", type=float, default=20.0)
+    parser.add_argument(
+        "--code-revision",
+        help=(
+            "Frozen 40-hex Git revision; required for institutional deployment "
+            "evidence, optional for bounded connectivity smoke runs."
+        ),
+    )
     parser.add_argument("--sleep", type=float, default=0.1)
     parser.add_argument(
         "--audit-output",
@@ -117,6 +125,10 @@ def main() -> None:
     args = parser.parse_args()
     if args.limit < 1:
         raise ValueError("limit must be positive")
+    if args.code_revision and re.fullmatch(
+        r"[0-9a-fA-F]{40}", args.code_revision
+    ) is None:
+        raise ValueError("code-revision must be a full 40-hex Git commit")
 
     raw_articles = load_articles(args.dataset)
     raw_mentions = sum(
@@ -295,6 +307,9 @@ def main() -> None:
         "protocol": {
             "dataset_name": args.dataset.name,
             "dataset_sha256": sha256_file(args.dataset),
+            "code_revision": (
+                args.code_revision.lower() if args.code_revision else None
+            ),
             "mode": RuntimeMode.SHADOW.value,
             "split_strategy": args.split_strategy,
             "train_through_year": args.train_through_year,

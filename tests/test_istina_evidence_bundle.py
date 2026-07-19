@@ -1,9 +1,38 @@
+import subprocess
+import sys
 import unittest
+from pathlib import Path
 
-from evaluation.istina_evidence_bundle import compose_evidence_bundle
+from evaluation.istina_evidence_bundle import (
+    compose_evidence_bundle,
+    revalidate_deployment_inputs,
+)
+from tests.test_istina_deployment_evidence import (
+    CODE_REVISION,
+    DATASET_SHA,
+    valid_attachments,
+    valid_manifest,
+)
 
 
 class IstinaEvidenceBundleTests(unittest.TestCase):
+    def test_cli_requires_raw_deployment_inputs_not_prevalidated_json(self):
+        script = (
+            Path(__file__).resolve().parents[1]
+            / "evaluation"
+            / "istina_evidence_bundle.py"
+        )
+        completed = subprocess.run(
+            [sys.executable, str(script), "--help"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertIn("--deployment-manifest", completed.stdout)
+        self.assertIn("--deployment-attachment", completed.stdout)
+        self.assertNotIn("--deployment-validation", completed.stdout)
+
     def test_bundle_preserves_smoke_but_fails_closed_on_release_volume(self):
         operational = {
             "operational_evidence": {
@@ -110,6 +139,41 @@ class IstinaEvidenceBundleTests(unittest.TestCase):
         self.assertFalse(result["deployment_binding"]["verified"])
         self.assertFalse(
             result["operational_evidence"]["online_shadow_verified"]["verified"]
+        )
+
+    def test_bundle_revalidates_raw_attachment_contents(self):
+        gold = {
+            "inputs": {
+                "datasets": [
+                    {"name": "export.json", "sha256": DATASET_SHA}
+                ]
+            }
+        }
+        attachments = valid_attachments()
+
+        valid = revalidate_deployment_inputs(
+            gold,
+            valid_manifest(),
+            attachments,
+            expected_code_revision=CODE_REVISION,
+        )
+        attachments[1]["document"]["stats"]["requests"] = 999
+        tampered = revalidate_deployment_inputs(
+            gold,
+            valid_manifest(),
+            attachments,
+            expected_code_revision=CODE_REVISION,
+        )
+
+        self.assertTrue(valid["verified"])
+        self.assertEqual(
+            valid["validation_mode"],
+            "bundle_raw_attachment_revalidation",
+        )
+        self.assertFalse(tampered["verified"])
+        self.assertIn(
+            "load_attachment_counts",
+            {failure["name"] for failure in tampered["failures"]},
         )
 
 

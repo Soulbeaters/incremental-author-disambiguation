@@ -1,6 +1,7 @@
 {
   "protocol": {
     "dataset": "C:\\program 2 in 2025\\istina test\\chinese_articles_with_authors.json",
+    "dataset_sha256": "515c2d5881970f4de1a412d94018fa1aee99b5069956a1e139358bfc0de715fb",
     "split_strategy": "per-author-holdout",
     "train_through_year": 2023,
     "history_mentions": 37,
@@ -10,6 +11,7 @@
     "exact_duplicate_author_rows_removed": 52,
     "exact_duplicate_cleaning_applied": true,
     "service_result": "C:\\program 2 in 2025\\results\\istina_export_holdout_eval_shared_existing_paper_service90_20260717.json",
+    "service_result_sha256": "00d86db7994f5348d0b1805509ac2ad1a8be164b9eed59ea3721bea0635919b3",
     "runtime_class": "integrations.istina_pipeline.IstinaDisambiguationPipeline"
   },
   "stats": {
@@ -32,11 +34,11 @@
     "auto_accuracy": 0.9596199524940617,
     "unknown_rate": 0.03246239113222486,
     "wrong_merge_rate": 0.0,
-    "throughput_mentions_per_second": 1419.2114712739433,
-    "latency_ms_p50": 0.3522000006341841,
-    "latency_ms_p95": 3.0719000023964327,
-    "latency_ms_p99": 4.269599998224294,
-    "latency_ms_max": 6.606200000533136
+    "throughput_mentions_per_second": 3312.651338061884,
+    "latency_ms_p50": 0.15949999942677096,
+    "latency_ms_p95": 1.3174000014259946,
+    "latency_ms_p99": 1.7576999998709653,
+    "latency_ms_max": 2.2647000005235896
   },
   "stage_counts": {
     "enhanced_blocking_source_guard": 2,
@@ -64,5 +66,5 @@
     "legacy_correct": 24,
     "mcnemar_exact_two_sided_p": 0.454498291015625
   },
-  "elapsed_seconds": 0.8899308000000019
+  "elapsed_seconds": 0.3812656000009156
 }

@@ -212,6 +212,11 @@ def main() -> None:
     )
     parser.add_argument("--archive", type=Path)
     parser.add_argument("--output", type=Path)
+    parser.add_argument(
+        "--compact-output",
+        action="store_true",
+        help="omit mention-level records and error samples from output",
+    )
     args = parser.parse_args()
 
     mentions, integrity = load_aminer_mentions(
@@ -243,6 +248,12 @@ def main() -> None:
             "archive_sha256": (
                 file_sha256(args.archive) if args.archive else None
             ),
+            "labels_sha256": file_sha256(
+                args.data_root / f"name_to_pubs_{args.label_split}.json"
+            ),
+            "publications_sha256": file_sha256(
+                args.data_root / "pubs_raw.json"
+            ),
             "label_split": args.label_split,
             "history_policy": args.history_policy,
             "history_mentions": len(history),
@@ -256,21 +267,19 @@ def main() -> None:
         },
         **evaluate(pipeline, test, service_records={}),
     }
+    summary = {
+        key: value
+        for key, value in result.items()
+        if key not in {"records", "error_samples"}
+    }
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
+        output_document = summary if args.compact_output else result
         args.output.write_text(
-            json.dumps(result, ensure_ascii=False, indent=2),
+            json.dumps(output_document, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
-    print(json.dumps(
-        {
-            key: value
-            for key, value in result.items()
-            if key not in {"records", "error_samples"}
-        },
-        ensure_ascii=False,
-        indent=2,
-    ))
+    print(json.dumps(summary, ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":

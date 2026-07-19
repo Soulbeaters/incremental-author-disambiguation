@@ -1,6 +1,29 @@
 {
   "schema_version": 1,
   "generated_at": "2026-07-19T12:25:23+03:00",
+  "artifact_status": "superseded_for_istina_claims",
+  "release_eligible": false,
+  "superseded_by": [
+    "istina_gold_readiness_20260719.json",
+    "istina_temporal_runtime_replay_20260719.json",
+    "istina_holdout_runtime_replay_deduplicated_20260719.json",
+    "istina_production_gate_operational_20260719.json"
+  ],
+  "integrity_notice": {
+    "reason": "The original advisor ISTINA result used exact duplicate author rows from one publication as independent history/test observations.",
+    "duplicate_rows_removed_by_current_protocol": 52,
+    "permitted_uses": [
+      "historical reproducibility",
+      "historical OpenAlex comparison with an explicit source commit",
+      "historical AMiner public stress-test metrics with an explicit source commit"
+    ],
+    "prohibited_uses": [
+      "primary ISTINA article result",
+      "ISTINA legacy-superiority claim",
+      "current-runtime OpenAlex article result",
+      "production release evidence"
+    ]
+  },
   "branch": "istina-risk-control-framework",
   "source_base_commit": "43b6b196b5a486f6ec5ab5df0e7c949b9805a668",
   "validated_change_scope": [
@@ -38,7 +61,9 @@
     }
   },
   "results": {
-    "advisor_istina_default": {
+    "advisor_istina_raw_export_diagnostic_superseded": {
+      "valid_for_primary_or_production_claims": false,
+      "leakage_issue": "52 exact within-paper duplicate author rows crossed the per-author history/test split",
       "history_mentions": 88,
       "test_mentions": 1264,
       "existing_gold": 90,
@@ -112,22 +137,17 @@
     }
   },
   "release_verdict": {
-    "classification": "shadow_candidate_release",
+    "classification": "historical_non_release_diagnostic",
     "write_enabled_replacement_authorized": false,
-    "article_claim": "The framework significantly improves the frozen legacy ISTINA service on the available advisor-labelled shadow set while preserving high precision, auditability, deterministic replay, and explicit risk control.",
+    "article_claim": "No current ISTINA article claim may be sourced from this superseded artifact; use the integrity-corrected temporal and diagnostic evidence instead.",
+    "withdrawn_article_claim": "The framework significantly improves the frozen legacy ISTINA service on the available advisor-labelled shadow set while preserving high precision, auditability, deterministic replay, and explicit risk control.",
     "prohibited_claims": [
       "universal superiority over the legacy service",
       "generic open-world production readiness",
       "write-enabled ISTINA replacement authorization"
     ],
     "remaining_evidence": [
-      "at least 10000 cross-disciplinary ISTINA test mentions",
-      "at least 1000 verified repeated-author mentions",
-      "at least 500 shared legacy-shadow mentions",
-      "online no-write shadow validation",
-      "online load test",
-      "tested rollback and circuit breaker",
-      "decision and data drift monitoring"
+      "This historical list is retired; use istina_production_gate_operational_20260719.json for current missing evidence."
     ]
   }
 }

@@ -22,6 +22,14 @@ from integrations.istina_pipeline import (  # noqa: E402
 )
 
 
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def load_mentions(path: Path) -> List[Dict[str, Any]]:
     mentions = []
     with path.open("r", encoding="utf-8") as handle:
@@ -204,6 +212,11 @@ def main() -> None:
     parser.add_argument("--metadata", type=Path)
     parser.add_argument("--output", type=Path)
     parser.add_argument(
+        "--compact-output",
+        action="store_true",
+        help="omit mention-level records, error samples, and slices from output",
+    )
+    parser.add_argument(
         "--split-strategy",
         choices=[
             "article-holdout",
@@ -282,6 +295,7 @@ def main() -> None:
     result = {
         "protocol": {
             "dataset": str(args.dataset),
+            "dataset_sha256": sha256_file(args.dataset),
             "source": "OpenAlex API",
             "gold_label": gold_label,
             "split_strategy": split_description,
@@ -308,21 +322,23 @@ def main() -> None:
                 args.enable_calibrated_candidate_rescue
             ),
             "metadata": metadata,
+            "metadata_sha256": sha256_file(args.metadata) if args.metadata else None,
         },
         **evaluation,
     }
     result["slices"] = slice_metrics(test, result["records"])
-    if args.output:
-        args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(
-            json.dumps(result, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
     summary = {
         key: value
         for key, value in result.items()
         if key not in {"records", "error_samples", "slices"}
     }
+    if args.output:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        output_document = summary if args.compact_output else result
+        args.output.write_text(
+            json.dumps(output_document, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
     print(json.dumps(summary, ensure_ascii=False, indent=2))
 
 

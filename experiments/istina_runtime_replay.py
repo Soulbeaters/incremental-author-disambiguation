@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import sys
@@ -29,6 +30,14 @@ from integrations.istina_pipeline import (  # noqa: E402
 from integrations.istina_export_quality import (  # noqa: E402
     deduplicate_exact_author_rows,
 )
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def percentile(values: Iterable[float], quantile: float) -> Optional[float]:
@@ -266,6 +275,7 @@ def main() -> None:
     result = {
         "protocol": {
             "dataset": str(args.dataset),
+            "dataset_sha256": sha256_file(args.dataset),
             "split_strategy": args.split_strategy,
             "train_through_year": args.train_through_year,
             "history_mentions": len(history),
@@ -277,6 +287,9 @@ def main() -> None:
                 not args.keep_exact_duplicate_author_rows
             ),
             "service_result": str(args.service_result) if args.service_result else None,
+            "service_result_sha256": (
+                sha256_file(args.service_result) if args.service_result else None
+            ),
             "runtime_class": "integrations.istina_pipeline.IstinaDisambiguationPipeline",
         },
         **evaluate(pipeline, test, load_service_records(args.service_result)),

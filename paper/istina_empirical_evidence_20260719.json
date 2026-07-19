@@ -1,0 +1,732 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-19T14:23:07.198604+00:00",
+  "package_id": "a6ae5e1e63864af03e8cc8d46c44093b845bda1dd3748ac1db500c2407f7acdb",
+  "integrity": {
+    "verified": true,
+    "summary": {
+      "passed": 40,
+      "failed": 0,
+      "total": 40
+    },
+    "checks": [
+      {
+        "name": "bundle_operational_sha256",
+        "observed": "30ea83d842dfced3a1466bc94e25f37f2c83c9d89786a1ea341efd8e69b5250b",
+        "expected": "30ea83d842dfced3a1466bc94e25f37f2c83c9d89786a1ea341efd8e69b5250b",
+        "passed": true
+      },
+      {
+        "name": "bundle_gold_sha256",
+        "observed": "e337fbe9a9f8428353851d3b0626a5bc2ff3163856dca866db66c96972eea4ed",
+        "expected": "e337fbe9a9f8428353851d3b0626a5bc2ff3163856dca866db66c96972eea4ed",
+        "passed": true
+      },
+      {
+        "name": "bundle_live_sha256",
+        "observed": "b0100dcab3c8f3229efbe7a0798063426999eb5f5c5fe14e0fe6d02e287ed595",
+        "expected": "b0100dcab3c8f3229efbe7a0798063426999eb5f5c5fe14e0fe6d02e287ed595",
+        "passed": true
+      },
+      {
+        "name": "single_dataset_sha256",
+        "observed": [
+          "515c2d5881970f4de1a412d94018fa1aee99b5069956a1e139358bfc0de715fb"
+        ],
+        "expected": "one non-empty hash",
+        "passed": true
+      },
+      {
+        "name": "single_legacy_service_sha256",
+        "observed": [
+          "00d86db7994f5348d0b1805509ac2ad1a8be164b9eed59ea3721bea0635919b3"
+        ],
+        "expected": "one non-empty hash",
+        "passed": true
+      },
+      {
+        "name": "temporal_split",
+        "observed": "temporal",
+        "expected": "temporal",
+        "passed": true
+      },
+      {
+        "name": "diagnostic_split",
+        "observed": "per-author-holdout",
+        "expected": "per-author-holdout",
+        "passed": true
+      },
+      {
+        "name": "exact_duplicate_cleaning",
+        "observed": [
+          52
+        ],
+        "expected": [
+          52
+        ],
+        "passed": true
+      },
+      {
+        "name": "temporal_total",
+        "observed": 571,
+        "expected": 571,
+        "passed": true
+      },
+      {
+        "name": "temporal_existing",
+        "observed": 5,
+        "expected": 5,
+        "passed": true
+      },
+      {
+        "name": "temporal_new",
+        "observed": 566,
+        "expected": 566,
+        "passed": true
+      },
+      {
+        "name": "temporal_paper_overlap",
+        "observed": 0,
+        "expected": 0,
+        "passed": true
+      },
+      {
+        "name": "holdout_total",
+        "observed": 1263,
+        "expected": 1263,
+        "passed": true
+      },
+      {
+        "name": "holdout_existing",
+        "observed": 38,
+        "expected": 38,
+        "passed": true
+      },
+      {
+        "name": "holdout_new",
+        "observed": 1225,
+        "expected": 1225,
+        "passed": true
+      },
+      {
+        "name": "holdout_is_diagnostic",
+        "observed": 13,
+        "expected": "greater than zero",
+        "passed": true
+      },
+      {
+        "name": "gate_total_mentions",
+        "observed": 571,
+        "expected": 571,
+        "passed": true
+      },
+      {
+        "name": "gate_existing_mentions",
+        "observed": 5,
+        "expected": 5,
+        "passed": true
+      },
+      {
+        "name": "gate_new_mentions",
+        "observed": 566,
+        "expected": 566,
+        "passed": true
+      },
+      {
+        "name": "gate_merge_precision",
+        "observed": 1.0,
+        "expected": 1.0,
+        "passed": true
+      },
+      {
+        "name": "gate_existing_recall",
+        "observed": 0.2,
+        "expected": 0.2,
+        "passed": true
+      },
+      {
+        "name": "gate_auto_accuracy",
+        "observed": 0.9439579684763573,
+        "expected": 0.9439579684763573,
+        "passed": true
+      },
+      {
+        "name": "gate_unknown_rate",
+        "observed": 0.04903677758318739,
+        "expected": 0.04903677758318739,
+        "passed": true
+      },
+      {
+        "name": "gate_wrong_merge_rate",
+        "observed": 0.0,
+        "expected": 0.0,
+        "passed": true
+      },
+      {
+        "name": "superseded_public_source_guard",
+        "observed": "superseded_for_istina_claims",
+        "expected": "superseded_for_istina_claims",
+        "passed": true
+      },
+      {
+        "name": "retired_source_input_declarations_present",
+        "observed": true,
+        "expected": true,
+        "passed": true
+      },
+      {
+        "name": "openalex_dataset_sha256",
+        "observed": [
+          "94a88f3fb1b14b5fd6596b04322f48081de0f3facefecc60c565bf1e366bced0"
+        ],
+        "expected": "one non-empty hash",
+        "passed": true
+      },
+      {
+        "name": "openalex_metadata_sha256",
+        "observed": [
+          "ea24d1e168784838a63cc34704371a677421546def82e3db61a49632c0fb4925"
+        ],
+        "expected": "one non-empty hash",
+        "passed": true
+      },
+      {
+        "name": "openalex_complete_paper_split",
+        "observed": [
+          0,
+          0
+        ],
+        "expected": [
+          0,
+          0
+        ],
+        "passed": true
+      },
+      {
+        "name": "openalex_ablation_modes",
+        "observed": [
+          false,
+          true
+        ],
+        "expected": [
+          false,
+          true
+        ],
+        "passed": true
+      },
+      {
+        "name": "openalex_ablation_population",
+        "observed": [
+          6232,
+          3680,
+          2552
+        ],
+        "expected": [
+          6232,
+          3680,
+          2552
+        ],
+        "passed": true
+      },
+      {
+        "name": "openalex_rescue_in_domain_effect",
+        "observed": {
+          "default_precision": 1.0,
+          "rescue_precision": 1.0,
+          "default_recall": 0.7192934782608695,
+          "rescue_recall": 0.7293478260869565
+        },
+        "expected": "precision non-decreasing and recall increasing",
+        "passed": true
+      },
+      {
+        "name": "aminer_archive_sha256",
+        "observed": [
+          "d3912ea052afed43eeb401788312ab936055b02c2a52fd790c5c69e13db9defd"
+        ],
+        "expected": "one non-empty hash",
+        "passed": true
+      },
+      {
+        "name": "aminer_extracted_file_hashes",
+        "observed": [
+          "43084bcef5553fff6b415f30f7664b1382dd44fc86f2a7e37999f6fbe4a85877",
+          "4ff3a99e7c2c28ab4b0fd254985e505dc7cdf90e82842a466e795a4a88efa07b",
+          "43084bcef5553fff6b415f30f7664b1382dd44fc86f2a7e37999f6fbe4a85877",
+          "4ff3a99e7c2c28ab4b0fd254985e505dc7cdf90e82842a466e795a4a88efa07b"
+        ],
+        "expected": [
+          "43084bcef5553fff6b415f30f7664b1382dd44fc86f2a7e37999f6fbe4a85877",
+          "4ff3a99e7c2c28ab4b0fd254985e505dc7cdf90e82842a466e795a4a88efa07b",
+          "43084bcef5553fff6b415f30f7664b1382dd44fc86f2a7e37999f6fbe4a85877",
+          "4ff3a99e7c2c28ab4b0fd254985e505dc7cdf90e82842a466e795a4a88efa07b"
+        ],
+        "passed": true
+      },
+      {
+        "name": "aminer_current_full_protocol",
+        "observed": [
+          "test_100",
+          0,
+          100,
+          0,
+          false,
+          6412
+        ],
+        "expected": [
+          "test_100",
+          0,
+          100,
+          0,
+          false,
+          6412
+        ],
+        "passed": true
+      },
+      {
+        "name": "aminer_current_bounded_protocol",
+        "observed": [
+          "test_100",
+          0,
+          10,
+          0,
+          "test_100",
+          0,
+          10,
+          0
+        ],
+        "expected": [
+          "test_100",
+          0,
+          10,
+          0,
+          "test_100",
+          0,
+          10,
+          0
+        ],
+        "passed": true
+      },
+      {
+        "name": "aminer_ablation_modes",
+        "observed": [
+          false,
+          true
+        ],
+        "expected": [
+          false,
+          true
+        ],
+        "passed": true
+      },
+      {
+        "name": "aminer_ablation_population",
+        "observed": [
+          679,
+          309,
+          370
+        ],
+        "expected": [
+          679,
+          309,
+          370
+        ],
+        "passed": true
+      },
+      {
+        "name": "aminer_rescue_negative_transfer_reproduced",
+        "observed": {
+          "default_precision": 0.7228070175438597,
+          "rescue_precision": 0.6184538653366584,
+          "default_wrong_merge": 79,
+          "rescue_wrong_merge": 153
+        },
+        "expected": "rescue precision lower and wrong merges higher",
+        "passed": true
+      },
+      {
+        "name": "gate_summary_consistent",
+        "observed": 21,
+        "expected": 21,
+        "passed": true
+      }
+    ],
+    "failures": []
+  },
+  "sources": {
+    "temporal": {
+      "name": "istina_temporal_runtime_replay_20260719.json",
+      "sha256": "82df262deb595ec68af3f1420dec4eefe8dc3399ee9ad12dbbd52b066234c465"
+    },
+    "holdout": {
+      "name": "istina_holdout_runtime_replay_deduplicated_20260719.json",
+      "sha256": "8d871d4d55b2442dd5336019179904e1ee9d2bb94f3982e9b69e94e5f4834185"
+    },
+    "operational": {
+      "name": "istina_operational_validation_20260719.json",
+      "sha256": "30ea83d842dfced3a1466bc94e25f37f2c83c9d89786a1ea341efd8e69b5250b"
+    },
+    "gold": {
+      "name": "istina_gold_readiness_20260719.json",
+      "sha256": "e337fbe9a9f8428353851d3b0626a5bc2ff3163856dca866db66c96972eea4ed"
+    },
+    "live": {
+      "name": "istina_live_shadow_smoke_20260719.json",
+      "sha256": "b0100dcab3c8f3229efbe7a0798063426999eb5f5c5fe14e0fe6d02e287ed595"
+    },
+    "bundle": {
+      "name": "istina_release_evidence_bundle_20260719.json",
+      "sha256": "2a78689827c91d95707733f68161b90e75a47eaae61aa4a918db52266564e436"
+    },
+    "gate": {
+      "name": "istina_production_gate_operational_20260719.json",
+      "sha256": "1904bb191eef0e65697b01ff4b8ed8589b4b6b449f18b373c08580a03ecd55e8"
+    },
+    "openalex_default": {
+      "name": "openalex_confirmation_default_current_20260719.json",
+      "sha256": "038e9874ce9838e8e1153303f04164ccee5bd2c4b8cb2394725739006ae8e118"
+    },
+    "openalex_rescue": {
+      "name": "openalex_confirmation_rescue_ablation_current_20260719.json",
+      "sha256": "12aeb53b945a4ad38d47850873b91b3c7aa7feda4a54c9dafe682427f41fe825"
+    },
+    "aminer_full_current": {
+      "name": "aminer_kdd18_test100_default_current_20260719.json",
+      "sha256": "f8ef9434a15392b58086cbcb2bd19b339e237f626c3087edabeff0459b951246"
+    },
+    "aminer_default_current": {
+      "name": "aminer_kdd18_test100_first10_default_current_20260719.json",
+      "sha256": "edbf05a7c0985bbc5cad42171648b945087bc7d538d00eefa48b079637327f41"
+    },
+    "aminer_rescue_current": {
+      "name": "aminer_kdd18_test100_first10_rescue_current_20260719.json",
+      "sha256": "6ca510c9d663d7ba5b23de75098e797bc441e621ba0215f5bb7688462c92f7e7"
+    },
+    "public_validation": {
+      "name": "runtime_validation_20260719.json",
+      "sha256": "49ada917aac3084921df958e792593107e4f09c6f530c0c2c90d230659be01d2"
+    }
+  },
+  "dataset_identity": {
+    "advisor_export_sha256": "515c2d5881970f4de1a412d94018fa1aee99b5069956a1e139358bfc0de715fb",
+    "frozen_legacy_service_sha256": "00d86db7994f5348d0b1805509ac2ad1a8be164b9eed59ea3721bea0635919b3",
+    "exact_duplicate_rows_removed": 52,
+    "provenance_verified": false,
+    "gold_readiness_passed": 4,
+    "gold_readiness_total": 12,
+    "openalex_confirmation_sha256": "94a88f3fb1b14b5fd6596b04322f48081de0f3facefecc60c565bf1e366bced0",
+    "openalex_metadata_sha256": "ea24d1e168784838a63cc34704371a677421546def82e3db61a49632c0fb4925",
+    "aminer_archive_sha256": "d3912ea052afed43eeb401788312ab936055b02c2a52fd790c5c69e13db9defd",
+    "aminer_labels_sha256": "43084bcef5553fff6b415f30f7664b1382dd44fc86f2a7e37999f6fbe4a85877",
+    "aminer_publications_sha256": "4ff3a99e7c2c28ab4b0fd254985e505dc7cdf90e82842a466e795a4a88efa07b",
+    "retired_runtime_validation_source_commit": "43b6b196b5a486f6ec5ab5df0e7c949b9805a668"
+  },
+  "quality_table": [
+    {
+      "dataset": "ISTINA advisor export",
+      "protocol_role": "strict temporal primary",
+      "test_mentions": 571,
+      "existing_mentions": 5,
+      "new_mentions": 566,
+      "paper_overlap": 0,
+      "merge_precision": 1.0,
+      "existing_recall": 0.2,
+      "automatic_accuracy": 0.9439579684763573,
+      "unknown_rate": 0.04903677758318739,
+      "wrong_merge_rate": 0.0,
+      "p95_latency_ms": 12.847900001361268,
+      "source": "temporal"
+    },
+    {
+      "dataset": "ISTINA advisor export",
+      "protocol_role": "per-author diagnostic only",
+      "test_mentions": 1263,
+      "existing_mentions": 38,
+      "new_mentions": 1225,
+      "paper_overlap": 13,
+      "merge_precision": 1.0,
+      "existing_recall": 0.7368421052631579,
+      "automatic_accuracy": 0.9596199524940617,
+      "unknown_rate": 0.03246239113222486,
+      "wrong_merge_rate": 0.0,
+      "p95_latency_ms": 1.3174000014259946,
+      "source": "holdout"
+    },
+    {
+      "dataset": "OpenAlex ORCID-blind confirmation",
+      "protocol_role": "current-runtime public confirmation",
+      "test_mentions": 6232,
+      "existing_mentions": 3680,
+      "new_mentions": 2552,
+      "paper_overlap": 0,
+      "merge_precision": 1.0,
+      "existing_recall": 0.7192934782608695,
+      "automatic_accuracy": 0.7889922978177151,
+      "unknown_rate": 0.16126444159178435,
+      "wrong_merge_rate": 0.0,
+      "p95_latency_ms": 8.234399996581487,
+      "source": "openalex_default"
+    },
+    {
+      "dataset": "AMiner KDD'18 test_100",
+      "protocol_role": "current-runtime complete public transfer stress",
+      "test_mentions": 6412,
+      "existing_mentions": 2744,
+      "new_mentions": 3668,
+      "paper_overlap": 0,
+      "merge_precision": 0.7002369668246445,
+      "existing_recall": 0.6461370262390671,
+      "automatic_accuracy": 0.27651278852152217,
+      "unknown_rate": 0.6051154086088584,
+      "wrong_merge_rate": 0.11837180286961946,
+      "p95_latency_ms": 391.6070999985095,
+      "source": "aminer_full_current"
+    }
+  ],
+  "openalex_ablation_table": [
+    {
+      "configuration": "production default",
+      "calibrated_candidate_rescue": false,
+      "precision": 1.0,
+      "existing_recall": 0.7192934782608695,
+      "f1_existing": 0.8367314683104157,
+      "auto_accuracy": 0.7889922978177151,
+      "unknown_rate": 0.16126444159178435,
+      "wrong_merge_rate": 0.0,
+      "throughput_mentions_per_second": 594.9920686181927,
+      "latency_ms_p50": 0.26060000163852237,
+      "latency_ms_p95": 8.234399996581487,
+      "latency_ms_p99": 20.886399997834815,
+      "latency_ms_max": 55.00689999826136,
+      "wrong_merge": 0
+    },
+    {
+      "configuration": "in-domain rescue ablation",
+      "calibrated_candidate_rescue": true,
+      "precision": 1.0,
+      "existing_recall": 0.7293478260869565,
+      "f1_existing": 0.8434946574481459,
+      "auto_accuracy": 0.7949293966623877,
+      "unknown_rate": 0.15532734274711169,
+      "wrong_merge_rate": 0.0,
+      "throughput_mentions_per_second": 608.653622733784,
+      "latency_ms_p50": 0.2604000001156237,
+      "latency_ms_p95": 8.031500001379754,
+      "latency_ms_p99": 20.34079999793903,
+      "latency_ms_max": 68.99490000068909,
+      "wrong_merge": 0
+    }
+  ],
+  "aminer_current_ablation_table": [
+    {
+      "configuration": "production default",
+      "calibrated_candidate_rescue": false,
+      "precision": 0.7228070175438597,
+      "existing_recall": 0.6666666666666666,
+      "f1_existing": 0.6936026936026937,
+      "auto_accuracy": 0.30338733431516934,
+      "unknown_rate": 0.5802650957290133,
+      "wrong_merge_rate": 0.11634756995581738,
+      "throughput_mentions_per_second": 7.551932848755988,
+      "latency_ms_p50": 89.35480000218377,
+      "latency_ms_p95": 376.2843000004068,
+      "latency_ms_p99": 660.3585000011662,
+      "latency_ms_max": 1019.8337000001629,
+      "wrong_merge": 79,
+      "test_mentions": 679
+    },
+    {
+      "configuration": "OpenAlex rescue cross-domain ablation",
+      "calibrated_candidate_rescue": true,
+      "precision": 0.6184538653366584,
+      "existing_recall": 0.8025889967637541,
+      "f1_existing": 0.6985915492957747,
+      "auto_accuracy": 0.36524300441826213,
+      "unknown_rate": 0.40942562592047127,
+      "wrong_merge_rate": 0.22533136966126657,
+      "throughput_mentions_per_second": 9.47587454412675,
+      "latency_ms_p50": 70.972299999994,
+      "latency_ms_p95": 301.9129999993311,
+      "latency_ms_p99": 611.1861999997927,
+      "latency_ms_max": 824.6232999990752,
+      "wrong_merge": 153,
+      "test_mentions": 679
+    }
+  ],
+  "legacy_comparison_table": [
+    {
+      "protocol_role": "strict temporal primary",
+      "n": 5,
+      "paired_table": {
+        "both_correct": 1,
+        "runtime_only_correct": 0,
+        "legacy_only_correct": 2,
+        "both_incorrect": 2
+      },
+      "runtime_correct": 1,
+      "legacy_correct": 3,
+      "mcnemar_exact_two_sided_p": 0.5,
+      "statistically_significant_at_0_05": false
+    },
+    {
+      "protocol_role": "per-author diagnostic only",
+      "n": 38,
+      "paired_table": {
+        "both_correct": 18,
+        "runtime_only_correct": 10,
+        "legacy_only_correct": 6,
+        "both_incorrect": 4
+      },
+      "runtime_correct": 28,
+      "legacy_correct": 24,
+      "mcnemar_exact_two_sided_p": 0.454498291015625,
+      "statistically_significant_at_0_05": false
+    }
+  ],
+  "operational_summary": {
+    "offline_load_operations": 13554,
+    "offline_load_p95_ms": 23.52900000187219,
+    "offline_throughput_mentions_per_second": 182.0852805318193,
+    "deterministic_hash_mismatches": 0,
+    "runtime_safety_contract_verified": true,
+    "rollback_verified": true,
+    "drift_fault_test_verified": true,
+    "live_shadow_mentions": 5,
+    "live_shadow_service_errors": 0,
+    "live_shadow_authorized_commands": 0,
+    "live_shadow_p95_ms": 15462.99480000016,
+    "live_audit_chain_verified": true,
+    "live_audit_retained": false
+  },
+  "supported_claims": [
+    {
+      "id": "istina_zero_observed_wrong_merges_limited_sample",
+      "statement": "The cleaned strict-temporal ISTINA sample has no observed wrong merge, but contains only five known-author cases and one merge.",
+      "sources": [
+        "temporal",
+        "gold"
+      ]
+    },
+    {
+      "id": "legacy_advantage_not_established",
+      "statement": "The cleaned 38-case diagnostic favors the framework 28 to 24, but the exact paired test is not statistically significant.",
+      "sources": [
+        "holdout"
+      ]
+    },
+    {
+      "id": "bounded_online_no_write_connectivity",
+      "statement": "A five-mention real-service smoke demonstrates bounded no-write connectivity, not release-scale online performance.",
+      "sources": [
+        "live"
+      ]
+    },
+    {
+      "id": "public_negative_transfer",
+      "statement": "The rescue improves recall without reducing precision on the current OpenAlex confirmation, but lowers precision and increases wrong merges on the bounded current AMiner ablation; the complete current AMiner stress result is also weak. Universal superiority is therefore unsupported.",
+      "sources": [
+        "public_validation"
+      ]
+    },
+    {
+      "id": "write_release_not_authorized",
+      "statement": "The current machine gate does not authorize write-enabled ISTINA replacement.",
+      "sources": [
+        "gate",
+        "bundle"
+      ]
+    }
+  ],
+  "prohibited_claims": [
+    "statistically significant superiority over the legacy ISTINA service",
+    "universal author-disambiguation superiority",
+    "release-scale online latency or availability",
+    "write-enabled production replacement authorization"
+  ],
+  "release": {
+    "release_ready": false,
+    "passed": 8,
+    "failed": 13,
+    "total": 21,
+    "remaining_gaps": [
+      {
+        "name": "total_mentions",
+        "category": "data",
+        "observed": 571,
+        "required": ">=10000"
+      },
+      {
+        "name": "existing_mentions",
+        "category": "data",
+        "observed": 5,
+        "required": ">=1000"
+      },
+      {
+        "name": "new_mentions",
+        "category": "data",
+        "observed": 566,
+        "required": ">=1000"
+      },
+      {
+        "name": "shadow_mentions",
+        "category": "data",
+        "observed": 5,
+        "required": ">=500"
+      },
+      {
+        "name": "existing_recall",
+        "category": "quality",
+        "observed": 0.2,
+        "required": ">=0.95"
+      },
+      {
+        "name": "auto_accuracy",
+        "category": "quality",
+        "observed": 0.9439579684763573,
+        "required": ">=0.98"
+      },
+      {
+        "name": "unknown_rate",
+        "category": "quality",
+        "observed": 0.04903677758318739,
+        "required": "<=0.02"
+      },
+      {
+        "name": "shadow_absolute_gain",
+        "category": "comparison",
+        "observed": -0.4,
+        "required": ">=0.02"
+      },
+      {
+        "name": "shadow_significance",
+        "category": "comparison",
+        "observed": 0.5,
+        "required": "<=0.05"
+      },
+      {
+        "name": "cross_domain_gold_verified",
+        "category": "operations",
+        "observed": false,
+        "required": "validated gold from multiple ISTINA disciplines"
+      },
+      {
+        "name": "online_shadow_verified",
+        "category": "operations",
+        "observed": false,
+        "required": "live shadow run without writes"
+      },
+      {
+        "name": "online_load_test_verified",
+        "category": "operations",
+        "observed": false,
+        "required": "online end-to-end load and latency test"
+      },
+      {
+        "name": "drift_monitoring_verified",
+        "category": "operations",
+        "observed": false,
+        "required": "deployed data-quality and decision-drift monitoring"
+      }
+    ]
+  }
+}

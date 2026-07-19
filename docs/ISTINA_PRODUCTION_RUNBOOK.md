@@ -54,11 +54,30 @@ service; sharing one JSONL file between processes is unsupported.
    SHA-256 and preserves fail-closed verification flags.
 7. Run the machine gate with the strict temporal operational replay as
    `--replay-result` and the composed bundle as `--evidence`.
-8. Deploy in `shadow`, verify online latency and drift for the agreed window,
+8. Generate the article evidence with `evaluation/istina_paper_package.py`.
+   It must pass every cross-artifact hash, split, de-duplication, metric, and
+   superseded-source check before any table is copied into a manuscript.
+9. Deploy in `shadow`, verify online latency and drift for the agreed window,
    then progress to `candidate`.
-9. Create a short-lived production authorization only after every gate passes.
+10. Create a short-lived production authorization only after every gate passes.
    Never hand-edit `release_ready` or reuse an authorization for another
    commit or evidence hash.
+
+## Article evidence hygiene
+
+`evidence/runtime_validation_20260719.json` is explicitly marked
+`superseded_for_istina_claims`. Its pre-cleaning ISTINA 85/90 result used 52
+exact duplicate rows as independent observations and must never be restored to
+the primary table or release evidence. Its old OpenAlex rows are also not
+current-runtime results.
+
+The authoritative paper artifacts are
+`paper/istina_empirical_evidence_20260719.json` and
+`paper/ISTINA_EMPIRICAL_EVIDENCE_20260719.md`. They bind each source SHA-256,
+use the current OpenAlex replay, the complete current-runtime AMiner replay,
+and the bounded current-runtime AMiner rescue transfer ablation. The OpenAlex
+rescue remains an ablation: on the current AMiner subset it increases recall
+but materially lowers precision and increases wrong merges.
 
 ## Circuit breaker and rollback
 

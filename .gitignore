@@ -74,6 +74,7 @@ docs/
 !docs/
 docs/*
 !docs/ISTINA_PRODUCTION_RUNBOOK.md
+!docs/ISTINA_INSTITUTIONAL_HANDOFF.md
 *.pdf
 *.tex
 *.aux

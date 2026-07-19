@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "source_system": "istina",
+  "environment": "production",
+  "dataset_sha256": "REPLACE_WITH_64_HEX_DATASET_SHA256",
+  "code_revision": "REPLACE_WITH_40_HEX_GIT_COMMIT",
+  "window": {
+    "start": "REPLACE_WITH_TIMEZONE_AWARE_ISO8601",
+    "end": "REPLACE_WITH_TIMEZONE_AWARE_ISO8601_AT_LEAST_24_HOURS_LATER"
+  },
+  "shadow": {
+    "mentions": 0,
+    "write_calls": 0,
+    "service_errors": 0
+  },
+  "online_load": {
+    "requests": 0,
+    "errors": 0,
+    "p95_latency_ms": null
+  },
+  "drift_monitoring": {
+    "active": false,
+    "observation_hours": 0,
+    "paging_route_verified": false,
+    "injected_alert_received": false
+  },
+  "audit": {
+    "durable": false,
+    "chain_verified": false,
+    "retention_days": 0
+  },
+  "attachments": [
+    {
+      "role": "shadow_telemetry",
+      "name": "REPLACE_SHADOW_TELEMETRY_FILENAME",
+      "sha256": "REPLACE_WITH_64_HEX_SHA256"
+    },
+    {
+      "role": "online_load",
+      "name": "REPLACE_ONLINE_LOAD_FILENAME",
+      "sha256": "REPLACE_WITH_64_HEX_SHA256"
+    },
+    {
+      "role": "drift_monitor",
+      "name": "REPLACE_DRIFT_MONITOR_FILENAME",
+      "sha256": "REPLACE_WITH_64_HEX_SHA256"
+    },
+    {
+      "role": "audit_verification",
+      "name": "REPLACE_AUDIT_VERIFICATION_FILENAME",
+      "sha256": "REPLACE_WITH_64_HEX_SHA256"
+    }
+  ],
+  "approval": {
+    "operations_reference": "",
+    "independent_review_reference": "",
+    "approved_at": "REPLACE_WITH_TIMEZONE_AWARE_ISO8601"
+  }
+}

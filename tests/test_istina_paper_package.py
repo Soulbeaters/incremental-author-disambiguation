@@ -32,7 +32,10 @@ def current_inputs():
         "gate": "istina_production_gate_operational_20260719.json",
         "openalex_default": "openalex_confirmation_default_current_20260719.json",
         "openalex_rescue": "openalex_confirmation_rescue_ablation_current_20260719.json",
+        "openalex_large_default": "openalex_10000works_default_current_20260719.json",
+        "openalex_large_rescue": "openalex_10000works_rescue_current_20260719.json",
         "aminer_full_current": "aminer_kdd18_test100_default_current_20260719.json",
+        "aminer_full_rescue_current": "aminer_kdd18_test100_rescue_current_20260719.json",
         "aminer_default_current": "aminer_kdd18_test100_first10_default_current_20260719.json",
         "aminer_rescue_current": "aminer_kdd18_test100_first10_rescue_current_20260719.json",
         "public_validation": "runtime_validation_20260719.json",
@@ -64,22 +67,48 @@ class IstinaPaperPackageTests(unittest.TestCase):
             package["quality_table"][2]["existing_recall"],
             0.7192934782608695,
         )
-        self.assertEqual(package["quality_table"][3]["wrong_merge_rate"], 759 / 6412)
+        self.assertEqual(package["quality_table"][3]["test_mentions"], 27430)
+        self.assertEqual(package["quality_table"][3]["paper_overlap"], 0)
+        self.assertAlmostEqual(
+            package["quality_table"][3]["merge_precision"],
+            0.7368421052631579,
+        )
+        self.assertEqual(package["quality_table"][4]["wrong_merge_rate"], 759 / 6412)
         self.assertEqual(
-            package["quality_table"][3]["source"],
+            package["quality_table"][4]["source"],
             "aminer_full_current",
         )
         self.assertAlmostEqual(
-            package["quality_table"][3]["p95_latency_ms"],
+            package["quality_table"][4]["p95_latency_ms"],
             391.6070999985095,
         )
+        self.assertEqual(package["aminer_full_ablation_table"][0]["wrong_merge"], 759)
+        self.assertEqual(package["aminer_full_ablation_table"][1]["wrong_merge"], 1177)
         self.assertEqual(package["aminer_current_ablation_table"][0]["wrong_merge"], 79)
         self.assertEqual(package["aminer_current_ablation_table"][1]["wrong_merge"], 153)
         markdown = render_markdown(package)
         self.assertIn("8/21 passed", markdown)
         self.assertIn("superseded", markdown)
         self.assertIn("OpenAlex in-domain rescue ablation", markdown)
-        self.assertIn("AMiner current-runtime bounded", markdown)
+        self.assertIn("OpenAlex 10,000-work cross-domain stress", markdown)
+        self.assertIn("AMiner complete current-runtime", markdown)
+
+    def test_large_public_ablation_hash_mismatch_fails_closed(self):
+        inputs = current_inputs()
+        rescue = copy.deepcopy(inputs["openalex_large_rescue"])
+        rescue["protocol"]["dataset_sha256"] = "0" * 64
+        inputs["openalex_large_rescue"] = rescue
+
+        package = compose_paper_package(
+            **inputs,
+            generated_at="2026-07-19T00:00:00+00:00",
+        )
+
+        self.assertFalse(package["integrity"]["verified"])
+        self.assertIn(
+            "openalex_large_dataset_sha256",
+            {failure["name"] for failure in package["integrity"]["failures"]},
+        )
 
     def test_old_unsuperseded_istina_claim_fails_closed(self):
         inputs = current_inputs()

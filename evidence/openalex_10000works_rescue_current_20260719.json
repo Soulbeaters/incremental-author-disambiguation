@@ -1,0 +1,141 @@
+{
+  "protocol": {
+    "dataset": "C:\\program 2 in 2025\\data\\openalex_gold_mentions.jsonl",
+    "dataset_sha256": "39938f10c0707d42a19977488aaf9d7228f3b4c297e8fdaa9b035ae033e6cdcd",
+    "source": "OpenAlex API",
+    "gold_label": "OpenAlex author ID (evaluation only)",
+    "split_strategy": "complete first chronological paper for each repeated author in history; all remaining complete papers in test",
+    "train_through_year": null,
+    "known_author_fraction": null,
+    "history_papers_per_known_author": null,
+    "article_overlap": 0,
+    "history_mentions": 931,
+    "test_mentions": 27430,
+    "runtime_class": "integrations.istina_pipeline.IstinaDisambiguationPipeline",
+    "topk": 5,
+    "calibrated_candidate_rescue": true,
+    "metadata": {
+      "created_at": "2026-07-17T21:50:20.014496+00:00",
+      "source": {
+        "name": "OpenAlex API",
+        "url": "https://api.openalex.org/works",
+        "documentation": "https://docs.openalex.org/",
+        "openalex_paper_doi": "10.1038/s41597-022-01371-4"
+      },
+      "request": {
+        "sample_works": 10000,
+        "seed": 20260718,
+        "from_year": 2010,
+        "to_year": 2025,
+        "select": "id,doi,title,publication_year,authorships,primary_location,primary_topic"
+      },
+      "counts": {
+        "works": 10000,
+        "mentions": 28361,
+        "unique_authors": 27700,
+        "repeated_authors": 234,
+        "mentions_from_repeated_authors": 895
+      },
+      "field_counts": {
+        "Medicine": 6310,
+        "Engineering": 4660,
+        "Social Sciences": 2335,
+        "Biochemistry, Genetics and Molecular Biology": 1757,
+        "Computer Science": 1566,
+        "Environmental Science": 1397,
+        "Agricultural and Biological Sciences": 1380,
+        "Materials Science": 1156,
+        "Physics and Astronomy": 839,
+        "Unknown": 822,
+        "Psychology": 670,
+        "Arts and Humanities": 657,
+        "Business, Management and Accounting": 641,
+        "Earth and Planetary Sciences": 579,
+        "Health Professions": 573,
+        "Neuroscience": 485,
+        "Chemistry": 482,
+        "Economics, Econometrics and Finance": 417,
+        "Immunology and Microbiology": 406,
+        "Mathematics": 231,
+        "Decision Sciences": 213,
+        "Energy": 195,
+        "Pharmacology, Toxicology and Pharmaceutics": 190,
+        "Dentistry": 140,
+        "Nursing": 126,
+        "Veterinary": 71,
+        "Chemical Engineering": 63
+      },
+      "domain_counts": {
+        "Physical Sciences": 11168,
+        "Health Sciences": 7220,
+        "Social Sciences": 4933,
+        "Life Sciences": 4218,
+        "Unknown": 822
+      },
+      "name_split_source_counts": {
+        "openalex_display_given_first": 25303,
+        "comma_family_first": 2407,
+        "single_token": 651
+      },
+      "elapsed_seconds": 73.0416666000092,
+      "output": "data\\openalex_gold_mentions.jsonl",
+      "gold_policy": "OpenAlex author ID used only for split and evaluation"
+    },
+    "metadata_sha256": "e4c21b9b8b8373908721f31fca97dc8a4979b37302b43ef9d3a941d3dc37a3c9"
+  },
+  "stats": {
+    "total": 27430,
+    "existing_gold": 552,
+    "new_gold": 26878,
+    "merge": 546,
+    "new": 24134,
+    "unknown": 2750,
+    "correct_merge": 267,
+    "wrong_merge": 279,
+    "correct_new": 24127,
+    "false_new_for_existing": 7,
+    "merge_for_new_gold": 31
+  },
+  "metrics": {
+    "precision": 0.489010989010989,
+    "existing_recall": 0.483695652173913,
+    "f1_existing": 0.48633879781420764,
+    "auto_accuracy": 0.8893182646737149,
+    "unknown_rate": 0.1002551950419249,
+    "wrong_merge_rate": 0.01017134524243529,
+    "throughput_mentions_per_second": 506.611605588323,
+    "latency_ms_p50": 0.16559999858145602,
+    "latency_ms_p95": 12.282700001378544,
+    "latency_ms_p99": 35.683900001458824,
+    "latency_ms_max": 215.27900000000955
+  },
+  "stage_counts": {
+    "calibrated_candidate_rescue": 223,
+    "dense_name_block_context_guard": 56,
+    "exact_name_token_repair": 4,
+    "local_fs": 27115,
+    "strict_structured_name_repair": 22,
+    "structured_coauthor_repair": 4,
+    "weak_name_context_guard": 6
+  },
+  "candidate_retrieval": {
+    "truncated_mentions": 0,
+    "candidate_pool_total": 32408,
+    "scored_candidate_total": 32408,
+    "average_candidate_pool_size": 1.1814801312431644,
+    "average_scored_candidate_count": 1.1814801312431644
+  },
+  "legacy_shadow": {
+    "n": 0,
+    "paired_table": {
+      "both_correct": 0,
+      "runtime_only_correct": 0,
+      "legacy_only_correct": 0,
+      "both_incorrect": 0
+    },
+    "runtime_correct": 0,
+    "legacy_correct": 0,
+    "mcnemar_exact_two_sided_p": null
+  },
+  "elapsed_seconds": 54.14404189999914
+}

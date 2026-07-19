@@ -22,6 +22,7 @@ def compose_evidence_bundle(
     operational: Mapping[str, Any],
     gold_readiness: Mapping[str, Any],
     live_shadow: Optional[Mapping[str, Any]] = None,
+    deployment_validation: Optional[Mapping[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Merge independently generated evidence while preserving fail-closed flags."""
 
@@ -65,11 +66,79 @@ def compose_evidence_bundle(
             "verified": False,
             "reason": "no live shadow artifact supplied",
         }
-    return {
+    gold_dataset_hashes = {
+        str(item.get("sha256") or "").lower()
+        for item in ((gold_readiness.get("inputs") or {}).get("datasets") or [])
+        if isinstance(item, Mapping) and item.get("sha256")
+    }
+    deployment_binding = None
+    if deployment_validation is not None:
+        deployment_document = dict(deployment_validation)
+        deployment_manifest = dict(deployment_document.get("manifest") or {})
+        deployment_dataset_hash = str(
+            deployment_document.get("expected_dataset_sha256") or ""
+        ).lower()
+        manifest_dataset_hash = str(
+            deployment_manifest.get("dataset_sha256") or ""
+        ).lower()
+        binding_verified = bool(
+            deployment_document.get("verified")
+            and len(gold_dataset_hashes) == 1
+            and deployment_dataset_hash in gold_dataset_hashes
+            and manifest_dataset_hash == deployment_dataset_hash
+        )
+        deployment_binding = {
+            "verified": binding_verified,
+            "gold_dataset_sha256": (
+                next(iter(gold_dataset_hashes))
+                if len(gold_dataset_hashes) == 1 else None
+            ),
+            "deployment_dataset_sha256": deployment_dataset_hash or None,
+            "manifest_dataset_sha256": manifest_dataset_hash or None,
+            "deployment_validation_verified": bool(
+                deployment_document.get("verified")
+            ),
+            "reason": (
+                "validated deployment evidence is bound to the gold dataset"
+                if binding_verified
+                else (
+                    "deployment validation failed or its dataset hash does not "
+                    "match the gold-readiness input"
+                )
+            ),
+        }
+        deployment_evidence = dict(
+            deployment_document.get("operational_evidence") or {}
+        )
+        externally_verified = (
+            "online_shadow_verified",
+            "online_load_test_verified",
+            "drift_monitoring_verified",
+            "durable_audit_retention_verified",
+        )
+        for name in externally_verified:
+            item = dict(deployment_evidence.get(name) or {})
+            if binding_verified and item.get("verified") is True:
+                evidence[name] = item
+            else:
+                fallback = {
+                    "verified": False,
+                    "reason": deployment_binding["reason"],
+                }
+                if name == "online_shadow_verified" and live_shadow is not None:
+                    fallback["live_smoke"] = dict(
+                        evidence.get("online_shadow_verified") or {}
+                    )
+                evidence[name] = fallback
+        evidence["deployment_validation_verified"] = deployment_binding
+    result = {
         "schema_version": 1,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "operational_evidence": evidence,
     }
+    if deployment_binding is not None:
+        result["deployment_binding"] = deployment_binding
+    return result
 
 
 def _load(path: Path) -> Dict[str, Any]:
@@ -84,6 +153,7 @@ def main() -> None:
     parser.add_argument("--operational-validation", type=Path, required=True)
     parser.add_argument("--gold-readiness", type=Path, required=True)
     parser.add_argument("--live-shadow", type=Path)
+    parser.add_argument("--deployment-validation", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
 
@@ -91,6 +161,7 @@ def main() -> None:
         _load(args.operational_validation),
         _load(args.gold_readiness),
         _load(args.live_shadow) if args.live_shadow else None,
+        _load(args.deployment_validation) if args.deployment_validation else None,
     )
     sources = {
         "operational_validation": args.operational_validation,
@@ -98,6 +169,8 @@ def main() -> None:
     }
     if args.live_shadow:
         sources["live_shadow"] = args.live_shadow
+    if args.deployment_validation:
+        sources["deployment_validation"] = args.deployment_validation
     result["sources"] = {
         name: {"name": path.name, "sha256": sha256_file(path)}
         for name, path in sources.items()

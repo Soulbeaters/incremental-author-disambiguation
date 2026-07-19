@@ -1,19 +1,19 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-19T14:23:07.198604+00:00",
-  "package_id": "a6ae5e1e63864af03e8cc8d46c44093b845bda1dd3748ac1db500c2407f7acdb",
+  "generated_at": "2026-07-19T14:47:34.561436+00:00",
+  "package_id": "3b4df548276d11a88c7cdf3c0549cd447ad06860965e759791e64f4a09e997e5",
   "integrity": {
     "verified": true,
     "summary": {
-      "passed": 40,
+      "passed": 51,
       "failed": 0,
-      "total": 40
+      "total": 51
     },
     "checks": [
       {
         "name": "bundle_operational_sha256",
-        "observed": "30ea83d842dfced3a1466bc94e25f37f2c83c9d89786a1ea341efd8e69b5250b",
-        "expected": "30ea83d842dfced3a1466bc94e25f37f2c83c9d89786a1ea341efd8e69b5250b",
+        "observed": "0ba66863f6f1574bb03c91c54e7e3711a4ea818047a8e8bcf496434485317a45",
+        "expected": "0ba66863f6f1574bb03c91c54e7e3711a4ea818047a8e8bcf496434485317a45",
         "passed": true
       },
       {
@@ -240,6 +240,97 @@
         "passed": true
       },
       {
+        "name": "openalex_large_dataset_sha256",
+        "observed": [
+          "39938f10c0707d42a19977488aaf9d7228f3b4c297e8fdaa9b035ae033e6cdcd",
+          "39938f10c0707d42a19977488aaf9d7228f3b4c297e8fdaa9b035ae033e6cdcd"
+        ],
+        "expected": "two identical non-empty hashes",
+        "passed": true
+      },
+      {
+        "name": "openalex_large_metadata_sha256",
+        "observed": [
+          "e4c21b9b8b8373908721f31fca97dc8a4979b37302b43ef9d3a941d3dc37a3c9",
+          "e4c21b9b8b8373908721f31fca97dc8a4979b37302b43ef9d3a941d3dc37a3c9"
+        ],
+        "expected": "two identical non-empty hashes",
+        "passed": true
+      },
+      {
+        "name": "openalex_large_source_declaration",
+        "observed": {
+          "source": "OpenAlex API",
+          "gold_label": "OpenAlex author ID (evaluation only)",
+          "sample_works": 10000,
+          "mentions": 28361
+        },
+        "expected": {
+          "source": "OpenAlex API",
+          "gold_label": "OpenAlex author ID (evaluation only)",
+          "sample_works": 10000,
+          "mentions": 28361
+        },
+        "passed": true
+      },
+      {
+        "name": "openalex_large_complete_paper_split",
+        "observed": [
+          0,
+          0
+        ],
+        "expected": [
+          0,
+          0
+        ],
+        "passed": true
+      },
+      {
+        "name": "openalex_large_ablation_modes",
+        "observed": [
+          false,
+          true
+        ],
+        "expected": [
+          false,
+          true
+        ],
+        "passed": true
+      },
+      {
+        "name": "openalex_large_ablation_population",
+        "observed": [
+          27430,
+          552,
+          26878
+        ],
+        "expected": [
+          27430,
+          552,
+          26878
+        ],
+        "passed": true
+      },
+      {
+        "name": "openalex_large_minimum_scale",
+        "observed": 27430,
+        "expected": ">=10000",
+        "passed": true
+      },
+      {
+        "name": "openalex_large_rescue_negative_transfer_reproduced",
+        "observed": {
+          "default_precision": 0.7368421052631579,
+          "rescue_precision": 0.489010989010989,
+          "default_recall": 0.4311594202898551,
+          "rescue_recall": 0.483695652173913,
+          "default_wrong_merge": 85,
+          "rescue_wrong_merge": 279
+        },
+        "expected": "recall higher, precision lower, and wrong merges higher",
+        "passed": true
+      },
+      {
         "name": "aminer_archive_sha256",
         "observed": [
           "d3912ea052afed43eeb401788312ab936055b02c2a52fd790c5c69e13db9defd"
@@ -281,6 +372,53 @@
           false,
           6412
         ],
+        "passed": true
+      },
+      {
+        "name": "aminer_current_full_rescue_protocol",
+        "observed": [
+          "test_100",
+          0,
+          100,
+          0,
+          true,
+          6412
+        ],
+        "expected": [
+          "test_100",
+          0,
+          100,
+          0,
+          true,
+          6412
+        ],
+        "passed": true
+      },
+      {
+        "name": "aminer_current_full_ablation_population",
+        "observed": [
+          6412,
+          2744,
+          3668
+        ],
+        "expected": [
+          6412,
+          2744,
+          3668
+        ],
+        "passed": true
+      },
+      {
+        "name": "aminer_full_rescue_negative_transfer_reproduced",
+        "observed": {
+          "default_precision": 0.7002369668246445,
+          "rescue_precision": 0.6303391959798995,
+          "default_recall": 0.6461370262390671,
+          "rescue_recall": 0.7314139941690962,
+          "default_wrong_merge": 759,
+          "rescue_wrong_merge": 1177
+        },
+        "expected": "recall higher, precision lower, and wrong merges higher",
         "passed": true
       },
       {
@@ -364,7 +502,7 @@
     },
     "operational": {
       "name": "istina_operational_validation_20260719.json",
-      "sha256": "30ea83d842dfced3a1466bc94e25f37f2c83c9d89786a1ea341efd8e69b5250b"
+      "sha256": "0ba66863f6f1574bb03c91c54e7e3711a4ea818047a8e8bcf496434485317a45"
     },
     "gold": {
       "name": "istina_gold_readiness_20260719.json",
@@ -376,11 +514,11 @@
     },
     "bundle": {
       "name": "istina_release_evidence_bundle_20260719.json",
-      "sha256": "2a78689827c91d95707733f68161b90e75a47eaae61aa4a918db52266564e436"
+      "sha256": "95dca6001b5b16754635c8ca4be523b6c06a3028f1eaf54700efefcd90a4f11d"
     },
     "gate": {
       "name": "istina_production_gate_operational_20260719.json",
-      "sha256": "1904bb191eef0e65697b01ff4b8ed8589b4b6b449f18b373c08580a03ecd55e8"
+      "sha256": "a4c3a864177ec224c666997ccc678c1016f2e12d11094015657a536810698885"
     },
     "openalex_default": {
       "name": "openalex_confirmation_default_current_20260719.json",
@@ -390,9 +528,21 @@
       "name": "openalex_confirmation_rescue_ablation_current_20260719.json",
       "sha256": "12aeb53b945a4ad38d47850873b91b3c7aa7feda4a54c9dafe682427f41fe825"
     },
+    "openalex_large_default": {
+      "name": "openalex_10000works_default_current_20260719.json",
+      "sha256": "32ee0aab2ff41a85fba4069e9bb1479035ba366690d1e4d93fad6b20eb17dcc3"
+    },
+    "openalex_large_rescue": {
+      "name": "openalex_10000works_rescue_current_20260719.json",
+      "sha256": "456b0ada4e05851597af19d028bde18b3af5dbeda912ce53c880a298f444d309"
+    },
     "aminer_full_current": {
       "name": "aminer_kdd18_test100_default_current_20260719.json",
       "sha256": "f8ef9434a15392b58086cbcb2bd19b339e237f626c3087edabeff0459b951246"
+    },
+    "aminer_full_rescue_current": {
+      "name": "aminer_kdd18_test100_rescue_current_20260719.json",
+      "sha256": "c1c8be7ee0c6cb15a27a13fb0ec0b15c1f1252246cf2b4b0ad9912eff145502d"
     },
     "aminer_default_current": {
       "name": "aminer_kdd18_test100_first10_default_current_20260719.json",
@@ -416,6 +566,8 @@
     "gold_readiness_total": 12,
     "openalex_confirmation_sha256": "94a88f3fb1b14b5fd6596b04322f48081de0f3facefecc60c565bf1e366bced0",
     "openalex_metadata_sha256": "ea24d1e168784838a63cc34704371a677421546def82e3db61a49632c0fb4925",
+    "openalex_large_sha256": "39938f10c0707d42a19977488aaf9d7228f3b4c297e8fdaa9b035ae033e6cdcd",
+    "openalex_large_metadata_sha256": "e4c21b9b8b8373908721f31fca97dc8a4979b37302b43ef9d3a941d3dc37a3c9",
     "aminer_archive_sha256": "d3912ea052afed43eeb401788312ab936055b02c2a52fd790c5c69e13db9defd",
     "aminer_labels_sha256": "43084bcef5553fff6b415f30f7664b1382dd44fc86f2a7e37999f6fbe4a85877",
     "aminer_publications_sha256": "4ff3a99e7c2c28ab4b0fd254985e505dc7cdf90e82842a466e795a4a88efa07b",
@@ -468,6 +620,21 @@
       "source": "openalex_default"
     },
     {
+      "dataset": "OpenAlex 10,000-work sample",
+      "protocol_role": "current-runtime large cross-domain stress",
+      "test_mentions": 27430,
+      "existing_mentions": 552,
+      "new_mentions": 26878,
+      "paper_overlap": 0,
+      "merge_precision": 0.7368421052631579,
+      "existing_recall": 0.4311594202898551,
+      "automatic_accuracy": 0.8882610280714546,
+      "unknown_rate": 0.10838497994896099,
+      "wrong_merge_rate": 0.003098796937659497,
+      "p95_latency_ms": 13.717100002395455,
+      "source": "openalex_large_default"
+    },
+    {
       "dataset": "AMiner KDD'18 test_100",
       "protocol_role": "current-runtime complete public transfer stress",
       "test_mentions": 6412,
@@ -515,6 +682,78 @@
       "latency_ms_p99": 20.34079999793903,
       "latency_ms_max": 68.99490000068909,
       "wrong_merge": 0
+    }
+  ],
+  "openalex_large_ablation_table": [
+    {
+      "configuration": "production default",
+      "calibrated_candidate_rescue": false,
+      "precision": 0.7368421052631579,
+      "existing_recall": 0.4311594202898551,
+      "f1_existing": 0.5439999999999999,
+      "auto_accuracy": 0.8882610280714546,
+      "unknown_rate": 0.10838497994896099,
+      "wrong_merge_rate": 0.003098796937659497,
+      "throughput_mentions_per_second": 464.83680632942526,
+      "latency_ms_p50": 0.17110000044340268,
+      "latency_ms_p95": 13.717100002395455,
+      "latency_ms_p99": 40.067900001304224,
+      "latency_ms_max": 344.58839999933844,
+      "wrong_merge": 85,
+      "test_mentions": 27430
+    },
+    {
+      "configuration": "OpenAlex rescue ablation",
+      "calibrated_candidate_rescue": true,
+      "precision": 0.489010989010989,
+      "existing_recall": 0.483695652173913,
+      "f1_existing": 0.48633879781420764,
+      "auto_accuracy": 0.8893182646737149,
+      "unknown_rate": 0.1002551950419249,
+      "wrong_merge_rate": 0.01017134524243529,
+      "throughput_mentions_per_second": 506.611605588323,
+      "latency_ms_p50": 0.16559999858145602,
+      "latency_ms_p95": 12.282700001378544,
+      "latency_ms_p99": 35.683900001458824,
+      "latency_ms_max": 215.27900000000955,
+      "wrong_merge": 279,
+      "test_mentions": 27430
+    }
+  ],
+  "aminer_full_ablation_table": [
+    {
+      "configuration": "production default",
+      "calibrated_candidate_rescue": false,
+      "precision": 0.7002369668246445,
+      "existing_recall": 0.6461370262390671,
+      "f1_existing": 0.6721000758150114,
+      "auto_accuracy": 0.27651278852152217,
+      "unknown_rate": 0.6051154086088584,
+      "wrong_merge_rate": 0.11837180286961946,
+      "throughput_mentions_per_second": 6.089418929217976,
+      "latency_ms_p50": 135.17309999951976,
+      "latency_ms_p95": 391.6070999985095,
+      "latency_ms_p99": 583.9622999992571,
+      "latency_ms_max": 1140.8085999973991,
+      "wrong_merge": 759,
+      "test_mentions": 6412
+    },
+    {
+      "configuration": "OpenAlex rescue cross-domain ablation",
+      "calibrated_candidate_rescue": true,
+      "precision": 0.6303391959798995,
+      "existing_recall": 0.7314139941690962,
+      "f1_existing": 0.6771255060728745,
+      "auto_accuracy": 0.3130068621334997,
+      "unknown_rate": 0.5034310667498441,
+      "wrong_merge_rate": 0.18356207111665626,
+      "throughput_mentions_per_second": 6.125664817533265,
+      "latency_ms_p50": 132.2026999987429,
+      "latency_ms_p95": 400.5818999976327,
+      "latency_ms_p99": 603.909500001464,
+      "latency_ms_max": 1116.1276000020735,
+      "wrong_merge": 1177,
+      "test_mentions": 6412
     }
   ],
   "aminer_current_ablation_table": [
@@ -585,8 +824,8 @@
   ],
   "operational_summary": {
     "offline_load_operations": 13554,
-    "offline_load_p95_ms": 23.52900000187219,
-    "offline_throughput_mentions_per_second": 182.0852805318193,
+    "offline_load_p95_ms": 22.260599998844555,
+    "offline_throughput_mentions_per_second": 191.9676062694906,
     "deterministic_hash_mismatches": 0,
     "runtime_safety_contract_verified": true,
     "rollback_verified": true,
@@ -623,9 +862,14 @@
     },
     {
       "id": "public_negative_transfer",
-      "statement": "The rescue improves recall without reducing precision on the current OpenAlex confirmation, but lowers precision and increases wrong merges on the bounded current AMiner ablation; the complete current AMiner stress result is also weak. Universal superiority is therefore unsupported.",
+      "statement": "The rescue improves recall without reducing precision on the current OpenAlex confirmation, but lowers precision and increases wrong merges on both the 27,430-mention OpenAlex stress ablation and the complete 6,412-mention AMiner ablation. Universal superiority is therefore unsupported.",
       "sources": [
-        "public_validation"
+        "openalex_large_default",
+        "openalex_large_rescue",
+        "aminer_default_current",
+        "aminer_rescue_current",
+        "aminer_full_current",
+        "aminer_full_rescue_current"
       ]
     },
     {

@@ -32,13 +32,25 @@ artifact whose own `release_ready` value is true. No such artifact exists.
 | `evidence/istina_operational_validation_20260719.json` | load, determinism, audit, rollback, circuit-breaker, and drift tests |
 | `evidence/istina_release_evidence_bundle_20260719.json` | SHA-256-bound composition of independently generated evidence |
 | `evidence/istina_production_gate_operational_20260719.json` | authoritative 21-check release decision |
+| `evaluation/istina_deployment_evidence.py` | fail-closed institutional shadow/load/monitor/audit validator |
+| `experiments/istina_online_read_load.py` | approval-gated, bounded-concurrency read-only online load generator |
+| `config/istina_provenance_manifest.template.json` | intentionally invalid institutional provenance template |
+| `config/istina_deployment_evidence.template.json` | intentionally invalid deployment evidence template |
+| `docs/ISTINA_INSTITUTIONAL_HANDOFF.md` | exact private inputs, fixed thresholds, and release commands |
 | `evidence/openalex_confirmation_default_current_20260719.json` | current-runtime public OpenAlex confirmation |
 | `evidence/openalex_confirmation_rescue_ablation_current_20260719.json` | current-runtime in-domain OpenAlex rescue ablation |
+| `evidence/openalex_10000works_default_current_20260719.json` | current-runtime 10,000-work OpenAlex cross-domain stress |
+| `evidence/openalex_10000works_rescue_current_20260719.json` | paired large OpenAlex rescue negative-transfer ablation |
 | `evidence/aminer_kdd18_test100_default_current_20260719.json` | complete current-runtime AMiner transfer stress |
+| `evidence/aminer_kdd18_test100_rescue_current_20260719.json` | paired complete current-runtime AMiner rescue ablation |
 | `evidence/aminer_kdd18_test100_first10_default_current_20260719.json` | bounded current-runtime AMiner transfer check |
 | `evidence/aminer_kdd18_test100_first10_rescue_current_20260719.json` | bounded current-runtime AMiner rescue transfer check |
-| `paper/istina_empirical_evidence_20260719.json` | 40-check, SHA-256-bound machine article package |
+| `paper/istina_empirical_evidence_20260719.json` | 51-check, SHA-256-bound machine article package |
 | `paper/ISTINA_EMPIRICAL_EVIDENCE_20260719.md` | article-ready tables, claims, limitations, and source traceability |
+
+The current article package passes 51/51 integrity checks and has package ID
+`3b4df548276d11a88c7cdf3c0549cd447ad06860965e759791e64f4a09e997e5`.
+Its independent release field remains false.
 
 Mention-level advisor records and the private adjudication queue are excluded
 from Git. Committed evidence contains aggregates, redacted identifiers, input
@@ -158,8 +170,8 @@ The offline no-write operational run replayed all 753 temporal test mentions
 | Operational measure | Result |
 |---|---:|
 | Load operations | 13,554 |
-| Throughput | 182.09 mentions/s |
-| Local p95 | 23.53 ms |
+| Throughput | 191.97 mentions/s |
+| Local p95 | 22.26 ms |
 | Deterministic-hash mismatches | 0 |
 | Runtime safety/idempotency/redaction | passed |
 | Durable fsync audit hash chain / restart verification | passed (8 records) |
@@ -175,7 +187,7 @@ verification for the single-process sink. It does not claim deployed audit
 retention; multi-worker deployment requires separate per-worker chains or a
 transactional central append service.
 
-The final repository regression command reports 181 passed tests and one
+The final repository regression command reports 192 passed tests and one
 collection warning for a manual scenario class with a constructor. The ISTINA,
 provenance, audit-integrity, and production-control suites are included.
 
@@ -195,6 +207,16 @@ and zero wrong merges while changing recall to 72.93%, automatic accuracy to
 the earlier six-seed aggregate in the superseded runtime artifact is retained
 only for historical reproducibility and is not used as a current result.
 
+The current runtime was also replayed on a larger, independently generated
+OpenAlex sample with 10,000 complete works and 28,361 authorship rows spanning
+five broad domains. The complete-paper split has 931 history mentions and
+27,430 test mentions (552 known and 26,878 unseen), with zero paper overlap.
+The default obtains 73.68% merge precision, 43.12% known recall, 88.83%
+automatic accuracy, 10.84% UNKNOWN, 85 wrong merges, and 13.72 ms p95.
+The paired rescue run raises recall to 48.37% but reduces precision to 48.90%
+and increases wrong merges to 279. This result is a large public cross-domain
+stress test, not a substitute for the required 10,000-mention ISTINA export.
+
 The official AMiner KDD'18 archive was downloaded again and matched the
 predeclared SHA-256. The complete current-runtime `test_100` replay finished at
 the execution-window boundary and produced a valid compact artifact with 6,412
@@ -204,15 +226,16 @@ ms p95. Its quality counts independently reproduce the versioned historical
 stress result, while the current artifact additionally binds the archive,
 label, and publication-file hashes.
 
-Instead, a predeclared bounded current-runtime check used the first 10 of 100
-deterministically ordered AMiner name blocks: 679 test mentions with zero paper
-overlap. The default obtains 72.28% precision, 66.67% recall, 30.34% automatic
-accuracy, 58.03% UNKNOWN, and 79 wrong merges. Enabling the OpenAlex rescue
-raises recall to 80.26% but lowers precision to 61.85% and increases wrong
-merges to 153. A complete rescue run exceeded a separate 420-second execution
-budget without emitting an artifact, so it is not presented as a completed
-quality result. The completed bounded comparison directly reproduces negative
-transfer and keeps the rescue disabled in the cross-domain production default.
+The previously long-running complete rescue process subsequently emitted a
+valid compact artifact after 1,046.74 seconds. It uses the identical archive
+and extracted-file hashes, all 100 name blocks, the same 6,412 test mentions,
+and zero paper overlap. Rescue raises recall to 73.14%, but lowers precision to
+63.03% and increases wrong merges from 759 to 1,177. The first-10-block bounded
+comparison (679 test mentions) independently shows the same direction: recall
+66.67% to 80.26%, precision 72.28% to 61.85%, and wrong merges 79 to 153. The
+complete paired comparison therefore replaces the earlier timeout statement
+and strengthens the negative-transfer finding; rescue remains disabled in the
+cross-domain production default.
 
 `evidence/runtime_validation_20260719.json` is now marked
 `superseded_for_istina_claims`; its duplicate-leakage ISTINA result and old
@@ -276,22 +299,28 @@ python experiments/openalex_runtime_replay.py --dataset <openalex-confirmation.j
 
 python experiments/openalex_runtime_replay.py --dataset <openalex-confirmation.jsonl> --metadata <openalex-metadata.json> --split-strategy orcid-author-holdout --enable-calibrated-candidate-rescue --compact-output --output evidence/openalex_confirmation_rescue_ablation_current_20260719.json
 
+python experiments/openalex_runtime_replay.py --dataset <openalex-10000-work-sample.jsonl> --metadata <openalex-10000-work-metadata.json> --split-strategy article-holdout --compact-output --output evidence/openalex_10000works_default_current_20260719.json
+
+python experiments/openalex_runtime_replay.py --dataset <openalex-10000-work-sample.jsonl> --metadata <openalex-10000-work-metadata.json> --split-strategy article-holdout --enable-calibrated-candidate-rescue --compact-output --output evidence/openalex_10000works_rescue_current_20260719.json
+
 python experiments/aminer_kdd18_runtime_replay.py --data-root <aminer-data-global> --label-split test_100 --start-name 0 --max-names 10 --history-policy last-test --topk 20 --archive <na-data-kdd18.zip> --compact-output --output evidence/aminer_kdd18_test100_first10_default_current_20260719.json
 
 python experiments/aminer_kdd18_runtime_replay.py --data-root <aminer-data-global> --label-split test_100 --start-name 0 --max-names 10 --history-policy last-test --topk 20 --archive <na-data-kdd18.zip> --enable-calibrated-candidate-rescue --compact-output --output evidence/aminer_kdd18_test100_first10_rescue_current_20260719.json
 
 python experiments/aminer_kdd18_runtime_replay.py --data-root <aminer-data-global> --label-split test_100 --history-policy last-test --topk 20 --archive <na-data-kdd18.zip> --compact-output --output evidence/aminer_kdd18_test100_default_current_20260719.json
 
+python experiments/aminer_kdd18_runtime_replay.py --data-root <aminer-data-global> --label-split test_100 --history-policy last-test --topk 20 --archive <na-data-kdd18.zip> --enable-calibrated-candidate-rescue --compact-output --output evidence/aminer_kdd18_test100_rescue_current_20260719.json
+
 $env:ISTINA_AUDIT_SALT = <secret-manager-value>
 python experiments/istina_live_shadow.py --dataset <advisor-export.json> --split-strategy temporal --train-through-year 2023 --limit 5 --audit-output <private-audit.jsonl> --output evidence/istina_live_shadow_smoke_20260719.json
 
-python experiments/istina_operational_validation.py --dataset <advisor-export.json> --service-result <frozen-service.json> --live-shadow-evidence evidence/istina_live_shadow_smoke_20260719.json --split-strategy temporal --train-through-year 2023 --iterations 18 --tests-passed 181 --test-warnings 1 --output evidence/istina_operational_validation_20260719.json
+python experiments/istina_operational_validation.py --dataset <advisor-export.json> --service-result <frozen-service.json> --live-shadow-evidence evidence/istina_live_shadow_smoke_20260719.json --split-strategy temporal --train-through-year 2023 --iterations 18 --tests-passed 192 --test-warnings 1 --output evidence/istina_operational_validation_20260719.json
 
 python evaluation/istina_evidence_bundle.py --operational-validation evidence/istina_operational_validation_20260719.json --gold-readiness evidence/istina_gold_readiness_20260719.json --live-shadow evidence/istina_live_shadow_smoke_20260719.json --output evidence/istina_release_evidence_bundle_20260719.json
 
 python evaluation/production_gate.py --replay-result evidence/istina_operational_validation_20260719.json --evidence evidence/istina_release_evidence_bundle_20260719.json --output evidence/istina_production_gate_operational_20260719.json
 
-python evaluation/istina_paper_package.py --temporal evidence/istina_temporal_runtime_replay_20260719.json --holdout evidence/istina_holdout_runtime_replay_deduplicated_20260719.json --operational evidence/istina_operational_validation_20260719.json --gold evidence/istina_gold_readiness_20260719.json --live evidence/istina_live_shadow_smoke_20260719.json --bundle evidence/istina_release_evidence_bundle_20260719.json --gate evidence/istina_production_gate_operational_20260719.json --openalex-default evidence/openalex_confirmation_default_current_20260719.json --openalex-rescue evidence/openalex_confirmation_rescue_ablation_current_20260719.json --aminer-full-current evidence/aminer_kdd18_test100_default_current_20260719.json --aminer-default-current evidence/aminer_kdd18_test100_first10_default_current_20260719.json --aminer-rescue-current evidence/aminer_kdd18_test100_first10_rescue_current_20260719.json --public-validation evidence/runtime_validation_20260719.json --output-json paper/istina_empirical_evidence_20260719.json --output-markdown paper/ISTINA_EMPIRICAL_EVIDENCE_20260719.md
+python evaluation/istina_paper_package.py --temporal evidence/istina_temporal_runtime_replay_20260719.json --holdout evidence/istina_holdout_runtime_replay_deduplicated_20260719.json --operational evidence/istina_operational_validation_20260719.json --gold evidence/istina_gold_readiness_20260719.json --live evidence/istina_live_shadow_smoke_20260719.json --bundle evidence/istina_release_evidence_bundle_20260719.json --gate evidence/istina_production_gate_operational_20260719.json --openalex-default evidence/openalex_confirmation_default_current_20260719.json --openalex-rescue evidence/openalex_confirmation_rescue_ablation_current_20260719.json --openalex-large-default evidence/openalex_10000works_default_current_20260719.json --openalex-large-rescue evidence/openalex_10000works_rescue_current_20260719.json --aminer-full-current evidence/aminer_kdd18_test100_default_current_20260719.json --aminer-full-rescue-current evidence/aminer_kdd18_test100_rescue_current_20260719.json --aminer-default-current evidence/aminer_kdd18_test100_first10_default_current_20260719.json --aminer-rescue-current evidence/aminer_kdd18_test100_first10_rescue_current_20260719.json --public-validation evidence/runtime_validation_20260719.json --output-json paper/istina_empirical_evidence_20260719.json --output-markdown paper/ISTINA_EMPIRICAL_EVIDENCE_20260719.md
 ```
 
 ## Evidence still required for replacement

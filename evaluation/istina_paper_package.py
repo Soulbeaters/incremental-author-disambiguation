@@ -102,7 +102,10 @@ def compose_paper_package(
     gate: Mapping[str, Any],
     openalex_default: Mapping[str, Any],
     openalex_rescue: Mapping[str, Any],
+    openalex_large_default: Mapping[str, Any],
+    openalex_large_rescue: Mapping[str, Any],
     aminer_full_current: Mapping[str, Any],
+    aminer_full_rescue_current: Mapping[str, Any],
     aminer_default_current: Mapping[str, Any],
     aminer_rescue_current: Mapping[str, Any],
     public_validation: Mapping[str, Any],
@@ -123,7 +126,16 @@ def compose_paper_package(
     gold_inputs = dict(gold.get("inputs") or {})
     openalex_default_protocol = dict(openalex_default.get("protocol") or {})
     openalex_rescue_protocol = dict(openalex_rescue.get("protocol") or {})
+    openalex_large_default_protocol = dict(
+        openalex_large_default.get("protocol") or {}
+    )
+    openalex_large_rescue_protocol = dict(
+        openalex_large_rescue.get("protocol") or {}
+    )
     aminer_full_protocol = dict(aminer_full_current.get("protocol") or {})
+    aminer_full_rescue_protocol = dict(
+        aminer_full_rescue_current.get("protocol") or {}
+    )
     aminer_default_protocol = dict(aminer_default_current.get("protocol") or {})
     aminer_rescue_protocol = dict(aminer_rescue_current.get("protocol") or {})
     public_results = dict(public_validation.get("results") or {})
@@ -337,11 +349,155 @@ def compose_paper_package(
             ),
         ),
         _check(
+            "openalex_large_dataset_sha256",
+            [
+                openalex_large_default_protocol.get("dataset_sha256"),
+                openalex_large_rescue_protocol.get("dataset_sha256"),
+            ],
+            "two identical non-empty hashes",
+            bool(openalex_large_default_protocol.get("dataset_sha256"))
+            and openalex_large_default_protocol.get("dataset_sha256")
+            == openalex_large_rescue_protocol.get("dataset_sha256"),
+        ),
+        _check(
+            "openalex_large_metadata_sha256",
+            [
+                openalex_large_default_protocol.get("metadata_sha256"),
+                openalex_large_rescue_protocol.get("metadata_sha256"),
+            ],
+            "two identical non-empty hashes",
+            bool(openalex_large_default_protocol.get("metadata_sha256"))
+            and openalex_large_default_protocol.get("metadata_sha256")
+            == openalex_large_rescue_protocol.get("metadata_sha256"),
+        ),
+        _check(
+            "openalex_large_source_declaration",
+            {
+                "source": openalex_large_default_protocol.get("source"),
+                "gold_label": openalex_large_default_protocol.get("gold_label"),
+                "sample_works": (
+                    (openalex_large_default_protocol.get("metadata") or {})
+                    .get("request", {})
+                    .get("sample_works")
+                ),
+                "mentions": (
+                    (openalex_large_default_protocol.get("metadata") or {})
+                    .get("counts", {})
+                    .get("mentions")
+                ),
+            },
+            {
+                "source": "OpenAlex API",
+                "gold_label": "OpenAlex author ID (evaluation only)",
+                "sample_works": 10_000,
+                "mentions": 28_361,
+            },
+        ),
+        _check(
+            "openalex_large_complete_paper_split",
+            [
+                openalex_large_default_protocol.get("article_overlap"),
+                openalex_large_rescue_protocol.get("article_overlap"),
+            ],
+            [0, 0],
+        ),
+        _check(
+            "openalex_large_ablation_modes",
+            [
+                openalex_large_default_protocol.get(
+                    "calibrated_candidate_rescue"
+                ),
+                openalex_large_rescue_protocol.get(
+                    "calibrated_candidate_rescue"
+                ),
+            ],
+            [False, True],
+        ),
+        _check(
+            "openalex_large_ablation_population",
+            [
+                (openalex_large_default.get("stats") or {}).get("total"),
+                (openalex_large_default.get("stats") or {}).get("existing_gold"),
+                (openalex_large_default.get("stats") or {}).get("new_gold"),
+            ],
+            [
+                (openalex_large_rescue.get("stats") or {}).get("total"),
+                (openalex_large_rescue.get("stats") or {}).get("existing_gold"),
+                (openalex_large_rescue.get("stats") or {}).get("new_gold"),
+            ],
+        ),
+        _check(
+            "openalex_large_minimum_scale",
+            (openalex_large_default.get("stats") or {}).get("total"),
+            ">=10000",
+            int((openalex_large_default.get("stats") or {}).get("total") or 0)
+            >= 10_000,
+        ),
+        _check(
+            "openalex_large_rescue_negative_transfer_reproduced",
+            {
+                "default_precision": (
+                    (openalex_large_default.get("metrics") or {}).get("precision")
+                ),
+                "rescue_precision": (
+                    (openalex_large_rescue.get("metrics") or {}).get("precision")
+                ),
+                "default_recall": (
+                    (openalex_large_default.get("metrics") or {}).get(
+                        "existing_recall"
+                    )
+                ),
+                "rescue_recall": (
+                    (openalex_large_rescue.get("metrics") or {}).get(
+                        "existing_recall"
+                    )
+                ),
+                "default_wrong_merge": (
+                    (openalex_large_default.get("stats") or {}).get("wrong_merge")
+                ),
+                "rescue_wrong_merge": (
+                    (openalex_large_rescue.get("stats") or {}).get("wrong_merge")
+                ),
+            },
+            "recall higher, precision lower, and wrong merges higher",
+            (
+                float(
+                    (openalex_large_rescue.get("metrics") or {}).get(
+                        "existing_recall"
+                    )
+                    or 0.0
+                )
+                > float(
+                    (openalex_large_default.get("metrics") or {}).get(
+                        "existing_recall"
+                    )
+                    or 0.0
+                )
+                and float(
+                    (openalex_large_rescue.get("metrics") or {}).get("precision")
+                    or 0.0
+                )
+                < float(
+                    (openalex_large_default.get("metrics") or {}).get("precision")
+                    or 0.0
+                )
+                and int(
+                    (openalex_large_rescue.get("stats") or {}).get("wrong_merge")
+                    or 0
+                )
+                > int(
+                    (openalex_large_default.get("stats") or {}).get("wrong_merge")
+                    or 0
+                )
+            ),
+        ),
+        _check(
             "aminer_archive_sha256",
             sorted({
                 str(aminer_default_protocol.get("archive_sha256") or ""),
                 str(aminer_rescue_protocol.get("archive_sha256") or ""),
                 str(aminer_full_protocol.get("archive_sha256") or ""),
+                str(aminer_full_rescue_protocol.get("archive_sha256") or ""),
                 str(
                     ((public_validation.get("inputs") or {}).get(
                         "aminer_kdd18_archive"
@@ -354,6 +510,7 @@ def compose_paper_package(
                 str(aminer_default_protocol.get("archive_sha256") or ""),
                 str(aminer_rescue_protocol.get("archive_sha256") or ""),
                 str(aminer_full_protocol.get("archive_sha256") or ""),
+                str(aminer_full_rescue_protocol.get("archive_sha256") or ""),
                 str(
                     ((public_validation.get("inputs") or {}).get(
                         "aminer_kdd18_archive"
@@ -373,8 +530,8 @@ def compose_paper_package(
             [
                 aminer_rescue_protocol.get("labels_sha256"),
                 aminer_rescue_protocol.get("publications_sha256"),
-                aminer_rescue_protocol.get("labels_sha256"),
-                aminer_rescue_protocol.get("publications_sha256"),
+                aminer_full_rescue_protocol.get("labels_sha256"),
+                aminer_full_rescue_protocol.get("publications_sha256"),
             ],
         ),
         _check(
@@ -388,6 +545,99 @@ def compose_paper_package(
                 (aminer_full_current.get("stats") or {}).get("total"),
             ],
             ["test_100", 0, 100, 0, False, 6412],
+        ),
+        _check(
+            "aminer_current_full_rescue_protocol",
+            [
+                aminer_full_rescue_protocol.get("label_split"),
+                aminer_full_rescue_protocol.get("start_name"),
+                aminer_full_rescue_protocol.get("selected_names"),
+                aminer_full_rescue_protocol.get("article_overlap"),
+                aminer_full_rescue_protocol.get("calibrated_candidate_rescue"),
+                (aminer_full_rescue_current.get("stats") or {}).get("total"),
+            ],
+            ["test_100", 0, 100, 0, True, 6412],
+        ),
+        _check(
+            "aminer_current_full_ablation_population",
+            [
+                (aminer_full_current.get("stats") or {}).get("total"),
+                (aminer_full_current.get("stats") or {}).get("existing_gold"),
+                (aminer_full_current.get("stats") or {}).get("new_gold"),
+            ],
+            [
+                (aminer_full_rescue_current.get("stats") or {}).get("total"),
+                (aminer_full_rescue_current.get("stats") or {}).get(
+                    "existing_gold"
+                ),
+                (aminer_full_rescue_current.get("stats") or {}).get("new_gold"),
+            ],
+        ),
+        _check(
+            "aminer_full_rescue_negative_transfer_reproduced",
+            {
+                "default_precision": (
+                    (aminer_full_current.get("metrics") or {}).get("precision")
+                ),
+                "rescue_precision": (
+                    (aminer_full_rescue_current.get("metrics") or {}).get(
+                        "precision"
+                    )
+                ),
+                "default_recall": (
+                    (aminer_full_current.get("metrics") or {}).get(
+                        "existing_recall"
+                    )
+                ),
+                "rescue_recall": (
+                    (aminer_full_rescue_current.get("metrics") or {}).get(
+                        "existing_recall"
+                    )
+                ),
+                "default_wrong_merge": (
+                    (aminer_full_current.get("stats") or {}).get("wrong_merge")
+                ),
+                "rescue_wrong_merge": (
+                    (aminer_full_rescue_current.get("stats") or {}).get(
+                        "wrong_merge"
+                    )
+                ),
+            },
+            "recall higher, precision lower, and wrong merges higher",
+            (
+                float(
+                    (aminer_full_rescue_current.get("metrics") or {}).get(
+                        "existing_recall"
+                    )
+                    or 0.0
+                )
+                > float(
+                    (aminer_full_current.get("metrics") or {}).get(
+                        "existing_recall"
+                    )
+                    or 0.0
+                )
+                and float(
+                    (aminer_full_rescue_current.get("metrics") or {}).get(
+                        "precision"
+                    )
+                    or 0.0
+                )
+                < float(
+                    (aminer_full_current.get("metrics") or {}).get("precision")
+                    or 0.0
+                )
+                and int(
+                    (aminer_full_rescue_current.get("stats") or {}).get(
+                        "wrong_merge"
+                    )
+                    or 0
+                )
+                > int(
+                    (aminer_full_current.get("stats") or {}).get("wrong_merge")
+                    or 0
+                )
+            ),
         ),
         _check(
             "aminer_current_bounded_protocol",
@@ -471,6 +721,13 @@ def compose_paper_package(
             "openalex_default",
         ),
         _quality_row(
+            "OpenAlex 10,000-work sample",
+            "current-runtime large cross-domain stress",
+            openalex_large_default,
+            openalex_large_default_protocol.get("article_overlap"),
+            "openalex_large_default",
+        ),
+        _quality_row(
             "AMiner KDD'18 test_100",
             "current-runtime complete public transfer stress",
             aminer_full_current,
@@ -492,6 +749,30 @@ def compose_paper_package(
             "wrong_merge": (openalex_rescue.get("stats") or {}).get("wrong_merge"),
         },
     ]
+    openalex_large_ablation = [
+        {
+            "configuration": "production default",
+            "calibrated_candidate_rescue": False,
+            **dict(openalex_large_default.get("metrics") or {}),
+            "wrong_merge": (
+                (openalex_large_default.get("stats") or {}).get("wrong_merge")
+            ),
+            "test_mentions": (
+                (openalex_large_default.get("stats") or {}).get("total")
+            ),
+        },
+        {
+            "configuration": "OpenAlex rescue ablation",
+            "calibrated_candidate_rescue": True,
+            **dict(openalex_large_rescue.get("metrics") or {}),
+            "wrong_merge": (
+                (openalex_large_rescue.get("stats") or {}).get("wrong_merge")
+            ),
+            "test_mentions": (
+                (openalex_large_rescue.get("stats") or {}).get("total")
+            ),
+        },
+    ]
     aminer_current_ablation = [
         {
             "configuration": "production default",
@@ -506,6 +787,28 @@ def compose_paper_package(
             **dict(aminer_rescue_current.get("metrics") or {}),
             "wrong_merge": (aminer_rescue_current.get("stats") or {}).get("wrong_merge"),
             "test_mentions": (aminer_rescue_current.get("stats") or {}).get("total"),
+        },
+    ]
+    aminer_full_ablation = [
+        {
+            "configuration": "production default",
+            "calibrated_candidate_rescue": False,
+            **dict(aminer_full_current.get("metrics") or {}),
+            "wrong_merge": (
+                (aminer_full_current.get("stats") or {}).get("wrong_merge")
+            ),
+            "test_mentions": (aminer_full_current.get("stats") or {}).get("total"),
+        },
+        {
+            "configuration": "OpenAlex rescue cross-domain ablation",
+            "calibrated_candidate_rescue": True,
+            **dict(aminer_full_rescue_current.get("metrics") or {}),
+            "wrong_merge": (
+                (aminer_full_rescue_current.get("stats") or {}).get("wrong_merge")
+            ),
+            "test_mentions": (
+                (aminer_full_rescue_current.get("stats") or {}).get("total")
+            ),
         },
     ]
     temporal_legacy = dict(temporal.get("legacy_shadow") or {})
@@ -590,11 +893,18 @@ def compose_paper_package(
             "statement": (
                 "The rescue improves recall without reducing precision on the "
                 "current OpenAlex confirmation, but lowers precision and increases "
-                "wrong merges on the bounded current AMiner ablation; the complete "
-                "current AMiner stress result is also weak. Universal superiority "
-                "is therefore unsupported."
+                "wrong merges on both the 27,430-mention OpenAlex stress ablation "
+                "and the complete 6,412-mention AMiner ablation. Universal "
+                "superiority is therefore unsupported."
             ),
-            "sources": ["public_validation"],
+            "sources": [
+                "openalex_large_default",
+                "openalex_large_rescue",
+                "aminer_default_current",
+                "aminer_rescue_current",
+                "aminer_full_current",
+                "aminer_full_rescue_current",
+            ],
         },
         {
             "id": "write_release_not_authorized",
@@ -643,6 +953,12 @@ def compose_paper_package(
             "gold_readiness_total": (gold.get("summary") or {}).get("total"),
             "openalex_confirmation_sha256": openalex_default_protocol.get("dataset_sha256"),
             "openalex_metadata_sha256": openalex_default_protocol.get("metadata_sha256"),
+            "openalex_large_sha256": openalex_large_default_protocol.get(
+                "dataset_sha256"
+            ),
+            "openalex_large_metadata_sha256": openalex_large_default_protocol.get(
+                "metadata_sha256"
+            ),
             "aminer_archive_sha256": aminer_default_protocol.get("archive_sha256"),
             "aminer_labels_sha256": aminer_default_protocol.get("labels_sha256"),
             "aminer_publications_sha256": aminer_default_protocol.get("publications_sha256"),
@@ -650,6 +966,8 @@ def compose_paper_package(
         },
         "quality_table": quality_rows,
         "openalex_ablation_table": openalex_ablation,
+        "openalex_large_ablation_table": openalex_large_ablation,
+        "aminer_full_ablation_table": aminer_full_ablation,
         "aminer_current_ablation_table": aminer_current_ablation,
         "legacy_comparison_table": legacy_comparisons,
         "operational_summary": operational_summary,
@@ -717,6 +1035,7 @@ def render_markdown(package: Mapping[str, Any]) -> str:
         f"- Gold readiness: {dataset.get('gold_readiness_passed')}/{dataset.get('gold_readiness_total')}",
         f"- Verified ISTINA provenance: {str(dataset.get('provenance_verified')).lower()}",
         f"- OpenAlex confirmation SHA-256: `{dataset.get('openalex_confirmation_sha256')}`",
+        f"- OpenAlex 10,000-work sample SHA-256: `{dataset.get('openalex_large_sha256')}`",
         f"- AMiner archive SHA-256: `{dataset.get('aminer_archive_sha256')}`",
         f"- Retired runtime-validation source commit: `{dataset.get('retired_runtime_validation_source_commit')}`",
         "",
@@ -773,7 +1092,58 @@ def render_markdown(package: Mapping[str, Any]) -> str:
         )
     lines.extend([
         "",
-        "## AMiner current-runtime bounded cross-domain ablation",
+        "## OpenAlex 10,000-work cross-domain stress ablation",
+        "",
+        "The complete-paper split contains 27,430 test mentions with zero "
+        "publication overlap. This is public external validation, not ISTINA "
+        "release evidence. The rescue result is retained as negative-transfer "
+        "evidence.",
+        "",
+        "| Configuration | Rescue enabled | Test | Merge precision | Known recall | Automatic accuracy | UNKNOWN | Wrong merges | p95 ms |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|",
+    ])
+    for row in package.get("openalex_large_ablation_table") or []:
+        lines.append(
+            "| {configuration} | {enabled} | {test} | {precision} | {recall} | {accuracy} | {unknown} | {wrong} | {p95:.2f} |".format(
+                configuration=row.get("configuration"),
+                enabled=str(row.get("calibrated_candidate_rescue")).lower(),
+                test=row.get("test_mentions"),
+                precision=_pct(row.get("precision")),
+                recall=_pct(row.get("existing_recall")),
+                accuracy=_pct(row.get("auto_accuracy")),
+                unknown=_pct(row.get("unknown_rate")),
+                wrong=row.get("wrong_merge"),
+                p95=float(row.get("latency_ms_p95") or 0.0),
+            )
+        )
+    lines.extend([
+        "",
+        "## AMiner complete current-runtime cross-domain ablation",
+        "",
+        "Both configurations use all 100 deterministic AMiner name blocks "
+        "(6,412 test mentions) and zero publication overlap. The rescue run "
+        "improves recall but causes lower precision and more wrong merges.",
+        "",
+        "| Configuration | Rescue enabled | Test | Merge precision | Known recall | Automatic accuracy | UNKNOWN | Wrong merges | p95 ms |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|",
+    ])
+    for row in package.get("aminer_full_ablation_table") or []:
+        lines.append(
+            "| {configuration} | {enabled} | {test} | {precision} | {recall} | {accuracy} | {unknown} | {wrong} | {p95:.2f} |".format(
+                configuration=row.get("configuration"),
+                enabled=str(row.get("calibrated_candidate_rescue")).lower(),
+                test=row.get("test_mentions"),
+                precision=_pct(row.get("precision")),
+                recall=_pct(row.get("existing_recall")),
+                accuracy=_pct(row.get("auto_accuracy")),
+                unknown=_pct(row.get("unknown_rate")),
+                wrong=row.get("wrong_merge"),
+                p95=float(row.get("latency_ms_p95") or 0.0),
+            )
+        )
+    lines.extend([
+        "",
+        "## AMiner bounded consistency ablation",
         "",
         "This table uses the first 10 of 100 deterministic AMiner name blocks "
         "(679 test mentions). It is a bounded current-runtime ablation, not a "
@@ -883,7 +1253,10 @@ def main() -> None:
     parser.add_argument("--gate", type=Path, required=True)
     parser.add_argument("--openalex-default", type=Path, required=True)
     parser.add_argument("--openalex-rescue", type=Path, required=True)
+    parser.add_argument("--openalex-large-default", type=Path, required=True)
+    parser.add_argument("--openalex-large-rescue", type=Path, required=True)
     parser.add_argument("--aminer-full-current", type=Path, required=True)
+    parser.add_argument("--aminer-full-rescue-current", type=Path, required=True)
     parser.add_argument("--aminer-default-current", type=Path, required=True)
     parser.add_argument("--aminer-rescue-current", type=Path, required=True)
     parser.add_argument("--public-validation", type=Path, required=True)
@@ -900,7 +1273,10 @@ def main() -> None:
         "gate": args.gate,
         "openalex_default": args.openalex_default,
         "openalex_rescue": args.openalex_rescue,
+        "openalex_large_default": args.openalex_large_default,
+        "openalex_large_rescue": args.openalex_large_rescue,
         "aminer_full_current": args.aminer_full_current,
+        "aminer_full_rescue_current": args.aminer_full_rescue_current,
         "aminer_default_current": args.aminer_default_current,
         "aminer_rescue_current": args.aminer_rescue_current,
         "public_validation": args.public_validation,
@@ -920,7 +1296,10 @@ def main() -> None:
         gate=documents["gate"],
         openalex_default=documents["openalex_default"],
         openalex_rescue=documents["openalex_rescue"],
+        openalex_large_default=documents["openalex_large_default"],
+        openalex_large_rescue=documents["openalex_large_rescue"],
         aminer_full_current=documents["aminer_full_current"],
+        aminer_full_rescue_current=documents["aminer_full_rescue_current"],
         aminer_default_current=documents["aminer_default_current"],
         aminer_rescue_current=documents["aminer_rescue_current"],
         public_validation=documents["public_validation"],

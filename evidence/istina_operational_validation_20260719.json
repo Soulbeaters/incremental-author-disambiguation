@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-19T14:04:01.590676+00:00",
+  "generated_at": "2026-07-19T14:47:06.196575+00:00",
   "protocol": {
     "dataset": "C:\\program 2 in 2025\\istina test\\chinese_articles_with_authors.json",
     "dataset_sha256": "515c2d5881970f4de1a412d94018fa1aee99b5069956a1e139358bfc0de715fb",
@@ -21,7 +21,7 @@
   },
   "tests": {
     "command": "python -m pytest -q -p no:cacheprovider",
-    "passed": 181,
+    "passed": 192,
     "warnings": 1
   },
   "stats": {
@@ -43,9 +43,9 @@
     "auto_accuracy": 0.9439579684763573,
     "unknown_rate": 0.04903677758318739,
     "wrong_merge_rate": 0.0,
-    "latency_ms_p50": 0.2505999982531648,
-    "latency_ms_p95": 13.472200000251178,
-    "latency_ms_p99": 18.578100000013364
+    "latency_ms_p50": 0.2623000000312459,
+    "latency_ms_p95": 13.705800000025192,
+    "latency_ms_p99": 18.28590000150143
   },
   "stage_counts": {
     "legacy_service_validated_fallback": 1,
@@ -73,7 +73,7 @@
       "durable_audit_chain": {
         "verified": true,
         "records": 8,
-        "head_hash": "1a7eb784988f45d8e342bd000c0b9db5a96b6dfd60a8c080a37834286bd9de6c",
+        "head_hash": "62e02f1bee9cb3a16f9b4b74019624b7d427a6efbf607f50eb9d2954511a38b4",
         "restart_verified": true,
         "fsync": true,
         "storage_scope": "ephemeral validation file; not deployed production storage"
@@ -85,11 +85,11 @@
       "real_distinct_mentions": 753,
       "replay_iterations": 18,
       "load_operations": 13554,
-      "elapsed_seconds": 74.43764789999841,
-      "throughput_mentions_per_second": 182.0852805318193,
-      "latency_ms_p50": 0.6773999994038604,
-      "latency_ms_p95": 23.52900000187219,
-      "latency_ms_p99": 35.23969999878318,
+      "elapsed_seconds": 70.60566240000117,
+      "throughput_mentions_per_second": 191.9676062694906,
+      "latency_ms_p50": 0.6692999995721038,
+      "latency_ms_p95": 22.260599998844555,
+      "latency_ms_p99": 32.064300001366064,
       "deterministic_hash_mismatches": 0,
       "scope": "offline no-write load replay; repeated operations are not extra gold"
     },
@@ -134,7 +134,7 @@
           "merge_rate": 0.5,
           "service_error_rate": 1.0,
           "candidate_truncation_rate": 0.0,
-          "latency_p95_ms": 11.521700002049329,
+          "latency_p95_ms": 11.628399999608519,
           "stage_total_variation": 1.0,
           "stage_distribution": {
             "fault_injection": 1.0
@@ -173,7 +173,7 @@
           },
           {
             "name": "latency_p95_ms",
-            "observed": 11.521700002049329,
+            "observed": 11.628399999608519,
             "limit": 10000.0,
             "passed": true
           }
@@ -257,7 +257,7 @@
       "durable_audit_chain": {
         "verified": true,
         "records": 8,
-        "head_hash": "1a7eb784988f45d8e342bd000c0b9db5a96b6dfd60a8c080a37834286bd9de6c",
+        "head_hash": "62e02f1bee9cb3a16f9b4b74019624b7d427a6efbf607f50eb9d2954511a38b4",
         "restart_verified": true,
         "fsync": true,
         "storage_scope": "ephemeral validation file; not deployed production storage"
@@ -269,11 +269,11 @@
       "real_distinct_mentions": 753,
       "replay_iterations": 18,
       "load_operations": 13554,
-      "elapsed_seconds": 74.43764789999841,
-      "throughput_mentions_per_second": 182.0852805318193,
-      "latency_ms_p50": 0.6773999994038604,
-      "latency_ms_p95": 23.52900000187219,
-      "latency_ms_p99": 35.23969999878318,
+      "elapsed_seconds": 70.60566240000117,
+      "throughput_mentions_per_second": 191.9676062694906,
+      "latency_ms_p50": 0.6692999995721038,
+      "latency_ms_p95": 22.260599998844555,
+      "latency_ms_p99": 32.064300001366064,
       "deterministic_hash_mismatches": 0,
       "scope": "offline no-write load replay; repeated operations are not extra gold"
     },
@@ -306,7 +306,7 @@
           "merge_rate": 0.5,
           "service_error_rate": 1.0,
           "candidate_truncation_rate": 0.0,
-          "latency_p95_ms": 11.521700002049329,
+          "latency_p95_ms": 11.628399999608519,
           "stage_total_variation": 1.0,
           "stage_distribution": {
             "fault_injection": 1.0
@@ -345,7 +345,7 @@
           },
           {
             "name": "latency_p95_ms",
-            "observed": 11.521700002049329,
+            "observed": 11.628399999608519,
             "limit": 10000.0,
             "passed": true
           }

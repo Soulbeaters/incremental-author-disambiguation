@@ -49,19 +49,31 @@ service; sharing one JSONL file between processes is unsupported.
    export. Repeated load operations must not be counted as extra gold.
 5. Run `experiments/istina_live_shadow.py` in no-write mode. Production release
    requires at least 500 shared, adjudicated shadow mentions.
-6. Compose operational, gold-readiness, and live artifacts with
+6. During an approved operations window, run the explicitly acknowledged,
+   rate-limited `experiments/istina_online_read_load.py`; this is a read-only
+   load generator, not a write client.
+7. Complete the deployment template and validate its four exact attachments
+   with `evaluation/istina_deployment_evidence.py`. The validator requires the
+   same dataset SHA-256 and frozen 40-hex code revision.
+8. Compose operational, gold-readiness, live, and validated deployment
+   artifacts with
    `evaluation/istina_evidence_bundle.py`. The bundle records each source
-   SHA-256 and preserves fail-closed verification flags.
-7. Run the machine gate with the strict temporal operational replay as
+   SHA-256, rejects a deployment-to-gold dataset mismatch, and preserves
+   fail-closed verification flags.
+9. Run the machine gate with the strict temporal operational replay as
    `--replay-result` and the composed bundle as `--evidence`.
-8. Generate the article evidence with `evaluation/istina_paper_package.py`.
+10. Generate the article evidence with `evaluation/istina_paper_package.py`.
    It must pass every cross-artifact hash, split, de-duplication, metric, and
    superseded-source check before any table is copied into a manuscript.
-9. Deploy in `shadow`, verify online latency and drift for the agreed window,
+11. Deploy in `shadow`, verify online latency and drift for the agreed window,
    then progress to `candidate`.
-10. Create a short-lived production authorization only after every gate passes.
+12. Create a short-lived production authorization only after every gate passes.
    Never hand-edit `release_ready` or reuse an authorization for another
    commit or evidence hash.
+
+The exact institution-side inputs, fixed thresholds, and commands are in
+`docs/ISTINA_INSTITUTIONAL_HANDOFF.md`. Both JSON templates are deliberately
+invalid until completed and approved.
 
 ## Article evidence hygiene
 
@@ -74,10 +86,12 @@ current-runtime results.
 The authoritative paper artifacts are
 `paper/istina_empirical_evidence_20260719.json` and
 `paper/ISTINA_EMPIRICAL_EVIDENCE_20260719.md`. They bind each source SHA-256,
-use the current OpenAlex replay, the complete current-runtime AMiner replay,
-and the bounded current-runtime AMiner rescue transfer ablation. The OpenAlex
-rescue remains an ablation: on the current AMiner subset it increases recall
-but materially lowers precision and increases wrong merges.
+use the current ORCID-blind OpenAlex confirmation, a paired 27,430-mention
+OpenAlex stress ablation, and paired complete 6,412-mention AMiner replays.
+The OpenAlex rescue remains an ablation: on both large OpenAlex and complete
+AMiner stress populations it increases recall but materially lowers precision
+and increases wrong merges. Public stress populations support article claims
+and model-risk analysis only; they cannot satisfy the ISTINA release gate.
 
 ## Circuit breaker and rollback
 

@@ -23,6 +23,7 @@ ATTACHMENT_FILES = [
     {"name": "load.json", "sha256": "2" * 64},
     {"name": "drift.json", "sha256": "3" * 64},
     {"name": "audit.json", "sha256": "4" * 64},
+    {"name": "load-plan.json", "sha256": "5" * 64},
 ]
 
 
@@ -100,12 +101,24 @@ def valid_attachments():
                     "dataset_sha256": DATASET_SHA,
                     "code_revision": CODE_REVISION,
                     "mode": "read_only_candidate_lookup",
+                    "service_url_sha256": "6" * 64,
+                    "man_id_sha256": "7" * 64,
+                    "requests": 1000,
+                    "concurrency": 4,
+                    "max_rps": 2.0,
+                    "service_timeout_seconds": 30.0,
+                    "approved_change_reference": "OPS-LOAD-123",
+                    "approval_scope": "institutional_load_window",
+                    "execution_started_at": "2026-07-18T10:30:00+00:00",
+                    "online_load_plan_name": ATTACHMENT_FILES[4]["name"],
+                    "online_load_plan_sha256": ATTACHMENT_FILES[4]["sha256"],
                 },
                 "stats": {
                     "requests": 1000,
                     "completed": 1000,
                     "errors": 10,
                     "write_calls": 0,
+                    "requests_outside_approved_window": 0,
                 },
                 "metrics": {
                     "error_rate": 0.01,
@@ -115,6 +128,9 @@ def valid_attachments():
                     "verified": True,
                     "write_client_present": False,
                     "write_calls": 0,
+                    "threshold_passed": True,
+                    "institutional_approval": True,
+                    "load_plan_verified": True,
                 },
             },
         },
@@ -150,6 +166,35 @@ def valid_attachments():
                 "code_revision": CODE_REVISION,
                 "generated_at": "2026-07-19T00:30:00+00:00",
                 "verification": valid_audit_verification(),
+            },
+        },
+        {
+            **ATTACHMENT_FILES[4],
+            "document": {
+                "schema_version": 1,
+                "source_system": "istina",
+                "purpose": "approved_institutional_read_only_load",
+                "mode": "read_only_candidate_lookup",
+                "plan_id": "istina-load-20260718-01",
+                "dataset_sha256": DATASET_SHA,
+                "code_revision": CODE_REVISION,
+                "service_url_sha256": "6" * 64,
+                "man_id_sha256": "7" * 64,
+                "requests": 1000,
+                "concurrency": 4,
+                "max_rps": 2.0,
+                "service_timeout_seconds": 30.0,
+                "window": {
+                    "start": "2026-07-18T10:00:00+00:00",
+                    "end": "2026-07-18T12:00:00+00:00",
+                },
+                "approval": {
+                    "scope": "institutional_load_window",
+                    "approved": True,
+                    "approved_at": "2026-07-18T09:00:00+00:00",
+                    "change_reference": "OPS-LOAD-123",
+                    "approver_role": "service_owner",
+                },
             },
         },
     ]
@@ -188,6 +233,7 @@ def valid_manifest():
             {"role": "online_load", **ATTACHMENT_FILES[1]},
             {"role": "drift_monitor", **ATTACHMENT_FILES[2]},
             {"role": "audit_verification", **ATTACHMENT_FILES[3]},
+            {"role": "online_load_plan", **ATTACHMENT_FILES[4]},
         ],
         "approval": {
             "operations_reference": "OPS-123",
@@ -210,7 +256,7 @@ class IstinaDeploymentEvidenceTests(unittest.TestCase):
         result = self.assess(valid_manifest())
 
         self.assertTrue(result["verified"])
-        self.assertEqual(result["summary"], {"passed": 53, "failed": 0, "total": 53})
+        self.assertEqual(result["summary"], {"passed": 55, "failed": 0, "total": 55})
         self.assertTrue(
             result["operational_evidence"]["online_shadow_verified"]["verified"]
         )
@@ -270,6 +316,42 @@ class IstinaDeploymentEvidenceTests(unittest.TestCase):
         self.assertFalse(result["verified"])
         self.assertIn(
             "load_attachment_counts",
+            {failure["name"] for failure in result["failures"]},
+        )
+
+    def test_online_load_plan_tampering_fails_closed(self):
+        attachments = valid_attachments()
+        attachments[4]["document"]["max_rps"] = 20.0
+
+        result = assess_deployment_evidence(
+            valid_manifest(),
+            attachments,
+            expected_dataset_sha256=DATASET_SHA,
+            expected_code_revision=CODE_REVISION,
+        )
+
+        self.assertFalse(result["verified"])
+        self.assertIn(
+            "online_load_plan_validation",
+            {failure["name"] for failure in result["failures"]},
+        )
+
+    def test_online_load_result_must_bind_exact_plan_hash(self):
+        attachments = valid_attachments()
+        attachments[1]["document"]["protocol"][
+            "online_load_plan_sha256"
+        ] = "f" * 64
+
+        result = assess_deployment_evidence(
+            valid_manifest(),
+            attachments,
+            expected_dataset_sha256=DATASET_SHA,
+            expected_code_revision=CODE_REVISION,
+        )
+
+        self.assertFalse(result["verified"])
+        self.assertIn(
+            "load_attachment_plan_binding",
             {failure["name"] for failure in result["failures"]},
         )
 

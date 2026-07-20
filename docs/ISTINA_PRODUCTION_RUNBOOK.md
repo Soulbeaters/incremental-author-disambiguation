@@ -86,22 +86,30 @@ assertion without this machine-generated manifest.
    source order before the remaining target is filled in source order.
 6. During an approved operations window, run the explicitly acknowledged,
    rate-limited `experiments/istina_online_read_load.py`; this is a read-only
-   load generator, not a write client. Use `--approval-scope
-   institutional_load_window` for formal evidence. The separate
+   load generator, not a write client. First complete and preflight the
+   intentionally invalid `config/istina_online_load_plan.template.json`, then
+   pass that exact file with `--load-plan`. The runner binds its SHA-256 and
+   independently rechecks the dataset, 40-hex revision, endpoint hash,
+   domain-separated man-id hash, request count, concurrency, start rate,
+   timeout, change reference, approver role, and active window before any
+   service request. Use `--approval-scope institutional_load_window` for
+   formal evidence. The separate
    `user_authorized_canary` scope is capped at 20 requests and is permanently
    non-release.
 7. Generate the audit-retention attachment with
    `evaluation/istina_audit_retention.py`, supplying one retained audit chain
    and one retained shadow telemetry file per worker. Then complete the
-   deployment template and validate its four exact attachments with
-   `evaluation/istina_deployment_evidence.py`. The 53-check validator requires
-   the same dataset SHA-256 and frozen 40-hex code revision.
+   deployment template and validate its five exact attachments, including the
+   immutable online-load plan, with `evaluation/istina_deployment_evidence.py`.
+   The 55-check validator requires the same dataset SHA-256 and frozen 40-hex
+   code revision and independently reruns the plan checks at the recorded
+   execution-start timestamp.
 8. Compose operational, gold-readiness, live, and validated deployment
    artifacts with
    `evaluation/istina_evidence_bundle.py`. The bundle records each source
    SHA-256, rejects a deployment-to-gold dataset mismatch, and preserves
    fail-closed verification flags. Its release workflow must receive the raw
-   deployment manifest and all four attachments so it can rerun content checks;
+   deployment manifest and all five attachments so it can rerun content checks;
    it must also receive the registered paired-shadow plan and rerun
    paper-cluster-aware inference. Framework decisions in every paired
    comparison must have legacy fallback disabled; incumbent results are

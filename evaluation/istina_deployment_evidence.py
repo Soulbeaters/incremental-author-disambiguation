@@ -29,11 +29,16 @@ from evaluation.istina_audit_retention import (  # noqa: E402
     CHAIN_ENTRY_FIELDS,
     audit_chain_manifest_sha256,
 )
+from evaluation.istina_online_load_plan import (  # noqa: E402
+    INSTITUTIONAL_LOAD_SCOPE,
+    assess_online_load_plan,
+)
 
 
 REQUIRED_ATTACHMENT_ROLES = {
     "shadow_telemetry",
     "online_load",
+    "online_load_plan",
     "drift_monitor",
     "audit_verification",
 }
@@ -194,6 +199,10 @@ def assess_deployment_evidence(
     roles_by_name = {
         name: role for role, name, _digest in declared_attachment_rows
     }
+    declared_by_role = {
+        role: {"name": name, "sha256": digest}
+        for role, name, digest in declared_attachment_rows
+    }
     documents_by_role: Dict[str, Dict[str, Any]] = {}
     document_errors: Dict[str, str] = {}
     for item in observed_attachments:
@@ -238,6 +247,31 @@ def assess_deployment_evidence(
     load_stats = _mapping(load_document.get("stats"))
     load_metrics = _mapping(load_document.get("metrics"))
     load_safety = _mapping(load_document.get("safety"))
+    load_plan_document = documents_by_role.get("online_load_plan", {})
+    load_plan_attachment = declared_by_role.get("online_load_plan", {})
+    load_execution_started_at = _timestamp(
+        load_protocol.get("execution_started_at")
+    )
+    load_plan_validation = assess_online_load_plan(
+        load_plan_document,
+        expected_dataset_sha256=expected_dataset_sha256,
+        expected_code_revision=expected_code_revision,
+        expected_service_url_sha256=str(
+            load_protocol.get("service_url_sha256") or ""
+        ),
+        expected_man_id_sha256=str(load_protocol.get("man_id_sha256") or ""),
+        expected_requests=load_protocol.get("requests"),
+        expected_concurrency=load_protocol.get("concurrency"),
+        expected_max_rps=load_protocol.get("max_rps"),
+        expected_service_timeout_seconds=load_protocol.get(
+            "service_timeout_seconds"
+        ),
+        expected_change_reference=str(
+            load_protocol.get("approved_change_reference") or ""
+        ),
+        validation_time=load_execution_started_at,
+        require_active_window=True,
+    )
 
     drift_document = documents_by_role.get("drift_monitor", {})
     drift_window = _mapping(drift_document.get("window"))
@@ -331,8 +365,15 @@ def assess_deployment_evidence(
         load_stats.get("completed"),
         load_stats.get("errors"),
         load_stats.get("write_calls"),
+        load_stats.get("requests_outside_approved_window"),
     ]
-    expected_load_attachment_counts = [load_requests, load_requests, load_errors, 0]
+    expected_load_attachment_counts = [
+        load_requests,
+        load_requests,
+        load_errors,
+        0,
+        0,
+    ]
     drift_attachment_identity = [
         drift_document.get("schema_version"),
         drift_document.get("source_system"),
@@ -399,7 +440,7 @@ def assess_deployment_evidence(
         _check("audit_chain_verified", audit.get("chain_verified"), True, audit.get("chain_verified") is True, "audit"),
         _check("audit_retention_days", retention_days, f">={criteria.min_audit_retention_days}", retention_days is not None and retention_days >= criteria.min_audit_retention_days, "audit"),
         _check("attachment_roles", sorted(declared_roles), sorted(REQUIRED_ATTACHMENT_ROLES), declared_roles == REQUIRED_ATTACHMENT_ROLES, "attachments"),
-        _check("attachment_cardinality", {"declared": len(declared_attachment_rows), "observed": len(observed_rows)}, {"declared": 4, "observed": 4}, attachment_cardinality_valid, "attachments"),
+        _check("attachment_cardinality", {"declared": len(declared_attachment_rows), "observed": len(observed_rows)}, {"declared": len(REQUIRED_ATTACHMENT_ROLES), "observed": len(REQUIRED_ATTACHMENT_ROLES)}, attachment_cardinality_valid, "attachments"),
         _check("attachment_hash_format", attachment_hashes_valid, True, attachment_hashes_valid, "attachments"),
         _check("attachment_hashes", sorted(declared_files), sorted(observed), declared_files == observed, "attachments"),
         _check("attachment_documents", sorted(documents_by_role), sorted(REQUIRED_ATTACHMENT_ROLES), set(documents_by_role) == REQUIRED_ATTACHMENT_ROLES and not document_errors, "attachments"),
@@ -474,13 +515,61 @@ def assess_deployment_evidence(
                 load_safety.get("verified"),
                 load_safety.get("write_client_present"),
                 load_safety.get("write_calls"),
+                load_safety.get("threshold_passed"),
+                load_safety.get("institutional_approval"),
+                load_safety.get("load_plan_verified"),
             ],
-            [True, False, 0],
+            [True, False, 0, True, True, True],
             [
                 load_safety.get("verified"),
                 load_safety.get("write_client_present"),
                 load_safety.get("write_calls"),
-            ] == [True, False, 0],
+                load_safety.get("threshold_passed"),
+                load_safety.get("institutional_approval"),
+                load_safety.get("load_plan_verified"),
+            ] == [True, False, 0, True, True, True],
+            "load_attachment",
+        ),
+        _check(
+            "load_attachment_plan_binding",
+            {
+                "plan_name": load_protocol.get("online_load_plan_name"),
+                "plan_sha256": str(
+                    load_protocol.get("online_load_plan_sha256") or ""
+                ).lower(),
+                "approval_scope": load_protocol.get("approval_scope"),
+                "execution_started_at": load_protocol.get(
+                    "execution_started_at"
+                ),
+            },
+            {
+                "plan_name": load_plan_attachment.get("name"),
+                "plan_sha256": load_plan_attachment.get("sha256"),
+                "approval_scope": INSTITUTIONAL_LOAD_SCOPE,
+                "execution_started_at": "timezone-aware ISO-8601",
+            },
+            bool(load_plan_attachment)
+            and load_protocol.get("online_load_plan_name")
+            == load_plan_attachment.get("name")
+            and str(load_protocol.get("online_load_plan_sha256") or "").lower()
+            == load_plan_attachment.get("sha256")
+            and re.fullmatch(
+                r"[0-9a-f]{64}",
+                str(load_plan_attachment.get("sha256") or ""),
+            )
+            is not None
+            and load_protocol.get("approval_scope") == INSTITUTIONAL_LOAD_SCOPE
+            and load_execution_started_at is not None,
+            "load_attachment",
+        ),
+        _check(
+            "online_load_plan_validation",
+            {
+                "verified": load_plan_validation["verified"],
+                "summary": load_plan_validation["summary"],
+            },
+            "all immutable plan bindings and active approved window pass",
+            load_plan_validation["verified"],
             "load_attachment",
         ),
         _check(
@@ -705,6 +794,11 @@ def assess_deployment_evidence(
                 "requests": load_requests,
                 "error_rate": load_error_rate,
                 "p95_latency_ms": load_p95,
+                "online_load_plan_sha256": load_plan_attachment.get("sha256"),
+                "plan_validation": {
+                    "verified": load_plan_validation["verified"],
+                    "summary": load_plan_validation["summary"],
+                },
             },
             "drift_monitoring_verified": {
                 "verified": category_verified({"identity", "binding", "monitoring", "attachments", "monitoring_attachment", "approval"}),

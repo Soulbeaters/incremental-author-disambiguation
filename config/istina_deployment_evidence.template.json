@@ -41,6 +41,11 @@
       "sha256": "REPLACE_WITH_64_HEX_SHA256"
     },
     {
+      "role": "online_load_plan",
+      "name": "REPLACE_ONLINE_LOAD_PLAN_FILENAME",
+      "sha256": "REPLACE_WITH_64_HEX_SHA256"
+    },
+    {
       "role": "drift_monitor",
       "name": "REPLACE_DRIFT_MONITOR_FILENAME",
       "sha256": "REPLACE_WITH_64_HEX_SHA256"

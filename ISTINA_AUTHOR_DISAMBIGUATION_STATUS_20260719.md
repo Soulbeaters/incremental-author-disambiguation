@@ -37,7 +37,8 @@ artifact whose own `release_ready` value is true. No such artifact exists.
 | `evidence/istina_release_evidence_bundle_20260719.json` | SHA-256-bound composition of independently generated evidence |
 | `evidence/istina_production_gate_operational_20260719.json` | authoritative 23-check release decision |
 | `evaluation/istina_audit_retention.py` | stream-verifies retained per-worker audit chains and binds them to fsync shadow telemetry |
-| `evaluation/istina_deployment_evidence.py` | 53-check, content-level institutional shadow/load/monitor/audit validator |
+| `evaluation/istina_deployment_evidence.py` | 55-check, content-level institutional shadow/load-plan/load/monitor/audit validator |
+| `evaluation/istina_online_load_plan.py` | immutable institutional load-plan preflight and execution-binding validator |
 | `evaluation/istina_paired_shadow.py` | preflighted cluster-adjusted power, exact McNemar, paper-cluster randomization and bootstrap analysis |
 | `experiments/istina_online_read_load.py` | approval-gated, bounded-concurrency read-only online load generator |
 | `config/istina_provenance_manifest.template.json` | intentionally invalid institutional provenance template |
@@ -45,6 +46,7 @@ artifact whose own `release_ready` value is true. No such artifact exists.
 | `config/istina_drift_monitor_verification.template.json` | intentionally invalid deployed-monitor proof template |
 | `config/istina_audit_retention_verification.template.json` | intentionally invalid durable-audit proof template |
 | `config/istina_paired_shadow_plan.template.json` | intentionally invalid prospective comparison plan |
+| `config/istina_online_load_plan.template.json` | intentionally invalid institutional load approval plan |
 | `docs/ISTINA_INSTITUTIONAL_HANDOFF.md` | exact private inputs, fixed thresholds, and release commands |
 | `evidence/openalex_confirmation_default_current_20260719.json` | current-runtime public OpenAlex confirmation |
 | `evidence/openalex_confirmation_rescue_ablation_current_20260719.json` | current-runtime in-domain OpenAlex rescue ablation |
@@ -212,7 +214,12 @@ errors, zero writes, and 10.858-second p95. The artifact is machine-classified
 as `bounded_non_release_canary`: user canaries are capped at 20 requests and can
 never satisfy the institutional 1,000-request release check. The production
 runner now requires the distinct `institutional_load_window` approval scope
-before a threshold-passing result can be release-eligible.
+and an independently verified immutable load plan before a threshold-passing
+result can be release-eligible. The plan binds the dataset, exact code revision,
+service endpoint hash, domain-separated man-id hash, request count, concurrency,
+rate, timeout, change reference, approver role, and active window. Its exact
+file hash is retained in the load result and the final deployment gate parses
+the plan as a fifth attachment and repeats all checks.
 
 The offline no-write operational run replayed all 753 temporal test mentions
 (including rows without gold) for 18 iterations:
@@ -246,11 +253,11 @@ verification for the single-process sink. The audit-retention evidence
 generator now supports the documented multi-worker pattern by stream-verifying
 one retained chain per worker, matching each head and record total to retained
 fsync shadow telemetry, and emitting a path-free aggregate manifest root. The
-53-check deployment validator rejects a hand-written `chain_verified`
+55-check deployment validator rejects a hand-written `chain_verified`
 assertion without this machine manifest. No qualifying retained production
 chains exist yet, so this does not claim deployed audit retention.
 
-The final repository regression command reports 235 passed tests and one
+The final repository regression command reports 246 passed tests and one
 collection warning for a manual scenario class with a constructor. The ISTINA,
 provenance, audit-integrity, and production-control suites are included.
 
@@ -388,7 +395,7 @@ python experiments/istina_live_shadow.py --dataset <advisor-export.json> --split
 
 python experiments/istina_live_shadow.py --dataset <advisor-export.json> --split-strategy per-author-holdout --limit 38 --code-revision <frozen-40-hex-revision> --output evidence/istina_live_shadow_diagnostic_20260720.json
 
-python experiments/istina_operational_validation.py --dataset <advisor-export.json> --service-result <frozen-service.json> --live-shadow-evidence evidence/istina_live_shadow_smoke_20260719.json --split-strategy temporal --train-through-year 2023 --iterations 18 --code-revision <frozen-40-hex-revision> --performance-trial-id <trial-id> --tests-passed 231 --test-warnings 1 --output evidence/istina_operational_validation_trial1_20260720.json
+python experiments/istina_operational_validation.py --dataset <advisor-export.json> --service-result <frozen-service.json> --live-shadow-evidence evidence/istina_live_shadow_smoke_20260719.json --split-strategy temporal --train-through-year 2023 --iterations 18 --code-revision <frozen-40-hex-revision> --performance-trial-id <trial-id> --tests-passed 246 --test-warnings 1 --output evidence/istina_operational_validation_trial1_20260720.json
 
 python evaluation/istina_offline_performance_reproducibility.py --trial evidence/istina_operational_validation_trial1_20260720.json evidence/istina_operational_validation_trial2_20260720.json evidence/istina_operational_validation_trial3_20260720.json --expected-dataset <advisor-export.json> --expected-code-revision <frozen-40-hex-revision> --output evidence/istina_offline_performance_reproducibility_20260720.json
 

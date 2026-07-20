@@ -8,7 +8,6 @@ must supply an approval reference and an explicit acknowledgement flag.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import math
 import re
@@ -24,6 +23,13 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from evaluation.istina_deployment_evidence import DeploymentCriteria
+from evaluation.istina_online_load_plan import (
+    INSTITUTIONAL_LOAD_SCOPE,
+    assess_online_load_plan,
+    man_id_sha256,
+    sha256_file,
+    sha256_text,
+)
 from experiments.istina_export_temporal_evaluation import load_articles
 from integrations.istina_disambiguation_client import (
     DEFAULT_ISTINA_DISAMBIGUATION_URL,
@@ -32,17 +38,8 @@ from integrations.istina_disambiguation_client import (
 from integrations.istina_export_quality import deduplicate_exact_author_rows
 
 
-INSTITUTIONAL_LOAD_SCOPE = "institutional_load_window"
 USER_CANARY_SCOPE = "user_authorized_canary"
 MAX_USER_CANARY_REQUESTS = 20
-
-
-def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def percentile(values: Sequence[float], quantile: float) -> float | None:
@@ -122,6 +119,8 @@ def assess_load_evidence(
     load: Mapping[str, Any],
     *,
     approval_scope: str,
+    load_plan_verified: bool = False,
+    requests_outside_approved_window: int = 0,
     criteria: DeploymentCriteria | None = None,
 ) -> Dict[str, Any]:
     criteria = criteria or DeploymentCriteria()
@@ -142,7 +141,11 @@ def assess_load_evidence(
         and 0.0 <= float(latency_p95)
         <= criteria.max_online_load_p95_latency_ms
     )
-    institutional_approval = approval_scope == INSTITUTIONAL_LOAD_SCOPE
+    institutional_approval = bool(
+        approval_scope == INSTITUTIONAL_LOAD_SCOPE
+        and load_plan_verified
+        and requests_outside_approved_window == 0
+    )
     return {
         "verified": threshold_passed and institutional_approval,
         "threshold_passed": threshold_passed,
@@ -150,7 +153,11 @@ def assess_load_evidence(
         "evidence_classification": (
             "release_scale_online_load"
             if threshold_passed and institutional_approval
-            else "bounded_non_release_canary"
+            else (
+                "unverified_institutional_load"
+                if approval_scope == INSTITUTIONAL_LOAD_SCOPE
+                else "bounded_non_release_canary"
+            )
         ),
     }
 
@@ -158,6 +165,8 @@ def assess_load_evidence(
 def validate_load_approval_scope(
     request_count: int,
     approval_scope: str,
+    *,
+    load_plan_supplied: bool = False,
 ) -> None:
     if approval_scope not in {INSTITUTIONAL_LOAD_SCOPE, USER_CANARY_SCOPE}:
         raise ValueError("unknown online-load approval scope")
@@ -165,6 +174,17 @@ def validate_load_approval_scope(
         raise ValueError(
             f"user-authorized canary is capped at {MAX_USER_CANARY_REQUESTS} requests"
         )
+    if approval_scope == USER_CANARY_SCOPE and load_plan_supplied:
+        raise ValueError("user-authorized canary must not use an institutional load plan")
+    if approval_scope == INSTITUTIONAL_LOAD_SCOPE and not load_plan_supplied:
+        raise ValueError("institutional load requires --load-plan")
+
+
+def _load_json_object(path: Path) -> Dict[str, Any]:
+    document = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(document, Mapping):
+        raise ValueError(f"expected JSON object in {path}")
+    return dict(document)
 
 
 def main() -> None:
@@ -178,6 +198,11 @@ def main() -> None:
     parser.add_argument("--service-timeout", type=float, default=30.0)
     parser.add_argument("--code-revision", required=True)
     parser.add_argument("--approved-change-reference", required=True)
+    parser.add_argument(
+        "--load-plan",
+        type=Path,
+        help="Required immutable approval plan for institutional load only.",
+    )
     parser.add_argument(
         "--approval-scope",
         choices=[INSTITUTIONAL_LOAD_SCOPE, USER_CANARY_SCOPE],
@@ -199,11 +224,45 @@ def main() -> None:
         raise ValueError("concurrency must be within [1, 16]")
     if not 0.1 <= args.max_rps <= 20.0:
         raise ValueError("max-rps must be within [0.1, 20]")
+    if not 0.1 <= args.service_timeout <= 120.0:
+        raise ValueError("service-timeout must be within [0.1, 120]")
     if args.requests < 1:
         raise ValueError("requests must be positive")
-    validate_load_approval_scope(args.requests, args.approval_scope)
+    validate_load_approval_scope(
+        args.requests,
+        args.approval_scope,
+        load_plan_supplied=args.load_plan is not None,
+    )
     if re.fullmatch(r"[0-9a-fA-F]{40}", args.code_revision) is None:
         raise ValueError("code-revision must be a full 40-hex Git commit")
+
+    dataset_sha256 = sha256_file(args.dataset)
+    load_plan_sha256 = None
+    load_plan_validation: Dict[str, Any] | None = None
+    approved_window_end: datetime | None = None
+    if args.load_plan is not None:
+        load_plan_sha256 = sha256_file(args.load_plan)
+        load_plan_validation = assess_online_load_plan(
+            _load_json_object(args.load_plan),
+            expected_dataset_sha256=dataset_sha256,
+            expected_code_revision=args.code_revision,
+            expected_service_url_sha256=sha256_text(args.service_url),
+            expected_man_id_sha256=man_id_sha256(args.man_id),
+            expected_requests=args.requests,
+            expected_concurrency=args.concurrency,
+            expected_max_rps=args.max_rps,
+            expected_service_timeout_seconds=args.service_timeout,
+            expected_change_reference=args.approved_change_reference,
+            require_active_window=True,
+        )
+        if not load_plan_validation["verified"]:
+            failed = ", ".join(
+                item["name"] for item in load_plan_validation["failures"]
+            )
+            raise ValueError(f"online load plan validation failed: {failed}")
+        approved_window_end = datetime.fromisoformat(
+            load_plan_validation["approved_window"]["end"]
+        )
 
     raw_articles = load_articles(args.dataset)
     articles, duplicate_rows_removed = deduplicate_exact_author_rows(raw_articles)
@@ -212,13 +271,25 @@ def main() -> None:
         timeout=args.service_timeout,
     )
 
+    window_guard_failures = 0
+    window_guard_lock = threading.Lock()
+
     def request(article: Mapping[str, Any]) -> Any:
+        nonlocal window_guard_failures
+        if (
+            approved_window_end is not None
+            and datetime.now(timezone.utc) > approved_window_end
+        ):
+            with window_guard_lock:
+                window_guard_failures += 1
+            raise RuntimeError("approved online-load window ended before request start")
         authors = [
             client.from_exported_author(dict(author))
             for author in article.get("authors") or []
         ]
         return client.request_candidates(authors, args.man_id)
 
+    execution_started_at = datetime.now(timezone.utc)
     load = run_read_only_load(
         articles,
         request_count=args.requests,
@@ -230,6 +301,10 @@ def main() -> None:
     assessment = assess_load_evidence(
         load,
         approval_scope=args.approval_scope,
+        load_plan_verified=bool(
+            load_plan_validation and load_plan_validation["verified"]
+        ),
+        requests_outside_approved_window=window_guard_failures,
         criteria=criteria,
     )
     verified = assessment["verified"]
@@ -240,11 +315,10 @@ def main() -> None:
             "source_system": "istina",
             "mode": "read_only_candidate_lookup",
             "dataset_name": args.dataset.name,
-            "dataset_sha256": sha256_file(args.dataset),
+            "dataset_sha256": dataset_sha256,
             "code_revision": args.code_revision.lower(),
-            "service_url_sha256": hashlib.sha256(
-                args.service_url.encode("utf-8")
-            ).hexdigest(),
+            "service_url_sha256": sha256_text(args.service_url),
+            "man_id_sha256": man_id_sha256(args.man_id),
             "requests": args.requests,
             "concurrency": args.concurrency,
             "max_rps": args.max_rps,
@@ -252,12 +326,16 @@ def main() -> None:
             "exact_duplicate_author_rows_removed": duplicate_rows_removed,
             "approved_change_reference": args.approved_change_reference,
             "approval_scope": args.approval_scope,
+            "execution_started_at": execution_started_at.isoformat(),
+            "online_load_plan_name": args.load_plan.name if args.load_plan else None,
+            "online_load_plan_sha256": load_plan_sha256,
         },
         "stats": {
             "requests": load["requests"],
             "completed": load["completed"],
             "errors": load["errors"],
             "write_calls": 0,
+            "requests_outside_approved_window": window_guard_failures,
         },
         "metrics": {
             key: value for key, value in load.items()
@@ -270,6 +348,9 @@ def main() -> None:
             "explicit_operator_acknowledgement": True,
             "threshold_passed": assessment["threshold_passed"],
             "institutional_approval": assessment["institutional_approval"],
+            "load_plan_verified": bool(
+                load_plan_validation and load_plan_validation["verified"]
+            ),
             "evidence_classification": assessment[
                 "evidence_classification"
             ],
@@ -280,6 +361,12 @@ def main() -> None:
             },
         },
     }
+    if load_plan_validation is not None:
+        result["load_plan_validation"] = {
+            "verified": load_plan_validation["verified"],
+            "summary": load_plan_validation["summary"],
+            "approved_window": load_plan_validation["approved_window"],
+        }
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(
         json.dumps(result, ensure_ascii=False, indent=2),
@@ -309,5 +396,6 @@ __all__ = [
     "assess_load_evidence",
     "percentile",
     "run_read_only_load",
+    "sha256_file",
     "validate_load_approval_scope",
 ]

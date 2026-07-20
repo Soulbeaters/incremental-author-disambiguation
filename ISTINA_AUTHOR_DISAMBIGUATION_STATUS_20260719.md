@@ -61,7 +61,7 @@ artifact whose own `release_ready` value is true. No such artifact exists.
 | `paper/ISTINA_EMPIRICAL_EVIDENCE_20260719.md` | article-ready tables, claims, limitations, and source traceability |
 
 The current article package passes 74/74 integrity checks and has package ID
-`d78beeceff38c04cb9e2bd6d503ee285ab473a4a206d51c13b4eaf7cab834212`.
+`54e243f53620386a001541b445f5bb3f527f8060a6383668994492b02c123490`.
 Its independent release field remains false.
 
 Raw mention-level advisor records and the private adjudication queue are
@@ -232,8 +232,8 @@ The offline no-write operational run replayed all 753 temporal test mentions
 | Operational measure | Result |
 |---|---:|
 | Load operations | 13,554 |
-| Throughput | 104.39 mentions/s |
-| Local p95 | 42.24 ms |
+| Throughput | 512.54 mentions/s |
+| Local p95 | 6.67 ms |
 | Deterministic-hash mismatches | 0 |
 | Runtime safety/idempotency/redaction | passed |
 | Durable fsync audit hash chain / restart verification | passed (8 records) |
@@ -246,11 +246,16 @@ failed the fixed 50 ms threshold; it remains preserved in Git history rather
 than being silently discarded. The revised protocol freezes code revision and
 trial ID, retains all 18 iteration p95 values, and still judges the overall
 13,554-operation p95 against the unchanged 50 ms limit. Three sequential trials
-on commit `fb866c3` all passed at 46.18, 46.17, and 42.24 ms, totaling 40,662
-operations with zero deterministic-hash differences. The path-free aggregate
-requires every trial to pass; its median/max are 46.17/46.18 ms. Individual
-iteration maxima reached 52.94 ms, documenting the host jitter instead of
-hiding it. This restores the offline-load gate pass but is still not an online
+on commit `fb866c3` all passed at 46.18, 46.17, and 42.24 ms. Profiling then
+identified repeated Unicode decomposition and sorting of the same coauthor
+names as the dominant local hot path. A bounded 65,536-entry normalization
+cache preserves decisions while removing that duplicated work. On the frozen,
+source-clean commit `167b7f7`, three new sequential trials passed at 7.29,
+6.53, and 6.67 ms, totaling 40,662 operations with zero deterministic-hash
+differences. Every artifact records successful repository-HEAD and clean-source
+verification. The path-free aggregate requires every trial to pass; its
+median/max are 6.67/7.29 ms, and the largest individual-iteration p95 is 8.34
+ms. This restores a robust offline-load margin but is still not an online
 end-to-end load test and does not prove that the drift monitor is connected to
 production telemetry or paging. The audit test uses a temporary local file and
 proves redaction, append durability, hash-chain integrity, and restart

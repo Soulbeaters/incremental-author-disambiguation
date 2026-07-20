@@ -1,6 +1,6 @@
 # ISTINA author-disambiguation empirical evidence package
 
-Package ID: `d78beeceff38c04cb9e2bd6d503ee285ab473a4a206d51c13b4eaf7cab834212`.
+Package ID: `54e243f53620386a001541b445f5bb3f527f8060a6383668994492b02c123490`.
 
 This package is internally consistent and machine-traceable for article use. It is not a write-enabled production authorization.
 
@@ -78,8 +78,8 @@ Legacy-service result drift relative to the frozen comparison: observed=true, fr
 
 - Offline no-write operations: 13554
 - Offline load threshold verified: true
-- Offline load p95: 42.24 ms
-- Offline throughput: 104.39 mentions/s
+- Offline load p95: 6.67 ms
+- Offline throughput: 512.54 mentions/s
 - Deterministic mismatches: 0
 - Runtime safety / rollback / drift fault tests: passed / passed / passed
 - Real-service shadow: 5 mentions, 0 service errors, 0 authorized commands
@@ -88,14 +88,14 @@ Legacy-service result drift relative to the frozen comparison: observed=true, fr
 - Real-service diagnostic replication: 38 mentions across 14 papers, framework 27 correct versus legacy 27 correct, 0 service errors, 0 authorized commands
 - Diagnostic live paper-request p95: 18714.94 ms
 - Online read-only load canary: 4 requests at concurrency 2, 0 errors, p95 10857.66 ms, classification=bounded_non_release_canary
-- Offline performance repeatability: verified=true, 3 trials / 40662 operations, trial median/max p95 46.17/46.18 ms
+- Offline performance repeatability: verified=true, 3 trials / 40662 operations, trial median/max p95 6.67/7.29 ms
 
 ## Article-safe interpretation
 
 - The cleaned strict-temporal ISTINA sample has no observed wrong merge, but contains only 5 known-author cases and 0 automatic merges.
 - The cleaned 38-case diagnostic compares the independent framework at 27 correct with the legacy service at 24 correct. A fresh read-only live run keeps the framework at 27 correct while the current legacy service reaches 27 correct; neither paired comparison establishes a statistically significant advantage.
 - A five-mention real-service smoke demonstrates bounded no-write connectivity. A separate four-request, concurrency-two online load canary completes with zero errors and zero writes, but its user-authorized scope and sub-threshold volume make it non-release evidence.
-- Three sequential frozen-revision offline trials, totaling 40662 replay operations, all satisfy the unchanged 50 ms all-operation p95 limit; trial median/max p95 are 46.17/46.18 ms. Repeated operations are load evidence, not additional gold.
+- Three sequential frozen-revision offline trials, totaling 40662 replay operations, all satisfy the unchanged 50 ms all-operation p95 limit; trial median/max p95 are 6.67/7.29 ms. Repeated operations are load evidence, not additional gold.
 - A separate 38-mention, 14-paper real-service diagnostic reproduces the framework score at 27 correct, while the current legacy result is 27 correct rather than the frozen baseline. It has zero service errors and zero authorized commands; its overlapping per-author split and sub-threshold volume make it non-release evidence.
 - The current live legacy-service outcome differs from the frozen comparison by +3 correct cases and has a different paired table. The frozen and current results are therefore reported separately.
 - The rescue improves recall without reducing precision on the current OpenAlex confirmation, but lowers precision and increases wrong merges on both the 27,430-mention OpenAlex stress ablation and the complete 6,412-mention AMiner ablation. Universal superiority is therefore unsupported.
@@ -138,8 +138,8 @@ Result: **8/23 passed; `release_ready: false`.**
 | aminer_full_current | `aminer_kdd18_test100_default_current_20260719.json` | `f8ef9434a15392b58086cbcb2bd19b339e237f626c3087edabeff0459b951246` |
 | aminer_full_rescue_current | `aminer_kdd18_test100_rescue_current_20260719.json` | `c1c8be7ee0c6cb15a27a13fb0ec0b15c1f1252246cf2b4b0ad9912eff145502d` |
 | aminer_rescue_current | `aminer_kdd18_test100_first10_rescue_current_20260719.json` | `6ca510c9d663d7ba5b23de75098e797bc441e621ba0215f5bb7688462c92f7e7` |
-| bundle | `istina_release_evidence_bundle_20260719.json` | `8bc5dc2786319c81292423e3f46fc75f3b9eb1cfc51fec63266c555d915f9acf` |
-| gate | `istina_production_gate_operational_20260719.json` | `ef79f8f47cac8d8109aa846a0458058790cf3f218347baa963f7dc13b5364b27` |
+| bundle | `istina_release_evidence_bundle_20260719.json` | `a037edcb3c970bdad2f048053785cf8cbe926254f9a705492b844407ce4a9902` |
+| gate | `istina_production_gate_operational_20260719.json` | `d6821bcd5e88b9f7d373727063acbda69d819b1f3c088d76aee701eedd3a9783` |
 | gold | `istina_gold_readiness_20260719.json` | `e337fbe9a9f8428353851d3b0626a5bc2ff3163856dca866db66c96972eea4ed` |
 | holdout | `istina_holdout_runtime_replay_deduplicated_20260719.json` | `5006f00d7f8be4cb9ae5502bce9692b355a077a14a1511ee7cc9f41c624ad69d` |
 | live | `istina_live_shadow_smoke_20260719.json` | `f3eb98ed8a0fbfdf5a199bd41a256ddc208cdfa8ff0965112eb59491666d2cf3` |
@@ -149,7 +149,7 @@ Result: **8/23 passed; `release_ready: false`.**
 | openalex_large_default | `openalex_10000works_default_current_20260719.json` | `32ee0aab2ff41a85fba4069e9bb1479035ba366690d1e4d93fad6b20eb17dcc3` |
 | openalex_large_rescue | `openalex_10000works_rescue_current_20260719.json` | `456b0ada4e05851597af19d028bde18b3af5dbeda912ce53c880a298f444d309` |
 | openalex_rescue | `openalex_confirmation_rescue_ablation_current_20260719.json` | `12aeb53b945a4ad38d47850873b91b3c7aa7feda4a54c9dafe682427f41fe825` |
-| operational | `istina_operational_validation_20260719.json` | `e9df6479ce0919ba4a4ddc10fed44df860685ac9692e26201089cef23bee0936` |
-| performance_reproducibility | `istina_offline_performance_reproducibility_20260720.json` | `9e66f661e0df37aaef0fb6b724b72a2e3053db5d7a15f59c00ebb044f1badef8` |
+| operational | `istina_operational_validation_20260719.json` | `cbb507d7ad292bdae7ab4a067e4933a3e59466cf1ecf21a5da89bf435f632443` |
+| performance_reproducibility | `istina_offline_performance_reproducibility_20260720.json` | `04393426e0dbff9d41664cabb2ed4c60f2f9cda1885c23010de0541c48fe85ab` |
 | public_validation | `runtime_validation_20260719.json` | `49ada917aac3084921df958e792593107e4f09c6f530c0c2c90d230659be01d2` |
 | temporal | `istina_temporal_runtime_replay_20260719.json` | `7b7f0c305dc20634c598eb59302f6bf82663d19d293ab3e287bfc780e4485557` |

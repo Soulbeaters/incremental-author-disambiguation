@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-20T09:30:06.577142+00:00",
-  "package_id": "d78beeceff38c04cb9e2bd6d503ee285ab473a4a206d51c13b4eaf7cab834212",
+  "generated_at": "2026-07-20T10:07:31.661165+00:00",
+  "package_id": "54e243f53620386a001541b445f5bb3f527f8060a6383668994492b02c123490",
   "integrity": {
     "verified": true,
     "summary": {
@@ -12,8 +12,8 @@
     "checks": [
       {
         "name": "bundle_operational_sha256",
-        "observed": "e9df6479ce0919ba4a4ddc10fed44df860685ac9692e26201089cef23bee0936",
-        "expected": "e9df6479ce0919ba4a4ddc10fed44df860685ac9692e26201089cef23bee0936",
+        "observed": "cbb507d7ad292bdae7ab4a067e4933a3e59466cf1ecf21a5da89bf435f632443",
+        "expected": "cbb507d7ad292bdae7ab4a067e4933a3e59466cf1ecf21a5da89bf435f632443",
         "passed": true
       },
       {
@@ -273,8 +273,8 @@
       {
         "name": "offline_performance_reproducibility_code_binding",
         "observed": {
-          "aggregate": "fb866c3fb4cefb4a4b819683d245e8ce663f5d2d",
-          "operational": "fb866c3fb4cefb4a4b819683d245e8ce663f5d2d"
+          "aggregate": "167b7f7f28f4756c3ff3644a6d355aedbcb38c6f",
+          "operational": "167b7f7f28f4756c3ff3644a6d355aedbcb38c6f"
         },
         "expected": "identical full 40-hex frozen revisions",
         "passed": true
@@ -323,14 +323,14 @@
         "name": "offline_performance_reproducibility_metrics",
         "observed": {
           "trial_p95_ms": [
-            46.179500001017004,
-            46.167499996954575,
-            42.24450000037905
+            7.294899987755343,
+            6.52859998808708,
+            6.6685000056168064
           ],
-          "trial_p95_minimum_ms": 42.24450000037905,
-          "trial_p95_median_ms": 46.167499996954575,
-          "trial_p95_maximum_ms": 46.179500001017004,
-          "trial_p95_range_ms": 3.935000000637956
+          "trial_p95_minimum_ms": 6.52859998808708,
+          "trial_p95_median_ms": 6.6685000056168064,
+          "trial_p95_maximum_ms": 7.294899987755343,
+          "trial_p95_range_ms": 0.7662999996682629
         },
         "expected": "metrics recomputed from the exact ordered trial p95 values and maximum <=50ms",
         "passed": true
@@ -783,7 +783,7 @@
     },
     "operational": {
       "name": "istina_operational_validation_20260719.json",
-      "sha256": "e9df6479ce0919ba4a4ddc10fed44df860685ac9692e26201089cef23bee0936"
+      "sha256": "cbb507d7ad292bdae7ab4a067e4933a3e59466cf1ecf21a5da89bf435f632443"
     },
     "gold": {
       "name": "istina_gold_readiness_20260719.json",
@@ -803,15 +803,15 @@
     },
     "performance_reproducibility": {
       "name": "istina_offline_performance_reproducibility_20260720.json",
-      "sha256": "9e66f661e0df37aaef0fb6b724b72a2e3053db5d7a15f59c00ebb044f1badef8"
+      "sha256": "04393426e0dbff9d41664cabb2ed4c60f2f9cda1885c23010de0541c48fe85ab"
     },
     "bundle": {
       "name": "istina_release_evidence_bundle_20260719.json",
-      "sha256": "8bc5dc2786319c81292423e3f46fc75f3b9eb1cfc51fec63266c555d915f9acf"
+      "sha256": "a037edcb3c970bdad2f048053785cf8cbe926254f9a705492b844407ce4a9902"
     },
     "gate": {
       "name": "istina_production_gate_operational_20260719.json",
-      "sha256": "ef79f8f47cac8d8109aa846a0458058790cf3f218347baa963f7dc13b5364b27"
+      "sha256": "d6821bcd5e88b9f7d373727063acbda69d819b1f3c088d76aee701eedd3a9783"
     },
     "openalex_default": {
       "name": "openalex_confirmation_default_current_20260719.json",
@@ -1154,8 +1154,8 @@
   "operational_summary": {
     "offline_load_verified": true,
     "offline_load_operations": 13554,
-    "offline_load_p95_ms": 42.24450000037905,
-    "offline_throughput_mentions_per_second": 104.3861425136138,
+    "offline_load_p95_ms": 6.6685000056168064,
+    "offline_throughput_mentions_per_second": 512.5441919995067,
     "deterministic_hash_mismatches": 0,
     "runtime_safety_contract_verified": true,
     "rollback_verified": true,
@@ -1183,9 +1183,9 @@
     "offline_repeatability_verified": true,
     "offline_repeatability_trials": 3,
     "offline_repeatability_combined_operations": 40662,
-    "offline_repeatability_p95_median_ms": 46.167499996954575,
-    "offline_repeatability_p95_maximum_ms": 46.179500001017004,
-    "offline_repeatability_p95_range_ms": 3.935000000637956
+    "offline_repeatability_p95_median_ms": 6.6685000056168064,
+    "offline_repeatability_p95_maximum_ms": 7.294899987755343,
+    "offline_repeatability_p95_range_ms": 0.7662999996682629
   },
   "supported_claims": [
     {
@@ -1214,7 +1214,7 @@
     },
     {
       "id": "offline_performance_repeatability",
-      "statement": "Three sequential frozen-revision offline trials, totaling 40662 replay operations, all satisfy the unchanged 50 ms all-operation p95 limit; trial median/max p95 are 46.17/46.18 ms. Repeated operations are load evidence, not additional gold.",
+      "statement": "Three sequential frozen-revision offline trials, totaling 40662 replay operations, all satisfy the unchanged 50 ms all-operation p95 limit; trial median/max p95 are 6.67/7.29 ms. Repeated operations are load evidence, not additional gold.",
       "sources": [
         "performance_reproducibility"
       ]

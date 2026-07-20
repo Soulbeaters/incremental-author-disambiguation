@@ -16,6 +16,7 @@ The commands below write aggregate reports only. They do not write names, person
   --frozen-hybrid-threshold 0.5 `
   --frozen-native-graph-policy unknown_or_new `
   --frozen-native-graph-threshold 0.5 `
+  --ablate-project2-evidence affiliation `
   --output '<aggregate-report.json>'
 ```
 

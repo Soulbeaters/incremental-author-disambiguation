@@ -23,6 +23,7 @@ class PaperGraphPrediction:
 @dataclass(frozen=True)
 class HistoricalCoauthorGraph:
     edge_counts: Mapping[tuple[str, str], int]
+    edge_years: Mapping[tuple[str, str], tuple[int, ...]]
     profile_sizes: Mapping[str, int]
 
     @classmethod
@@ -31,6 +32,7 @@ class HistoricalCoauthorGraph:
         mentions: Iterable[Mapping[str, Any]],
     ) -> "HistoricalCoauthorGraph":
         authors_by_paper: dict[str, set[str]] = defaultdict(set)
+        year_by_paper: dict[str, int] = {}
         profile_sizes: Counter[str] = Counter()
         for mention in mentions:
             author_id = str(
@@ -48,20 +50,54 @@ class HistoricalCoauthorGraph:
             profile_sizes[author_id] += 1
             if paper_id:
                 authors_by_paper[paper_id].add(author_id)
+                try:
+                    year = int(mention.get("year"))
+                except (TypeError, ValueError):
+                    year = 0
+                if year:
+                    year_by_paper[paper_id] = year
 
         edges: Counter[tuple[str, str]] = Counter()
-        for author_ids in authors_by_paper.values():
+        edge_years: dict[tuple[str, str], list[int]] = defaultdict(list)
+        for paper_id, author_ids in authors_by_paper.items():
             ordered = sorted(author_ids)
             for left_index, left in enumerate(ordered):
                 for right in ordered[left_index + 1:]:
-                    edges[(left, right)] += 1
-        return cls(dict(edges), dict(profile_sizes))
+                    edge = (left, right)
+                    edges[edge] += 1
+                    if paper_id in year_by_paper:
+                        edge_years[edge].append(year_by_paper[paper_id])
+        return cls(
+            dict(edges),
+            {edge: tuple(sorted(years)) for edge, years in edge_years.items()},
+            dict(profile_sizes),
+        )
 
-    def support(self, left: str, right: str) -> float:
+    def support(
+        self,
+        left: str,
+        right: str,
+        query_year: int | None = None,
+        half_life_years: float | None = None,
+    ) -> float:
         if not left or not right or left == right:
             return 0.0
-        count = int(self.edge_counts.get(tuple(sorted((left, right))), 0))
-        return math.log1p(count) if count else 0.0
+        edge = tuple(sorted((left, right)))
+        count = int(self.edge_counts.get(edge, 0))
+        if not count:
+            return 0.0
+        if query_year is None or half_life_years is None:
+            return math.log1p(count)
+        if half_life_years <= 0.0:
+            raise ValueError("half_life_years must be positive")
+        years = self.edge_years.get(edge, ())
+        if not years:
+            return math.log1p(count)
+        weight = sum(
+            0.5 ** (max(0, query_year - year) / half_life_years)
+            for year in years
+        )
+        return math.log1p(weight)
 
 
 def _candidate_ids(
@@ -89,6 +125,7 @@ def predict_paper_graph(
     graph: HistoricalCoauthorGraph,
     beam_size: int = 256,
     min_name_similarity: float = 0.0,
+    time_decay_half_life_years: float | None = None,
 ) -> dict[int, PaperGraphPrediction]:
     """Return deterministic graph proposals indexed by paper-local position.
 
@@ -97,6 +134,15 @@ def predict_paper_graph(
     assignment constraint.
     """
 
+    years = []
+    for record in records:
+        try:
+            year = int(record.get("year"))
+        except (TypeError, ValueError):
+            year = 0
+        if year:
+            years.append(year)
+    query_year = max(years) if years else None
     fixed = {
         position: str(record.get("author_id") or "")
         for position, record in enumerate(records)
@@ -104,7 +150,7 @@ def predict_paper_graph(
     }
     fixed_ids = frozenset(fixed.values())
     fixed_score = sum(
-        graph.support(left, right)
+        graph.support(left, right, query_year, time_decay_half_life_years)
         for left_index, left in enumerate(sorted(fixed_ids))
         for right in sorted(fixed_ids)[left_index + 1:]
     )
@@ -131,7 +177,12 @@ def predict_paper_graph(
                     int(graph.profile_sizes.get(author_id, 0))
                 )
                 increment += sum(
-                    graph.support(author_id, selected)
+                    graph.support(
+                        author_id,
+                        selected,
+                        query_year,
+                        time_decay_half_life_years,
+                    )
                     for selected in assignment.values()
                 )
                 updated = dict(assignment)
@@ -158,7 +209,12 @@ def predict_paper_graph(
         if position in fixed:
             continue
         support = sum(
-            graph.support(author_id, selected)
+            graph.support(
+                author_id,
+                selected,
+                query_year,
+                time_decay_half_life_years,
+            )
             for other_position, selected in assignment.items()
             if other_position != position
         )
@@ -170,6 +226,7 @@ def predict_graph_by_paper(
     history_mentions: Iterable[Mapping[str, Any]],
     records: Sequence[Mapping[str, Any]],
     min_name_similarity: float = 0.0,
+    time_decay_half_life_years: float | None = None,
 ) -> dict[int, PaperGraphPrediction]:
     """Return graph proposals indexed by global record position."""
 
@@ -184,6 +241,7 @@ def predict_graph_by_paper(
             paper_records,
             graph,
             min_name_similarity=min_name_similarity,
+            time_decay_half_life_years=time_decay_half_life_years,
         ).items():
             predictions[positions[local_position]] = prediction
     return predictions

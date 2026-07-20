@@ -80,6 +80,7 @@ docs/*
 docs/research/*
 !docs/research/core_algorithm_result_20260720.md
 !docs/research/reproduce_core_comparison.md
+!docs/research/ablation_result_20260720.md
 *.pdf
 *.tex
 *.aux

@@ -23,6 +23,7 @@ sys.path.insert(0, str(PROJECT2_ROOT))
 from experiments.istina_runtime_replay import evaluate, exact_mcnemar_two_sided  # noqa: E402
 from disambiguation_engine.paper_graph_rescue import predict_graph_by_paper  # noqa: E402
 from disambiguation_engine.structured_name_repair import compatible_structured_author_ids  # noqa: E402
+from evaluation.cluster_metrics import evaluate_all_metrics  # noqa: E402
 from integrations.istina_pipeline import IstinaDisambiguationPipeline, IstinaPipelineConfig  # noqa: E402
 from integrations.istina_export_quality import deduplicate_exact_author_rows  # noqa: E402
 
@@ -655,12 +656,14 @@ def native_graph_records(
     test_mentions: list[Mapping[str, Any]],
     test_positions: list[int],
     repair_profiles: Any,
+    time_decay_half_life_years: float | None = None,
 ) -> list[dict[str, Any]]:
     """Adapt native Project Two graph proposals to the paired evaluator."""
 
     graph_records = []
     for record, mention in zip(project2_records, test_mentions):
         enriched = dict(record)
+        enriched["year"] = mention.get("year")
         enriched["graph_candidate_ids"] = compatible_structured_author_ids(
             mention, repair_profiles
         )
@@ -668,6 +671,7 @@ def native_graph_records(
     predictions = predict_graph_by_paper(
         history_mentions,
         graph_records,
+        time_decay_half_life_years=time_decay_half_life_years,
     )
     output: list[dict[str, Any]] = []
     for local_position, (source_position, record) in enumerate(
@@ -689,6 +693,94 @@ def native_graph_records(
             "candidate_count": len(candidate_ids),
             "candidate_covered": truth in candidate_ids,
         })
+    return output
+
+
+def apply_fallback_predictions(
+    fallback_records: list[Mapping[str, Any]],
+    project2_records: list[Mapping[str, Any]],
+    test_positions: list[int],
+    policy: str,
+    threshold: float,
+) -> list[str | None]:
+    """Apply one frozen fallback rule and return aligned identity proposals."""
+
+    fallback_decisions = (
+        {"unknown"} if policy.startswith("unknown_only") else {"unknown", "new"}
+    )
+    require_unique = policy.endswith("unique_proxy")
+    project2_by_position = dict(zip(test_positions, project2_records))
+    predictions: list[str | None] = []
+    for fallback in fallback_records:
+        record = project2_by_position[int(fallback["source_position"])]
+        prediction = (
+            str(record.get("author_id") or "")
+            if record.get("decision") == "merge"
+            else ""
+        )
+        if (
+            not prediction
+            and str(record.get("decision") or "") in fallback_decisions
+            and fallback.get("prediction")
+            and (not require_unique or int(fallback.get("candidate_count") or 0) == 1)
+            and float(fallback.get("graph_support") or 0.0) >= threshold
+        ):
+            prediction = str(fallback["prediction"])
+        predictions.append(prediction or None)
+    return predictions
+
+
+def frozen_history_cluster_metrics(
+    project2_records: list[Mapping[str, Any]],
+    predictions: list[str | None],
+) -> dict[str, Any]:
+    """Evaluate the frozen-history online assignment as test-set clusters.
+
+    An unresolved mention becomes a unique singleton.  Identifiers are used
+    only as in-memory cluster keys and are removed from the aggregate report.
+    """
+
+    if len(project2_records) != len(predictions):
+        raise AssertionError("cluster predictions are not aligned with test records")
+    gold_clusters: dict[str, list[str]] = defaultdict(list)
+    predicted_clusters: dict[str, list[str]] = defaultdict(list)
+    for position, (record, prediction) in enumerate(
+        zip(project2_records, predictions)
+    ):
+        mention_id = f"mention-{position}"
+        gold_clusters[str(record.get("gold_author_id") or "missing")].append(
+            mention_id
+        )
+        predicted_key = str(prediction) if prediction else f"singleton-{position}"
+        predicted_clusters[predicted_key].append(mention_id)
+
+    metrics = evaluate_all_metrics(dict(gold_clusters), dict(predicted_clusters))
+    conflicts = dict(metrics["orcid_conflicts"])
+    conflicts.pop("conflicts_detail", None)
+    return {
+        "mentions": len(project2_records),
+        "gold_clusters": len(gold_clusters),
+        "predicted_clusters": len(predicted_clusters),
+        "unresolved_singletons": sum(prediction is None for prediction in predictions),
+        "b3": metrics["b3"],
+        "pairwise": metrics["pairwise"],
+        "identity_conflicts": conflicts,
+    }
+
+
+def ablate_project2_evidence(
+    mentions: list[Mapping[str, Any]],
+    ablation: str,
+) -> list[dict[str, Any]]:
+    """Return copies with one prespecified contextual evidence family removed."""
+
+    output = [dict(mention) for mention in mentions]
+    if ablation in {"coauthors", "both"}:
+        for mention in output:
+            mention["coauthors"] = []
+    if ablation in {"affiliation", "both"}:
+        for mention in output:
+            mention["affiliation"] = ""
     return output
 
 
@@ -729,6 +821,12 @@ def main() -> int:
         ],
     )
     parser.add_argument("--frozen-native-graph-threshold", type=float)
+    parser.add_argument("--native-graph-half-life-years", type=float)
+    parser.add_argument(
+        "--ablate-project2-evidence",
+        choices=["none", "coauthors", "affiliation", "both"],
+        default="none",
+    )
     parser.add_argument(
         "--enable-calibrated-candidate-rescue",
         action="store_true",
@@ -776,6 +874,8 @@ def main() -> int:
         to_project2_mention(mentions[position], position, position + 1, coauthors)
         for position in test_positions
     ]
+    history = ablate_project2_evidence(history, args.ablate_project2_evidence)
+    test = ablate_project2_evidence(test, args.ablate_project2_evidence)
     pipeline = IstinaDisambiguationPipeline.from_history_mentions(
         history,
         config=project2_config(
@@ -791,14 +891,16 @@ def main() -> int:
         test_positions,
         paired_reference_name="istina_hypergraph_proxy",
     )
-    native_sweep = evaluate_hybrid_sweep(
-        native_graph_records(
-            history,
-            project2["records"],
-            test,
-            test_positions,
+    native_records = native_graph_records(
+        history,
+        project2["records"],
+        test,
+        test_positions,
             pipeline.history_state.repair_profiles,
-        ),
+            args.native_graph_half_life_years,
+    )
+    native_sweep = evaluate_hybrid_sweep(
+        native_records,
         project2["records"],
         test_positions,
         paired_reference_records=proxy_records,
@@ -903,6 +1005,51 @@ def main() -> int:
             ),
         }
 
+    base_predictions = [
+        str(record.get("author_id") or "") or None
+        if record.get("decision") == "merge"
+        else None
+        for record in project2["records"]
+    ]
+    proxy_predictions = [
+        str(record.get("prediction") or "") or None
+        for record in proxy_records
+    ]
+    cluster_report: dict[str, Any] = {
+        "protocol": (
+            "Frozen-history online assignment on the test partition; every "
+            "unresolved mention is a separate singleton."
+        ),
+        "istina_hypergraph_proxy": frozen_history_cluster_metrics(
+            project2["records"], proxy_predictions
+        ),
+        "project2_core": frozen_history_cluster_metrics(
+            project2["records"], base_predictions
+        ),
+    }
+    if args.frozen_hybrid_policy is not None:
+        cluster_report["frozen_hybrid"] = frozen_history_cluster_metrics(
+            project2["records"],
+            apply_fallback_predictions(
+                proxy_records,
+                project2["records"],
+                test_positions,
+                args.frozen_hybrid_policy,
+                args.frozen_hybrid_threshold,
+            ),
+        )
+    if args.frozen_native_graph_policy is not None:
+        cluster_report["frozen_project2_native_graph"] = frozen_history_cluster_metrics(
+            project2["records"],
+            apply_fallback_predictions(
+                native_records,
+                project2["records"],
+                test_positions,
+                args.frozen_native_graph_policy,
+                args.frozen_native_graph_threshold,
+            ),
+        )
+
     report = {
         "protocol": {
             "dataset_sha256": sha256_file(args.dataset),
@@ -920,6 +1067,8 @@ def main() -> int:
             "contains_mention_level_data": False,
             "calibrated_candidate_rescue": args.enable_calibrated_candidate_rescue,
             "calibrated_candidate_threshold": args.calibrated_candidate_threshold,
+            "native_graph_half_life_years": args.native_graph_half_life_years,
+            "project2_evidence_ablation": args.ablate_project2_evidence,
             "adapter_summary": adapter_summary,
         },
         "istina_hypergraph_proxy": proxy,
@@ -927,6 +1076,7 @@ def main() -> int:
         "project2_core_diagnostics": p2_diagnostic,
         "paired_known": paired_known(proxy_records, project2["records"], test_positions),
         "confidence_intervals_95": confidence_intervals,
+        "clustering": cluster_report,
         **hybrid_report,
         **native_graph_report,
         "limitations": [

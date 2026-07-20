@@ -21,6 +21,12 @@ The test contains 11,820 mentions: 1,579 identities seen in history and 10,241 i
 | Project Two base | 81.44% | 99.92% | 0.46% |
 | Project Two calibrated + native paper graph | **91.45%** | **99.93%** | **0.52%** |
 
+The prespecified context ablation found that raw affiliation strings did not
+transfer safely.  The frozen no-affiliation profile retained 91.32% known
+recall and 99.93% known-prediction precision while reducing unseen-author
+false-link to **0.38%**.  This is the recommended cross-domain safety profile;
+affiliation may be reintroduced only after institution entity normalization.
+
 The native graph recovers 158 additional correct known-author links over the Project Two base while adding six unseen-author false links. The paired known-author improvement over the base is significant by exact McNemar test (`p = 5.47e-48`). The 95% Wilson intervals are 89.97%–92.73% for known recall and 0.40%–0.68% for unseen-author false-link rate.
 
 This is a safer precision/recall trade-off, not an across-the-board win over the incumbent proxy. The proxy retains higher known-author recall; Project Two has much lower unseen-author false-link and higher prediction precision.
@@ -34,3 +40,15 @@ After exact de-duplication, missing-label removal, structured-field validation a
 - Accepting a zero-support unique candidate: rejected because validation unseen-author false-link rose to 2.33%.
 - Running graph search over the unfiltered local top-k: rejected because noisy candidates overwhelmed graph evidence.
 - GNN: deferred until the non-neural baseline and independent ISTINA labels are sufficient.
+
+## Frozen-history clustering
+
+On the same 2023+ partition, the native graph raises B³ F1 from 0.8420 to
+0.8506 and pairwise F1 from 0.3574 to 0.4529.  The no-affiliation safety
+profile obtains B³ F1 0.8507, pairwise F1 0.4528 and a 2.86% identity-conflict
+cluster rate, compared with 13.92% for the ISTINA proxy.  Unresolved mentions
+are singletons; these are online frozen-history clustering metrics, not a
+claim that unseen identities are dynamically clustered.
+
+Five- and ten-year coauthor-edge half-lives were neutral on validation, so
+time decay is not enabled in the frozen method.

@@ -76,6 +76,10 @@ docs/*
 !docs/ISTINA_PRODUCTION_RUNBOOK.md
 !docs/ISTINA_INSTITUTIONAL_HANDOFF.md
 !docs/ISTINA_RESEARCH_SCOPE.md
+!docs/research/
+docs/research/*
+!docs/research/core_algorithm_result_20260720.md
+!docs/research/reproduce_core_comparison.md
 *.pdf
 *.tex
 *.aux

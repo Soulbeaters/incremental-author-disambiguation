@@ -3,7 +3,7 @@ import json
 import os
 import sys
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -207,19 +207,58 @@ class TestIstinaDisambiguationClient(unittest.TestCase):
         self.assertFalse(session.trust_env)
         self.assertEqual(result["result_id"], ["0"])
         session.post.assert_called_once()
+        session.close.assert_called_once_with()
 
     def test_environment_proxy_can_be_explicitly_enabled(self):
         with patch(
             "integrations.istina_disambiguation_client.requests.Session"
         ) as session_factory:
             session = session_factory.return_value
+            session.post.return_value = FakeResponse({
+                "authors": [[]],
+                "result_id": ["0"],
+            })
 
-            IstinaDisambiguationClient(
+            client = IstinaDisambiguationClient(
                 "http://example.invalid/",
                 trust_env=True,
             )
+            client.request_candidates(
+                [IstinaServiceAuthor("Wu", "Junde", "x")],
+                man_id=4705445,
+            )
 
         self.assertTrue(session.trust_env)
+        session.close.assert_called_once_with()
+
+    def test_default_transport_uses_one_closed_session_per_request(self):
+        responses = [
+            FakeResponse({"authors": [[]], "result_id": ["1"]}),
+            FakeResponse({"authors": [[]], "result_id": ["2"]}),
+        ]
+        with patch(
+            "integrations.istina_disambiguation_client.requests.Session"
+        ) as session_factory:
+            sessions = [MagicMock(), MagicMock()]
+            session_factory.side_effect = sessions
+            for session, response in zip(sessions, responses):
+                session.post.return_value = response
+
+            client = IstinaDisambiguationClient("http://example.invalid/")
+            first = client.request_candidates(
+                [IstinaServiceAuthor("Wu", "Junde", "x")],
+                man_id=4705445,
+            )
+            second = client.request_candidates(
+                [IstinaServiceAuthor("Wu", "Junde", "x")],
+                man_id=4705445,
+            )
+
+        self.assertEqual(first["result_id"], ["1"])
+        self.assertEqual(second["result_id"], ["2"])
+        self.assertIsNot(sessions[0], sessions[1])
+        for session in sessions:
+            session.close.assert_called_once_with()
 
     def test_conservative_decision_accepts_unique_exact_candidate_with_service_agreement(self):
         response = {

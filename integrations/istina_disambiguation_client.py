@@ -103,16 +103,24 @@ class IstinaDisambiguationClient:
     ) -> None:
         self.service_url = service_url
         self.timeout = timeout
-        self._session: Optional[requests.Session] = None
-        if post_func is not None:
-            self._post = post_func
-        else:
-            # The advisor service is reached directly by IP. Inheriting a
-            # workstation HTTP_PROXY can turn a healthy direct response into
-            # a proxy-generated 503, so proxy use must be an explicit opt-in.
-            self._session = requests.Session()
-            self._session.trust_env = trust_env
-            self._post = self._session.post
+        self._post = post_func
+        self._trust_env = trust_env
+
+    def _request_post(self, **kwargs: Any) -> Any:
+        if self._post is not None:
+            return self._post(**kwargs)
+
+        # The advisor service is reached directly by IP. Inheriting a
+        # workstation HTTP_PROXY can turn a healthy direct response into a
+        # proxy-generated 503, so proxy use must be an explicit opt-in. Use a
+        # session per request because the online load runner calls one client
+        # from multiple threads and requests.Session is mutable shared state.
+        session = requests.Session()
+        session.trust_env = self._trust_env
+        try:
+            return session.post(**kwargs)
+        finally:
+            session.close()
 
     @staticmethod
     def from_exported_author(
@@ -152,8 +160,8 @@ class IstinaDisambiguationClient:
             "authors": [author.as_payload() for author in authors],
             "man_id": man_id,
         }
-        response = self._post(
-            self.service_url,
+        response = self._request_post(
+            url=self.service_url,
             headers={"Content-Type": "application/json"},
             data=json.dumps(payload),
             timeout=self.timeout,

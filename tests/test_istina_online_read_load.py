@@ -1,6 +1,13 @@
 import unittest
 
-from experiments.istina_online_read_load import percentile, run_read_only_load
+from experiments.istina_online_read_load import (
+    INSTITUTIONAL_LOAD_SCOPE,
+    USER_CANARY_SCOPE,
+    assess_load_evidence,
+    percentile,
+    run_read_only_load,
+    validate_load_approval_scope,
+)
 
 
 class IstinaOnlineReadLoadTests(unittest.TestCase):
@@ -62,6 +69,70 @@ class IstinaOnlineReadLoadTests(unittest.TestCase):
     def test_percentile_uses_nearest_rank(self):
         self.assertEqual(percentile([4.0, 1.0, 3.0, 2.0], 0.50), 2.0)
         self.assertEqual(percentile([4.0, 1.0, 3.0, 2.0], 0.95), 4.0)
+
+    def test_user_canary_can_never_be_release_verified(self):
+        load = {
+            "requests": 1000,
+            "error_rate": 0.0,
+            "latency_ms_p95": 100.0,
+        }
+
+        result = assess_load_evidence(
+            load,
+            approval_scope=USER_CANARY_SCOPE,
+        )
+
+        self.assertTrue(result["threshold_passed"])
+        self.assertFalse(result["institutional_approval"])
+        self.assertFalse(result["verified"])
+        self.assertEqual(
+            result["evidence_classification"],
+            "bounded_non_release_canary",
+        )
+
+    def test_approved_institutional_load_can_verify_thresholds(self):
+        load = {
+            "requests": 1000,
+            "error_rate": 0.0,
+            "latency_ms_p95": 100.0,
+        }
+
+        result = assess_load_evidence(
+            load,
+            approval_scope=INSTITUTIONAL_LOAD_SCOPE,
+        )
+
+        self.assertTrue(result["verified"])
+        self.assertEqual(
+            result["evidence_classification"],
+            "release_scale_online_load",
+        )
+
+    def test_missing_or_nonfinite_metrics_fail_closed(self):
+        for load in (
+            {"requests": 1000, "latency_ms_p95": 100.0},
+            {
+                "requests": 1000,
+                "error_rate": float("nan"),
+                "latency_ms_p95": 100.0,
+            },
+            {
+                "requests": 1000,
+                "error_rate": 0.0,
+                "latency_ms_p95": float("inf"),
+            },
+        ):
+            result = assess_load_evidence(
+                load,
+                approval_scope=INSTITUTIONAL_LOAD_SCOPE,
+            )
+            self.assertFalse(result["verified"])
+            self.assertFalse(result["threshold_passed"])
+
+    def test_user_canary_request_cap_is_enforced(self):
+        validate_load_approval_scope(20, USER_CANARY_SCOPE)
+        with self.assertRaisesRegex(ValueError, "capped at 20"):
+            validate_load_approval_scope(21, USER_CANARY_SCOPE)
 
 
 if __name__ == "__main__":

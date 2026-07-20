@@ -32,6 +32,11 @@ from integrations.istina_disambiguation_client import (
 from integrations.istina_export_quality import deduplicate_exact_author_rows
 
 
+INSTITUTIONAL_LOAD_SCOPE = "institutional_load_window"
+USER_CANARY_SCOPE = "user_authorized_canary"
+MAX_USER_CANARY_REQUESTS = 20
+
+
 def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -113,6 +118,55 @@ def run_read_only_load(
     }
 
 
+def assess_load_evidence(
+    load: Mapping[str, Any],
+    *,
+    approval_scope: str,
+    criteria: DeploymentCriteria | None = None,
+) -> Dict[str, Any]:
+    criteria = criteria or DeploymentCriteria()
+    requests = load.get("requests")
+    error_rate = load.get("error_rate")
+    latency_p95 = load.get("latency_ms_p95")
+    threshold_passed = bool(
+        not isinstance(requests, bool)
+        and isinstance(requests, int)
+        and requests >= criteria.min_online_load_requests
+        and not isinstance(error_rate, bool)
+        and isinstance(error_rate, (int, float))
+        and math.isfinite(float(error_rate))
+        and 0.0 <= float(error_rate) <= criteria.max_online_load_error_rate
+        and not isinstance(latency_p95, bool)
+        and isinstance(latency_p95, (int, float))
+        and math.isfinite(float(latency_p95))
+        and 0.0 <= float(latency_p95)
+        <= criteria.max_online_load_p95_latency_ms
+    )
+    institutional_approval = approval_scope == INSTITUTIONAL_LOAD_SCOPE
+    return {
+        "verified": threshold_passed and institutional_approval,
+        "threshold_passed": threshold_passed,
+        "institutional_approval": institutional_approval,
+        "evidence_classification": (
+            "release_scale_online_load"
+            if threshold_passed and institutional_approval
+            else "bounded_non_release_canary"
+        ),
+    }
+
+
+def validate_load_approval_scope(
+    request_count: int,
+    approval_scope: str,
+) -> None:
+    if approval_scope not in {INSTITUTIONAL_LOAD_SCOPE, USER_CANARY_SCOPE}:
+        raise ValueError("unknown online-load approval scope")
+    if approval_scope == USER_CANARY_SCOPE and request_count > MAX_USER_CANARY_REQUESTS:
+        raise ValueError(
+            f"user-authorized canary is capped at {MAX_USER_CANARY_REQUESTS} requests"
+        )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset", type=Path, required=True)
@@ -124,6 +178,15 @@ def main() -> None:
     parser.add_argument("--service-timeout", type=float, default=30.0)
     parser.add_argument("--code-revision", required=True)
     parser.add_argument("--approved-change-reference", required=True)
+    parser.add_argument(
+        "--approval-scope",
+        choices=[INSTITUTIONAL_LOAD_SCOPE, USER_CANARY_SCOPE],
+        required=True,
+        help=(
+            "Institutional release evidence requires an approved load window; "
+            "a user-authorized canary is capped and can never verify release."
+        ),
+    )
     parser.add_argument("--acknowledge-read-only-load", action="store_true")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
@@ -138,6 +201,7 @@ def main() -> None:
         raise ValueError("max-rps must be within [0.1, 20]")
     if args.requests < 1:
         raise ValueError("requests must be positive")
+    validate_load_approval_scope(args.requests, args.approval_scope)
     if re.fullmatch(r"[0-9a-fA-F]{40}", args.code_revision) is None:
         raise ValueError("code-revision must be a full 40-hex Git commit")
 
@@ -163,12 +227,12 @@ def main() -> None:
         request_func=request,
     )
     criteria = DeploymentCriteria()
-    verified = bool(
-        load["requests"] >= criteria.min_online_load_requests
-        and load["error_rate"] <= criteria.max_online_load_error_rate
-        and load["latency_ms_p95"] is not None
-        and load["latency_ms_p95"] <= criteria.max_online_load_p95_latency_ms
+    assessment = assess_load_evidence(
+        load,
+        approval_scope=args.approval_scope,
+        criteria=criteria,
     )
+    verified = assessment["verified"]
     result = {
         "schema_version": 1,
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -187,6 +251,7 @@ def main() -> None:
             "service_timeout_seconds": args.service_timeout,
             "exact_duplicate_author_rows_removed": duplicate_rows_removed,
             "approved_change_reference": args.approved_change_reference,
+            "approval_scope": args.approval_scope,
         },
         "stats": {
             "requests": load["requests"],
@@ -203,6 +268,11 @@ def main() -> None:
             "write_client_present": False,
             "write_calls": 0,
             "explicit_operator_acknowledgement": True,
+            "threshold_passed": assessment["threshold_passed"],
+            "institutional_approval": assessment["institutional_approval"],
+            "evidence_classification": assessment[
+                "evidence_classification"
+            ],
             "criteria": {
                 "min_requests": criteria.min_online_load_requests,
                 "max_error_rate": criteria.max_online_load_error_rate,
@@ -223,6 +293,7 @@ def main() -> None:
         "error_rate": load["error_rate"],
         "p95_latency_ms": load["latency_ms_p95"],
         "write_calls": 0,
+        "evidence_classification": assessment["evidence_classification"],
     }, ensure_ascii=False))
 
 
@@ -230,4 +301,13 @@ if __name__ == "__main__":
     main()
 
 
-__all__ = ["StartRateLimiter", "percentile", "run_read_only_load"]
+__all__ = [
+    "INSTITUTIONAL_LOAD_SCOPE",
+    "MAX_USER_CANARY_REQUESTS",
+    "USER_CANARY_SCOPE",
+    "StartRateLimiter",
+    "assess_load_evidence",
+    "percentile",
+    "run_read_only_load",
+    "validate_load_approval_scope",
+]

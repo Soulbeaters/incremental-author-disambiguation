@@ -1,0 +1,150 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-19T16:06:23.501642+00:00",
+  "protocol": {
+    "dataset_name": "chinese_articles_with_authors.json",
+    "dataset_sha256": "515c2d5881970f4de1a412d94018fa1aee99b5069956a1e139358bfc0de715fb",
+    "code_revision": null,
+    "paired_shadow_plan_sha256": null,
+    "paired_shadow_required_mentions": null,
+    "paired_shadow_minimum_unique_papers": null,
+    "framework_legacy_fallback_enabled": false,
+    "legacy_service_observation_only": true,
+    "comparison_sample_outcome_blind": true,
+    "comparison_selection_strategy": "source_order",
+    "mode": "shadow",
+    "split_strategy": "temporal",
+    "train_through_year": 2023,
+    "service_url": "http://93.180.23.185:9091/",
+    "man_id_hash": "f2a55326f23ec347",
+    "selected_known_mentions": 5,
+    "paper_requests": 4,
+    "write_calls": 0,
+    "raw_mentions": 1735,
+    "effective_mentions": 1683,
+    "exact_duplicate_author_rows_removed": 52,
+    "exact_duplicate_cleaning_applied": true
+  },
+  "stats": {
+    "attempted_mentions": 5,
+    "runtime_decisions": 5,
+    "service_successful_mentions": 5,
+    "service_errors": 0,
+    "runtime_correct": 0,
+    "legacy_correct": 3,
+    "legacy_result_present": 5,
+    "authorized_commands": 0
+  },
+  "metrics": {
+    "service_error_rate": 0.0,
+    "paper_round_trip_latency_ms_p50": 12142.55669999693,
+    "paper_round_trip_latency_ms_p95": 15205.502400000114,
+    "paper_round_trip_latency_ms_max": 15205.502400000114
+  },
+  "safety": {
+    "online_shadow_smoke_verified": true,
+    "audit_redacted": true,
+    "durable_audit_chain": {
+      "verified": true,
+      "records_appended": 223,
+      "chain_records_total": 223,
+      "head_hash": "1b8a9027b1347318c31356bf230ac25b83911c7389ecc580073d0ae8b025a3ff",
+      "fsync": true,
+      "retained": false,
+      "storage_scope": "ephemeral smoke validation JSONL"
+    },
+    "no_write_authorized": true,
+    "circuit_breaker": {
+      "state": "closed",
+      "consecutive_failures": 0,
+      "total_successes": 4,
+      "total_failures": 0,
+      "total_rejected": 0,
+      "opened_at_monotonic": null
+    }
+  },
+  "operational_evidence": {
+    "online_shadow_verified": {
+      "verified": false,
+      "smoke_verified": true,
+      "scope": "bounded live no-write shadow",
+      "mentions": 5,
+      "paper_requests": 4,
+      "minimum_release_shadow_mentions": 500,
+      "sufficient_release_volume": false,
+      "minimum_release_shadow_papers": 0,
+      "sufficient_release_papers": true
+    }
+  },
+  "records": [
+    {
+      "article_id_hash": "3bbc98a95410ce10",
+      "position": "54",
+      "gold_author_id_hash": "ffd01e24331ef90a",
+      "runtime_correct": false,
+      "legacy_correct": false,
+      "decision": "new",
+      "stage": "local_fs",
+      "legacy_result_present": true,
+      "legacy_candidate_count": 1,
+      "service_error": false,
+      "deterministic_hash": "022f2e17d19114f8"
+    },
+    {
+      "article_id_hash": "a21cc5ae6929e3c9",
+      "position": "6",
+      "gold_author_id_hash": "31ff189205ce714b",
+      "runtime_correct": false,
+      "legacy_correct": true,
+      "decision": "new",
+      "stage": "local_fs",
+      "legacy_result_present": true,
+      "legacy_candidate_count": 19,
+      "service_error": false,
+      "deterministic_hash": "bfa7f40da196a55f"
+    },
+    {
+      "article_id_hash": "a21cc5ae6929e3c9",
+      "position": "21",
+      "gold_author_id_hash": "249091d1bdb0db06",
+      "runtime_correct": false,
+      "legacy_correct": true,
+      "decision": "new",
+      "stage": "local_fs",
+      "legacy_result_present": true,
+      "legacy_candidate_count": 8,
+      "service_error": false,
+      "deterministic_hash": "bfa7f40da196a55f"
+    },
+    {
+      "article_id_hash": "99806b3cb930b222",
+      "position": "46",
+      "gold_author_id_hash": "dd31cbe09712e55a",
+      "runtime_correct": false,
+      "legacy_correct": true,
+      "decision": "unknown",
+      "stage": "local_fs",
+      "legacy_result_present": true,
+      "legacy_candidate_count": 7,
+      "service_error": false,
+      "deterministic_hash": "63c96adb149f7ff3"
+    },
+    {
+      "article_id_hash": "53520e5942cc6037",
+      "position": "7",
+      "gold_author_id_hash": "54076b081ff72c0a",
+      "runtime_correct": false,
+      "legacy_correct": false,
+      "decision": "new",
+      "stage": "local_fs",
+      "legacy_result_present": true,
+      "legacy_candidate_count": 87,
+      "service_error": false,
+      "deterministic_hash": "022f2e17d19114f8"
+    }
+  ],
+  "release_constraints": {
+    "write_enabled_replacement_authorized": false,
+    "reason": "live shadow evidence alone never authorizes writes; the final machine release gate must pass every check"
+  }
+}

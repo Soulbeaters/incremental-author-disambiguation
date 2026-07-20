@@ -1,0 +1,280 @@
+{
+  "schema_version": 1,
+  "framework_ready": true,
+  "superiority_claim_ready": false,
+  "writes_authorized": false,
+  "scope": "Research and ISTINA integration evidence only; this result is not a production release authorization.",
+  "criteria": {
+    "min_performance_trials": 3,
+    "min_paired_mentions": 1960,
+    "min_unique_papers": 100,
+    "min_absolute_gain": 0.02,
+    "max_p_value": 0.05
+  },
+  "framework": {
+    "summary": {
+      "passed": 9,
+      "failed": 0,
+      "total": 9
+    },
+    "checks": [
+      {
+        "name": "strict_temporal_split",
+        "category": "protocol",
+        "observed": "temporal",
+        "required": "temporal",
+        "passed": true
+      },
+      {
+        "name": "zero_paper_overlap",
+        "category": "leakage",
+        "observed": 0,
+        "required": 0,
+        "passed": true
+      },
+      {
+        "name": "exact_duplicate_cleaning",
+        "category": "data",
+        "observed": true,
+        "required": true,
+        "passed": true
+      },
+      {
+        "name": "single_dataset_identity",
+        "category": "binding",
+        "observed": [
+          "515c2d5881970f4de1a412d94018fa1aee99b5069956a1e139358bfc0de715fb"
+        ],
+        "required": "one shared non-empty SHA-256",
+        "passed": true
+      },
+      {
+        "name": "legacy_comparator_independence",
+        "category": "fairness",
+        "observed": {
+          "temporal_fallback": false,
+          "temporal_observation_only": true,
+          "live_fallback": false,
+          "live_observation_only": true
+        },
+        "required": "fallback=false and observation_only=true for both arms",
+        "passed": true
+      },
+      {
+        "name": "zero_write_diagnostic",
+        "category": "safety",
+        "observed": {
+          "write_calls": 0,
+          "authorized_commands": 0,
+          "no_write_authorized": true
+        },
+        "required": {
+          "write_calls": 0,
+          "authorized_commands": 0,
+          "no_write_authorized": true
+        },
+        "passed": true
+      },
+      {
+        "name": "paper_package_integrity",
+        "category": "reproducibility",
+        "observed": {
+          "verified": true,
+          "failed": 0
+        },
+        "required": {
+          "verified": true,
+          "failed": 0
+        },
+        "passed": true
+      },
+      {
+        "name": "offline_performance_repeatability",
+        "category": "reproducibility",
+        "observed": {
+          "verified": true,
+          "trials": 3
+        },
+        "required": {
+          "verified": true,
+          "trials": ">=3"
+        },
+        "passed": true
+      },
+      {
+        "name": "public_transfer_validation",
+        "category": "external_validation",
+        "observed": [
+          "aminer_full_current",
+          "holdout",
+          "openalex_default",
+          "openalex_large_default",
+          "temporal"
+        ],
+        "required": "current-runtime OpenAlex and AMiner rows",
+        "passed": true
+      }
+    ],
+    "failures": []
+  },
+  "superiority_claim": {
+    "comparison_source": "unregistered live diagnostic",
+    "summary": {
+      "passed": 0,
+      "failed": 9,
+      "total": 9
+    },
+    "checks": [
+      {
+        "name": "independently_verified_provenance",
+        "category": "labels",
+        "observed": false,
+        "required": true,
+        "passed": false
+      },
+      {
+        "name": "resolved_label_conflicts",
+        "category": "labels",
+        "observed": 2,
+        "required": 0,
+        "passed": false
+      },
+      {
+        "name": "preregistered_paired_analysis",
+        "category": "design",
+        "observed": false,
+        "required": true,
+        "passed": false
+      },
+      {
+        "name": "powered_paired_mentions",
+        "category": "power",
+        "observed": 38,
+        "required": ">=1960",
+        "passed": false
+      },
+      {
+        "name": "paired_unique_papers",
+        "category": "power",
+        "observed": 14,
+        "required": ">=100",
+        "passed": false
+      },
+      {
+        "name": "minimum_absolute_gain",
+        "category": "effect",
+        "observed": 0.0,
+        "required": ">=0.02",
+        "passed": false
+      },
+      {
+        "name": "mcnemar_significance",
+        "category": "inference",
+        "observed": 1.0,
+        "required": "<=0.05",
+        "passed": false
+      },
+      {
+        "name": "paper_cluster_significance",
+        "category": "inference",
+        "observed": null,
+        "required": "<=0.05",
+        "passed": false
+      },
+      {
+        "name": "paper_cluster_interval",
+        "category": "inference",
+        "observed": null,
+        "required": ">0",
+        "passed": false
+      }
+    ],
+    "failures": [
+      {
+        "name": "independently_verified_provenance",
+        "category": "labels",
+        "observed": false,
+        "required": true,
+        "passed": false
+      },
+      {
+        "name": "resolved_label_conflicts",
+        "category": "labels",
+        "observed": 2,
+        "required": 0,
+        "passed": false
+      },
+      {
+        "name": "preregistered_paired_analysis",
+        "category": "design",
+        "observed": false,
+        "required": true,
+        "passed": false
+      },
+      {
+        "name": "powered_paired_mentions",
+        "category": "power",
+        "observed": 38,
+        "required": ">=1960",
+        "passed": false
+      },
+      {
+        "name": "paired_unique_papers",
+        "category": "power",
+        "observed": 14,
+        "required": ">=100",
+        "passed": false
+      },
+      {
+        "name": "minimum_absolute_gain",
+        "category": "effect",
+        "observed": 0.0,
+        "required": ">=0.02",
+        "passed": false
+      },
+      {
+        "name": "mcnemar_significance",
+        "category": "inference",
+        "observed": 1.0,
+        "required": "<=0.05",
+        "passed": false
+      },
+      {
+        "name": "paper_cluster_significance",
+        "category": "inference",
+        "observed": null,
+        "required": "<=0.05",
+        "passed": false
+      },
+      {
+        "name": "paper_cluster_interval",
+        "category": "inference",
+        "observed": null,
+        "required": ">0",
+        "passed": false
+      }
+    ]
+  },
+  "inputs": {
+    "temporal_replay": {
+      "name": "istina_temporal_runtime_replay_20260719.json",
+      "sha256": "7b7f0c305dc20634c598eb59302f6bf82663d19d293ab3e287bfc780e4485557"
+    },
+    "gold_readiness": {
+      "name": "istina_gold_readiness_20260719.json",
+      "sha256": "e337fbe9a9f8428353851d3b0626a5bc2ff3163856dca866db66c96972eea4ed"
+    },
+    "live_diagnostic": {
+      "name": "istina_live_shadow_diagnostic_20260720.json",
+      "sha256": "e18168b377e10353daaef77df418800fe362130e8c827653df18cfbe97d77052"
+    },
+    "performance": {
+      "name": "istina_offline_performance_reproducibility_20260720.json",
+      "sha256": "04393426e0dbff9d41664cabb2ed4c60f2f9cda1885c23010de0541c48fe85ab"
+    },
+    "paper_package": {
+      "name": "istina_empirical_evidence_20260719.json",
+      "sha256": "a793dc2667ac9741ac3e05ad31245fb5c21e29d0f12f01e5156a220dc4fbe1df"
+    }
+  }
+}

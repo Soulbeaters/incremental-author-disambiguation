@@ -1,0 +1,80 @@
+{
+  "protocol": {
+    "source": "AMiner KDD'18 official author-disambiguation benchmark",
+    "source_url": "https://static.aminer.cn/misc/na-data-kdd18.zip",
+    "archive_sha256": "d3912ea052afed43eeb401788312ab936055b02c2a52fd790c5c69e13db9defd",
+    "labels_sha256": "43084bcef5553fff6b415f30f7664b1382dd44fc86f2a7e37999f6fbe4a85877",
+    "publications_sha256": "4ff3a99e7c2c28ab4b0fd254985e505dc7cdf90e82842a466e795a4a88efa07b",
+    "label_split": "test_100",
+    "history_policy": "last-test",
+    "history_mentions": 28717,
+    "test_mentions": 6412,
+    "article_overlap": 0,
+    "topk": 20,
+    "calibrated_candidate_rescue": true,
+    "available_names": 100,
+    "selected_names": 100,
+    "start_name": 0,
+    "integrity": {
+      "validated_mentions": 35129
+    },
+    "labels_file": "name_to_pubs_test_100.json",
+    "publications_file": "pubs_raw.json"
+  },
+  "stats": {
+    "total": 6412,
+    "existing_gold": 2744,
+    "new_gold": 3668,
+    "merge": 3184,
+    "new": 0,
+    "unknown": 3228,
+    "correct_merge": 2007,
+    "wrong_merge": 1177,
+    "correct_new": 0,
+    "false_new_for_existing": 0,
+    "merge_for_new_gold": 880
+  },
+  "metrics": {
+    "precision": 0.6303391959798995,
+    "existing_recall": 0.7314139941690962,
+    "f1_existing": 0.6771255060728745,
+    "auto_accuracy": 0.3130068621334997,
+    "unknown_rate": 0.5034310667498441,
+    "wrong_merge_rate": 0.18356207111665626,
+    "throughput_mentions_per_second": 6.125664817533265,
+    "latency_ms_p50": 132.2026999987429,
+    "latency_ms_p95": 400.5818999976327,
+    "latency_ms_p99": 603.909500001464,
+    "latency_ms_max": 1116.1276000020735
+  },
+  "stage_counts": {
+    "calibrated_candidate_rescue": 652,
+    "dense_name_block_context_guard": 1272,
+    "enhanced_blocking_source_guard": 4,
+    "exact_name_token_repair": 10,
+    "local_fs": 2991,
+    "strict_structured_name_repair": 2,
+    "structured_coauthor_repair": 1444,
+    "weak_name_context_guard": 37
+  },
+  "candidate_retrieval": {
+    "truncated_mentions": 3326,
+    "candidate_pool_total": 713062,
+    "scored_candidate_total": 506169,
+    "average_candidate_pool_size": 111.20742358078603,
+    "average_scored_candidate_count": 78.94089207735496
+  },
+  "legacy_shadow": {
+    "n": 0,
+    "paired_table": {
+      "both_correct": 0,
+      "runtime_only_correct": 0,
+      "legacy_only_correct": 0,
+      "both_incorrect": 0
+    },
+    "runtime_correct": 0,
+    "legacy_correct": 0,
+    "mcnemar_exact_two_sided_p": null
+  },
+  "elapsed_seconds": 1046.7435276000033
+}

@@ -45,10 +45,28 @@ def setup_logging(debug: bool = False) -> logging.Logger:
 
 def load_crossref_data(file_path: str, limit: int = None) -> List[Dict[str, Any]]:
     """加载Crossref数据 / Загрузка данных Crossref"""
-    with open(file_path, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-    
-    authors = data.get('authors', [])
+    path = Path(file_path)
+
+    if path.suffix.lower() == '.jsonl':
+        authors = []
+        with open(path, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    authors.append(json.loads(line))
+    else:
+        with open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        authors = data.get('authors', data if isinstance(data, list) else [])
+
+    for author in authors:
+        if not author.get('original_name') and author.get('raw_name'):
+            author['original_name'] = author['raw_name']
+        if not author.get('surname') and author.get('lastname'):
+            author['surname'] = author['lastname']
+        if not author.get('journal') and author.get('venue'):
+            author['journal'] = author['venue']
+
     if limit:
         authors = authors[:limit]
     

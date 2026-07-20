@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "source_system": "istina",
+  "purpose": "approved_institutional_read_only_load",
+  "mode": "read_only_candidate_lookup",
+  "plan_id": "",
+  "dataset_sha256": "REPLACE_WITH_64_HEX_DATASET_SHA256",
+  "code_revision": "REPLACE_WITH_40_HEX_GIT_COMMIT",
+  "service_url_sha256": "REPLACE_WITH_64_HEX_SERVICE_URL_SHA256",
+  "man_id_sha256": "REPLACE_WITH_64_HEX_DOMAIN_SEPARATED_MAN_ID_SHA256",
+  "requests": 1000,
+  "concurrency": 4,
+  "max_rps": 2.0,
+  "service_timeout_seconds": 30.0,
+  "window": {
+    "start": "REPLACE_WITH_TIMEZONE_AWARE_ISO8601",
+    "end": "REPLACE_WITH_TIMEZONE_AWARE_ISO8601_AFTER_START"
+  },
+  "approval": {
+    "scope": "institutional_load_window",
+    "approved": false,
+    "approved_at": "REPLACE_WITH_TIMEZONE_AWARE_ISO8601_AT_OR_BEFORE_WINDOW_START",
+    "change_reference": "",
+    "approver_role": "REPLACE_WITH_service_owner_OR_operations_OR_service_owner_and_operations"
+  }
+}

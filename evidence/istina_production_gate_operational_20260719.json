@@ -1,0 +1,293 @@
+{
+  "release_ready": false,
+  "criteria": {
+    "min_total_mentions": 10000,
+    "min_existing_mentions": 1000,
+    "min_new_mentions": 1000,
+    "min_shadow_mentions": 500,
+    "min_merge_precision": 0.995,
+    "min_existing_recall": 0.95,
+    "min_auto_accuracy": 0.98,
+    "max_unknown_rate": 0.02,
+    "max_wrong_merge_rate": 0.001,
+    "max_unseen_false_link_rate": 0.001,
+    "max_local_p95_latency_ms": 50.0,
+    "min_shadow_absolute_gain": 0.02,
+    "max_shadow_p_value": 0.05
+  },
+  "summary": {
+    "passed": 8,
+    "failed": 15,
+    "total": 23
+  },
+  "checks": [
+    {
+      "name": "total_mentions",
+      "category": "data",
+      "passed": false,
+      "observed": 571,
+      "required": ">=10000"
+    },
+    {
+      "name": "existing_mentions",
+      "category": "data",
+      "passed": false,
+      "observed": 5,
+      "required": ">=1000"
+    },
+    {
+      "name": "new_mentions",
+      "category": "data",
+      "passed": false,
+      "observed": 566,
+      "required": ">=1000"
+    },
+    {
+      "name": "shadow_mentions",
+      "category": "data",
+      "passed": false,
+      "observed": 5,
+      "required": ">=500"
+    },
+    {
+      "name": "merge_precision",
+      "category": "quality",
+      "passed": false,
+      "observed": 0.0,
+      "required": ">=0.995"
+    },
+    {
+      "name": "existing_recall",
+      "category": "quality",
+      "passed": false,
+      "observed": 0.0,
+      "required": ">=0.95"
+    },
+    {
+      "name": "auto_accuracy",
+      "category": "quality",
+      "passed": false,
+      "observed": 0.9422066549912435,
+      "required": ">=0.98"
+    },
+    {
+      "name": "unknown_rate",
+      "category": "quality",
+      "passed": false,
+      "observed": 0.050788091068301226,
+      "required": "<=0.02"
+    },
+    {
+      "name": "wrong_merge_rate",
+      "category": "quality",
+      "passed": true,
+      "observed": 0.0,
+      "required": "<=0.001"
+    },
+    {
+      "name": "unseen_false_link_rate",
+      "category": "quality",
+      "passed": true,
+      "observed": 0.0,
+      "required": "<=0.001"
+    },
+    {
+      "name": "local_p95_latency_ms",
+      "category": "performance",
+      "passed": true,
+      "observed": 5.220000006374903,
+      "required": "<=50.0"
+    },
+    {
+      "name": "shadow_absolute_gain",
+      "category": "comparison",
+      "passed": false,
+      "observed": -0.6,
+      "required": ">=0.02"
+    },
+    {
+      "name": "shadow_significance",
+      "category": "comparison",
+      "passed": false,
+      "observed": 0.25,
+      "required": "<=0.05"
+    },
+    {
+      "name": "runtime_safety_contract_verified",
+      "category": "operations",
+      "passed": true,
+      "observed": true,
+      "required": "write authorization, idempotency, redaction, and fail-closed runtime contract"
+    },
+    {
+      "name": "offline_load_test_verified",
+      "category": "operations",
+      "passed": true,
+      "observed": true,
+      "required": "deterministic no-write load replay on real ISTINA data"
+    },
+    {
+      "name": "legacy_comparator_independence_verified",
+      "category": "operations",
+      "passed": true,
+      "observed": true,
+      "required": "framework decisions do not consume legacy-service outputs used as the paired comparator"
+    },
+    {
+      "name": "cross_domain_gold_verified",
+      "category": "operations",
+      "passed": false,
+      "observed": false,
+      "required": "validated gold from multiple ISTINA disciplines"
+    },
+    {
+      "name": "online_shadow_verified",
+      "category": "operations",
+      "passed": false,
+      "observed": false,
+      "required": "live shadow run without writes"
+    },
+    {
+      "name": "online_load_test_verified",
+      "category": "operations",
+      "passed": false,
+      "observed": false,
+      "required": "online end-to-end load and latency test"
+    },
+    {
+      "name": "rollback_verified",
+      "category": "operations",
+      "passed": true,
+      "observed": true,
+      "required": "tested rollback/circuit-breaker procedure"
+    },
+    {
+      "name": "drift_monitor_test_verified",
+      "category": "operations",
+      "passed": true,
+      "observed": true,
+      "required": "fault-injected drift monitor alert verification"
+    },
+    {
+      "name": "drift_monitoring_verified",
+      "category": "operations",
+      "passed": false,
+      "observed": false,
+      "required": "deployed data-quality and decision-drift monitoring"
+    },
+    {
+      "name": "paired_shadow_analysis_verified",
+      "category": "operations",
+      "passed": false,
+      "observed": false,
+      "required": "pre-registered, adequately powered, paper-cluster-aware paired comparison against the legacy service"
+    }
+  ],
+  "failures": [
+    {
+      "name": "total_mentions",
+      "category": "data",
+      "passed": false,
+      "observed": 571,
+      "required": ">=10000"
+    },
+    {
+      "name": "existing_mentions",
+      "category": "data",
+      "passed": false,
+      "observed": 5,
+      "required": ">=1000"
+    },
+    {
+      "name": "new_mentions",
+      "category": "data",
+      "passed": false,
+      "observed": 566,
+      "required": ">=1000"
+    },
+    {
+      "name": "shadow_mentions",
+      "category": "data",
+      "passed": false,
+      "observed": 5,
+      "required": ">=500"
+    },
+    {
+      "name": "merge_precision",
+      "category": "quality",
+      "passed": false,
+      "observed": 0.0,
+      "required": ">=0.995"
+    },
+    {
+      "name": "existing_recall",
+      "category": "quality",
+      "passed": false,
+      "observed": 0.0,
+      "required": ">=0.95"
+    },
+    {
+      "name": "auto_accuracy",
+      "category": "quality",
+      "passed": false,
+      "observed": 0.9422066549912435,
+      "required": ">=0.98"
+    },
+    {
+      "name": "unknown_rate",
+      "category": "quality",
+      "passed": false,
+      "observed": 0.050788091068301226,
+      "required": "<=0.02"
+    },
+    {
+      "name": "shadow_absolute_gain",
+      "category": "comparison",
+      "passed": false,
+      "observed": -0.6,
+      "required": ">=0.02"
+    },
+    {
+      "name": "shadow_significance",
+      "category": "comparison",
+      "passed": false,
+      "observed": 0.25,
+      "required": "<=0.05"
+    },
+    {
+      "name": "cross_domain_gold_verified",
+      "category": "operations",
+      "passed": false,
+      "observed": false,
+      "required": "validated gold from multiple ISTINA disciplines"
+    },
+    {
+      "name": "online_shadow_verified",
+      "category": "operations",
+      "passed": false,
+      "observed": false,
+      "required": "live shadow run without writes"
+    },
+    {
+      "name": "online_load_test_verified",
+      "category": "operations",
+      "passed": false,
+      "observed": false,
+      "required": "online end-to-end load and latency test"
+    },
+    {
+      "name": "drift_monitoring_verified",
+      "category": "operations",
+      "passed": false,
+      "observed": false,
+      "required": "deployed data-quality and decision-drift monitoring"
+    },
+    {
+      "name": "paired_shadow_analysis_verified",
+      "category": "operations",
+      "passed": false,
+      "observed": false,
+      "required": "pre-registered, adequately powered, paper-cluster-aware paired comparison against the legacy service"
+    }
+  ]
+}

@@ -70,6 +70,12 @@ Thumbs.db
 
 # Paper/LaTeX documentation (keep locally, not for GitHub)
 docs/
+# Keep the production runbook while leaving local paper/LaTeX material ignored.
+!docs/
+docs/*
+!docs/ISTINA_PRODUCTION_RUNBOOK.md
+!docs/ISTINA_INSTITUTIONAL_HANDOFF.md
+!docs/ISTINA_RESEARCH_SCOPE.md
 *.pdf
 *.tex
 *.aux
@@ -83,6 +89,9 @@ results/
 runs/
 tables/
 
+# Local ISTINA exports from advisor/internal services
+istina test/
+
 # Test results (generated)
 test_results/
 
@@ -95,6 +104,18 @@ ablation_output.txt
 disambiguation_results.json
 CODE_REVIEW_REPORT.md
 show_results.py
+
+# Reproducible public dataset builds (keep scripts and metadata, not raw rows)
+data/openalex_gold_mentions.jsonl
+data/openalex_gold_metadata.json
+data/openalex_orcid_mentions.jsonl
+data/openalex_orcid_metadata.json
+data/openalex_orcid_validation_mentions.jsonl
+data/openalex_orcid_validation_metadata.json
+data/openalex_orcid_blind_mentions.jsonl
+data/openalex_orcid_blind_metadata.json
+data/openalex_orcid_confirmation_mentions.jsonl
+data/openalex_orcid_confirmation_metadata.json
 
 # Environment files
 .env

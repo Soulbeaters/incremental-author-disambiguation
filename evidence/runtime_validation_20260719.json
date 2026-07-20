@@ -1,0 +1,153 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-19T12:25:23+03:00",
+  "artifact_status": "superseded_for_istina_claims",
+  "release_eligible": false,
+  "superseded_by": [
+    "istina_gold_readiness_20260719.json",
+    "istina_temporal_runtime_replay_20260719.json",
+    "istina_holdout_runtime_replay_deduplicated_20260719.json",
+    "istina_production_gate_operational_20260719.json"
+  ],
+  "integrity_notice": {
+    "reason": "The original advisor ISTINA result used exact duplicate author rows from one publication as independent history/test observations.",
+    "duplicate_rows_removed_by_current_protocol": 52,
+    "permitted_uses": [
+      "historical reproducibility",
+      "historical OpenAlex comparison with an explicit source commit",
+      "historical AMiner public stress-test metrics with an explicit source commit"
+    ],
+    "prohibited_uses": [
+      "primary ISTINA article result",
+      "ISTINA legacy-superiority claim",
+      "current-runtime OpenAlex article result",
+      "production release evidence"
+    ]
+  },
+  "branch": "istina-risk-control-framework",
+  "source_base_commit": "43b6b196b5a486f6ec5ab5df0e7c949b9805a668",
+  "validated_change_scope": [
+    "stable external author identifiers",
+    "deterministic bounded affiliation and journal blocking keys",
+    "complete candidate-pool observability before scoring truncation",
+    "OpenAlex calibrated rescue disabled by default and exposed only as an ablation",
+    "AMiner and ISTINA replay candidate-retrieval statistics"
+  ],
+  "tests": {
+    "command": "python -m pytest -q -p no:cacheprovider",
+    "passed": 150,
+    "failed": 0,
+    "warnings": 27
+  },
+  "inputs": {
+    "advisor_istina_export": {
+      "private": true,
+      "sha256": "515c2d5881970f4de1a412d94018fa1aee99b5069956a1e139358bfc0de715fb"
+    },
+    "frozen_legacy_service_result": {
+      "private": true,
+      "sha256": "00d86db7994f5348d0b1805509ac2ad1a8be164b9eed59ea3721bea0635919b3"
+    },
+    "openalex_confirmation_mentions": {
+      "public_rebuild_metadata_seed": 20260721,
+      "sha256": "94a88f3fb1b14b5fd6596b04322f48081de0f3facefecc60c565bf1e366bced0"
+    },
+    "openalex_confirmation_metadata": {
+      "sha256": "ea24d1e168784838a63cc34704371a677421546def82e3db61a49632c0fb4925"
+    },
+    "aminer_kdd18_archive": {
+      "source_url": "https://static.aminer.cn/misc/na-data-kdd18.zip",
+      "sha256": "d3912ea052afed43eeb401788312ab936055b02c2a52fd790c5c69e13db9defd"
+    }
+  },
+  "results": {
+    "advisor_istina_raw_export_diagnostic_superseded": {
+      "valid_for_primary_or_production_claims": false,
+      "leakage_issue": "52 exact within-paper duplicate author rows crossed the per-author history/test split",
+      "history_mentions": 88,
+      "test_mentions": 1264,
+      "existing_gold": 90,
+      "new_gold": 1174,
+      "correct_merge": 85,
+      "wrong_merge": 0,
+      "unknown": 14,
+      "merge_precision": 1.0,
+      "existing_recall": 0.9444444444444444,
+      "automatic_accuracy": 0.9849683544303798,
+      "unknown_rate": 0.011075949367088608,
+      "p95_latency_ms": 9.008200000607758,
+      "candidate_pool_truncated_mentions": 0,
+      "legacy_runtime_correct": 85,
+      "legacy_service_correct": 35,
+      "mcnemar_exact_two_sided_p": 3.1699504132731704e-12,
+      "production_gate_passed": 9,
+      "production_gate_total": 18,
+      "release_ready": false
+    },
+    "openalex_confirmation_default": {
+      "test_mentions": 6232,
+      "existing_gold": 3680,
+      "new_gold": 2552,
+      "calibrated_candidate_rescue": false,
+      "correct_merge": 3017,
+      "wrong_merge": 0,
+      "unknown": 778,
+      "merge_precision": 1.0,
+      "existing_recall": 0.8198369565217392,
+      "automatic_accuracy": 0.8483632862644416,
+      "unknown_rate": 0.1248395378690629,
+      "p95_latency_ms": 18.814600000041537,
+      "production_gate_passed": 6,
+      "production_gate_total": 18,
+      "release_ready": false
+    },
+    "openalex_confirmation_rescue_ablation": {
+      "test_mentions": 6232,
+      "calibrated_candidate_rescue": true,
+      "correct_merge": 3047,
+      "wrong_merge": 0,
+      "unknown": 748,
+      "merge_precision": 1.0,
+      "existing_recall": 0.8279891304347826,
+      "automatic_accuracy": 0.8531771501925546,
+      "unknown_rate": 0.12002567394094994,
+      "p95_latency_ms": 13.897099999667262
+    },
+    "aminer_kdd18_test_100_default": {
+      "validated_mentions": 35129,
+      "history_mentions": 28717,
+      "test_mentions": 6412,
+      "existing_gold": 2744,
+      "new_gold": 3668,
+      "correct_merge": 1773,
+      "wrong_merge": 759,
+      "unknown": 3880,
+      "merge_precision": 0.7002369668246445,
+      "existing_recall": 0.6461370262390671,
+      "automatic_accuracy": 0.27651278852152217,
+      "unknown_rate": 0.6051154086088584,
+      "wrong_merge_rate": 0.11837180286961946,
+      "p95_latency_ms": 624.6959000000061,
+      "candidate_pool_truncated_mentions": 3326,
+      "average_candidate_pool_size": 111.20742358078603,
+      "average_scored_candidate_count": 78.94089207735496,
+      "production_gate_passed": 2,
+      "production_gate_total": 18,
+      "release_ready": false
+    }
+  },
+  "release_verdict": {
+    "classification": "historical_non_release_diagnostic",
+    "write_enabled_replacement_authorized": false,
+    "article_claim": "No current ISTINA article claim may be sourced from this superseded artifact; use the integrity-corrected temporal and diagnostic evidence instead.",
+    "withdrawn_article_claim": "The framework significantly improves the frozen legacy ISTINA service on the available advisor-labelled shadow set while preserving high precision, auditability, deterministic replay, and explicit risk control.",
+    "prohibited_claims": [
+      "universal superiority over the legacy service",
+      "generic open-world production readiness",
+      "write-enabled ISTINA replacement authorization"
+    ],
+    "remaining_evidence": [
+      "This historical list is retired; use istina_production_gate_operational_20260719.json for current missing evidence."
+    ]
+  }
+}

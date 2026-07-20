@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-20T10:06:45.202124+00:00",
+  "method": "istina_offline_performance_repeatability_v1",
+  "protocol": {
+    "source_system": "istina",
+    "dataset_sha256": "515c2d5881970f4de1a412d94018fa1aee99b5069956a1e139358bfc0de715fb",
+    "code_revision": "167b7f7f28f4756c3ff3644a6d355aedbcb38c6f",
+    "minimum_trials": 3,
+    "trial_count": 3,
+    "verification_method": "overall_nearest_rank_p95_all_replay_operations_v1",
+    "acceptance_threshold_ms_p95": 50.0,
+    "all_trials_must_pass": true,
+    "environment_sha256": "94016178c33b655cab09d8eed4a2d5f2b9c6c4aa0f65075b5fa9659febfab50c",
+    "host_identifier_included": false
+  },
+  "summary": {
+    "verified": true,
+    "passing_trials": 3,
+    "failed_trials": 0,
+    "trial_count": 3,
+    "combined_replay_operations": 40662
+  },
+  "metrics": {
+    "trial_p95_ms": [
+      7.294899987755343,
+      6.52859998808708,
+      6.6685000056168064
+    ],
+    "trial_p95_minimum_ms": 6.52859998808708,
+    "trial_p95_median_ms": 6.6685000056168064,
+    "trial_p95_maximum_ms": 7.294899987755343,
+    "trial_p95_range_ms": 0.7662999996682629
+  },
+  "trials": [
+    {
+      "trial_id": "normalization-cache-repeatability-1",
+      "source_sha256": "1a35cf6a73f89f101e09ecfa22ec2b114e3b68f63d9caaaad55298b81298b8f7",
+      "verified": true,
+      "latency_ms_p95": 7.294899987755343,
+      "threshold_margin_ms": 42.70510001224466,
+      "throughput_mentions_per_second": 463.2784288012215,
+      "iteration_p95_minimum_ms": 6.439799995860085,
+      "iteration_p95_median_ms": 7.23840000864584,
+      "iteration_p95_maximum_ms": 8.341799999470823,
+      "passing_iterations": 18,
+      "total_iterations": 18
+    },
+    {
+      "trial_id": "normalization-cache-repeatability-2",
+      "source_sha256": "02f1ad33738d82173a1355abb1b1af960e77bf816bee7c35ed301cec79b5aebf",
+      "verified": true,
+      "latency_ms_p95": 6.52859998808708,
+      "threshold_margin_ms": 43.47140001191292,
+      "throughput_mentions_per_second": 508.53216916756145,
+      "iteration_p95_minimum_ms": 5.420700006652623,
+      "iteration_p95_median_ms": 6.460399992647581,
+      "iteration_p95_maximum_ms": 7.901200006017461,
+      "passing_iterations": 18,
+      "total_iterations": 18
+    },
+    {
+      "trial_id": "normalization-cache-repeatability-3",
+      "source_sha256": "cbb507d7ad292bdae7ab4a067e4933a3e59466cf1ecf21a5da89bf435f632443",
+      "verified": true,
+      "latency_ms_p95": 6.6685000056168064,
+      "threshold_margin_ms": 43.33149999438319,
+      "throughput_mentions_per_second": 512.5441919995067,
+      "iteration_p95_minimum_ms": 5.431400000816211,
+      "iteration_p95_median_ms": 6.550399994011968,
+      "iteration_p95_maximum_ms": 7.787399998051114,
+      "passing_iterations": 18,
+      "total_iterations": 18
+    }
+  ],
+  "release_constraints": {
+    "repeated_operations_are_distinct_gold": false,
+    "write_enabled_replacement_authorized": false
+  }
+}

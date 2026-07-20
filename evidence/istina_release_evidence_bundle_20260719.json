@@ -1,0 +1,224 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-20T10:07:05.603574+00:00",
+  "operational_evidence": {
+    "runtime_safety_contract_verified": {
+      "verified": true,
+      "mode": "candidate",
+      "commands": 4,
+      "idempotent_replay": true,
+      "audit_redacted": true,
+      "durable_audit_chain": {
+        "verified": true,
+        "records": 8,
+        "head_hash": "6ada3656513744bebd38f93915a4103e4ad9967c234672f71f5c3f4def43eebb",
+        "restart_verified": true,
+        "fsync": true,
+        "storage_scope": "ephemeral validation file; not deployed production storage"
+      },
+      "no_write_authorized": true
+    },
+    "offline_load_test_verified": {
+      "verified": true,
+      "verification_method": "overall_nearest_rank_p95_all_replay_operations_v1",
+      "acceptance_threshold_ms_p95": 50.0,
+      "threshold_margin_ms": 43.33149999438319,
+      "load_operations": 13554,
+      "elapsed_seconds": 26.4445490000071,
+      "throughput_mentions_per_second": 512.5441919995067,
+      "latency_ms_p50": 0.8901000110199675,
+      "latency_ms_p95": 6.6685000056168064,
+      "latency_ms_p99": 9.175400002277456,
+      "iteration_latency_ms_p95": [
+        6.657700010691769,
+        7.787399998051114,
+        7.503200002247468,
+        7.10429999162443,
+        7.327700004680082,
+        7.479899999452755,
+        6.480100011685863,
+        6.242399991606362,
+        5.431400000816211,
+        6.492200001957826,
+        6.642499996814877,
+        6.369399998220615,
+        6.550399994011968,
+        6.96569999854546,
+        7.240899998578243,
+        6.03009999031201,
+        6.439299992052838,
+        5.516200006240979
+      ],
+      "iteration_p95_summary_ms": {
+        "minimum": 5.431400000816211,
+        "median": 6.550399994011968,
+        "maximum": 7.787399998051114,
+        "passing_iterations": 18,
+        "total_iterations": 18
+      },
+      "deterministic_hash_mismatches": 0,
+      "real_distinct_mentions": 753,
+      "replay_iterations": 18,
+      "environment": {
+        "python_version": "3.11.9",
+        "python_implementation": "CPython",
+        "operating_system": "Windows",
+        "operating_system_release": "10",
+        "machine": "AMD64",
+        "logical_cpu_count": 24,
+        "host_identifier_included": false
+      },
+      "scope": "offline no-write load replay; repeated operations are not extra gold"
+    },
+    "legacy_comparator_independence_verified": {
+      "verified": true,
+      "offline_framework_legacy_fallback_enabled": false,
+      "offline_legacy_fallback_stages": 0,
+      "live_framework_legacy_fallback_enabled": false,
+      "live_legacy_service_observation_only": true,
+      "live_legacy_fallback_stages": 0,
+      "required": "legacy service observed only and never used by framework decisions"
+    },
+    "rollback_verified": {
+      "verified": true,
+      "method": "circuit-breaker recovery plus fail-closed drift fault injection"
+    },
+    "drift_monitor_test_verified": {
+      "verified": true,
+      "method": "fault-injected UNKNOWN/stage/service-error telemetry window",
+      "sample_mentions": 100,
+      "expected_alerts": [
+        "merge_rate_delta",
+        "service_error_rate",
+        "stage_total_variation",
+        "unknown_rate_increase"
+      ],
+      "observed_alerts": [
+        "merge_rate_delta",
+        "service_error_rate",
+        "stage_total_variation",
+        "unknown_rate_increase"
+      ],
+      "monitor_report": {
+        "status": "alert",
+        "alert": true,
+        "window_mentions": 100,
+        "observed": {
+          "unknown_rate": 0.5,
+          "merge_rate": 0.5,
+          "service_error_rate": 1.0,
+          "candidate_truncation_rate": 0.0,
+          "latency_p95_ms": 4.604700006893836,
+          "stage_total_variation": 1.0,
+          "stage_distribution": {
+            "fault_injection": 1.0
+          }
+        },
+        "checks": [
+          {
+            "name": "unknown_rate_increase",
+            "observed": 0.4548472775564409,
+            "limit": 0.01,
+            "passed": false
+          },
+          {
+            "name": "merge_rate_delta",
+            "observed": 0.5,
+            "limit": 0.01,
+            "passed": false
+          },
+          {
+            "name": "stage_total_variation",
+            "observed": 1.0,
+            "limit": 0.01,
+            "passed": false
+          },
+          {
+            "name": "service_error_rate",
+            "observed": 1.0,
+            "limit": 0.0,
+            "passed": false
+          },
+          {
+            "name": "candidate_truncation_rate",
+            "observed": 0.0,
+            "limit": 1.0,
+            "passed": true
+          },
+          {
+            "name": "latency_p95_ms",
+            "observed": 4.604700006893836,
+            "limit": 10000.0,
+            "passed": true
+          }
+        ],
+        "failures": [
+          {
+            "name": "unknown_rate_increase",
+            "observed": 0.4548472775564409,
+            "limit": 0.01,
+            "passed": false
+          },
+          {
+            "name": "merge_rate_delta",
+            "observed": 0.5,
+            "limit": 0.01,
+            "passed": false
+          },
+          {
+            "name": "stage_total_variation",
+            "observed": 1.0,
+            "limit": 0.01,
+            "passed": false
+          },
+          {
+            "name": "service_error_rate",
+            "observed": 1.0,
+            "limit": 0.0,
+            "passed": false
+          }
+        ]
+      }
+    },
+    "cross_domain_gold_verified": {
+      "verified": false,
+      "provenance_verified": false,
+      "disciplines": 0,
+      "unresolved_label_issues": 2,
+      "reason": "gold-readiness or ISTINA provenance audit has unresolved release failures"
+    },
+    "online_shadow_verified": {
+      "verified": false,
+      "smoke_verified": true,
+      "scope": "bounded live no-write shadow",
+      "mentions": 5,
+      "paper_requests": 4,
+      "minimum_release_shadow_mentions": 500,
+      "sufficient_release_volume": false,
+      "minimum_release_shadow_papers": 0,
+      "sufficient_release_papers": true
+    },
+    "online_load_test_verified": {
+      "verified": false,
+      "reason": "local replay is not an online end-to-end ISTINA load test"
+    },
+    "drift_monitoring_verified": {
+      "verified": false,
+      "reason": "monitor is implemented and fault-tested but not yet deployed"
+    }
+  },
+  "sources": {
+    "operational_validation": {
+      "name": "istina_operational_validation_20260719.json",
+      "sha256": "cbb507d7ad292bdae7ab4a067e4933a3e59466cf1ecf21a5da89bf435f632443"
+    },
+    "gold_readiness": {
+      "name": "istina_gold_readiness_20260719.json",
+      "sha256": "e337fbe9a9f8428353851d3b0626a5bc2ff3163856dca866db66c96972eea4ed"
+    },
+    "live_shadow": {
+      "name": "istina_live_shadow_smoke_20260719.json",
+      "sha256": "f3eb98ed8a0fbfdf5a199bd41a256ddc208cdfa8ff0965112eb59491666d2cf3"
+    }
+  }
+}

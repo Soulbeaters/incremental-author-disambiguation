@@ -14,6 +14,8 @@ import re
 import string
 import math
 import logging
+import unicodedata
+from functools import lru_cache
 from typing import Dict, Set, Tuple, Any, Optional
 from models.author import Author
 
@@ -256,7 +258,30 @@ class SimilarityScorer:
         Returns:
             float: 合著者相似度分数 (0-1) / Балл сходства соавторов (0-1)
         """
-        return self._calculate_jaccard_similarity(coauthors1, coauthors2)
+        normalized1 = {
+            self._normalize_coauthor_name(value)
+            for value in coauthors1
+        }
+        normalized2 = {
+            self._normalize_coauthor_name(value)
+            for value in coauthors2
+        }
+        normalized1.discard('')
+        normalized2.discard('')
+        return self._calculate_jaccard_similarity(normalized1, normalized2)
+
+    @staticmethod
+    @lru_cache(maxsize=65536)
+    def _normalize_coauthor_name(value: str) -> str:
+        """Build a conservative order-insensitive key for a coauthor name."""
+
+        decomposed = unicodedata.normalize('NFKD', str(value or '').casefold())
+        text = ''.join(
+            char if char.isalnum() else ' '
+            for char in decomposed
+            if not unicodedata.combining(char)
+        )
+        return ' '.join(sorted(token for token in text.split() if token))
 
     def _calculate_journal_similarity(self, journals1: Set[str], journals2: Set[str]) -> float:
         """
@@ -313,6 +338,7 @@ class SimilarityScorer:
 
         return intersection / union
 
+    @lru_cache(maxsize=65536)
     def _normalize_name(self, name: str) -> str:
         """
         标准化姓名字符串 / Нормализация строки имени
@@ -340,6 +366,7 @@ class SimilarityScorer:
 
         return name
 
+    @lru_cache(maxsize=65536)
     def _normalize_string(self, text: str) -> str:
         """
         通用字符串标准化 / Универсальная нормализация строк
@@ -488,7 +515,10 @@ class SimilarityScorer:
         mention_coauthors = set(mention.get('coauthors', []))
         author_coauthors = author.coauthor_ids
         if mention_coauthors and author_coauthors:
-            coauthor_sim = self._calculate_jaccard_similarity(mention_coauthors, author_coauthors)
+            coauthor_sim = self._calculate_coauthor_similarity(
+                mention_coauthors,
+                author_coauthors,
+            )
             comparisons['coauthor_sim'] = coauthor_sim
             comparisons['coauthor_bin'] = self._bin_coauthor_similarity(coauthor_sim)
         else:

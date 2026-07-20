@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "source_system": "istina",
+  "source_record_type": "publication_author_export",
+  "identity_namespace": "istina_author_id",
+  "label_semantics": "adjudicated_person_identity",
+  "exported_at": "REPLACE_WITH_TIMEZONE_AWARE_ISO8601",
+  "extraction_method": "REPLACE_WITH_DOCUMENTED_INSTITUTIONAL_EXPORT_METHOD",
+  "datasets": [
+    {
+      "name": "REPLACE_WITH_EXACT_EXPORT_FILENAME",
+      "sha256": "REPLACE_WITH_64_HEX_DATASET_SHA256"
+    }
+  ],
+  "independent_label_audit_verified": false,
+  "cross_discipline_scope_verified": false,
+  "approval": {
+    "production_validation_approved": false,
+    "approved_at": "REPLACE_WITH_TIMEZONE_AWARE_ISO8601",
+    "reference": ""
+  }
+}

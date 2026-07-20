@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-20T08:54:37.691317+00:00",
+  "protocol": {
+    "source_system": "istina",
+    "mode": "read_only_candidate_lookup",
+    "dataset_name": "chinese_articles_with_authors.json",
+    "dataset_sha256": "515c2d5881970f4de1a412d94018fa1aee99b5069956a1e139358bfc0de715fb",
+    "code_revision": "ccf0c41704b3b72ad376c399c5636a64fc96b974",
+    "service_url_sha256": "04a6e7ff17b0c61c4679b2a411f56b32d88160ef6d4441005efd914ea6cf8ddb",
+    "requests": 4,
+    "concurrency": 2,
+    "max_rps": 0.5,
+    "service_timeout_seconds": 30.0,
+    "exact_duplicate_author_rows_removed": 52,
+    "approved_change_reference": "USER-THREAD-019ef665-READONLY-CANARY-20260720",
+    "approval_scope": "user_authorized_canary"
+  },
+  "stats": {
+    "requests": 4,
+    "completed": 4,
+    "errors": 0,
+    "write_calls": 0
+  },
+  "metrics": {
+    "error_rate": 0.0,
+    "elapsed_seconds": 21.41027629999735,
+    "throughput_requests_per_second": 0.1868261737472531,
+    "latency_ms_p50": 10550.911300000735,
+    "latency_ms_p95": 10857.66350000631,
+    "latency_ms_p99": 10857.66350000631,
+    "latency_ms_max": 10857.66350000631
+  },
+  "safety": {
+    "verified": false,
+    "write_client_present": false,
+    "write_calls": 0,
+    "explicit_operator_acknowledgement": true,
+    "threshold_passed": false,
+    "institutional_approval": false,
+    "evidence_classification": "bounded_non_release_canary",
+    "criteria": {
+      "min_requests": 1000,
+      "max_error_rate": 0.01,
+      "max_p95_latency_ms": 20000.0
+    }
+  }
+}

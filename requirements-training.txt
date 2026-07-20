@@ -1,0 +1,2 @@
+# Offline calibration only; production runtime does not import NumPy.
+numpy>=1.23

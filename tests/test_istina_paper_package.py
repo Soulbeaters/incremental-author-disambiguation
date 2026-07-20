@@ -29,6 +29,7 @@ def current_inputs():
         "gold": "istina_gold_readiness_20260719.json",
         "live": "istina_live_shadow_smoke_20260719.json",
         "live_diagnostic": "istina_live_shadow_diagnostic_20260720.json",
+        "online_canary": "istina_online_read_load_canary_20260720.json",
         "bundle": "istina_release_evidence_bundle_20260719.json",
         "gate": "istina_production_gate_operational_20260719.json",
         "openalex_default": "openalex_confirmation_default_current_20260719.json",
@@ -56,7 +57,7 @@ class IstinaPaperPackageTests(unittest.TestCase):
         )
 
         self.assertTrue(package["integrity"]["verified"])
-        self.assertEqual(package["integrity"]["summary"]["total"], 62)
+        self.assertEqual(package["integrity"]["summary"]["total"], 67)
         self.assertFalse(package["release"]["release_ready"])
         self.assertEqual(package["quality_table"][0]["test_mentions"], 571)
         self.assertEqual(package["quality_table"][1]["paper_overlap"], 13)
@@ -133,7 +134,7 @@ class IstinaPaperPackageTests(unittest.TestCase):
             },
         )
         markdown = render_markdown(package)
-        self.assertIn("8/23 passed", markdown)
+        self.assertIn("7/23 passed", markdown)
         self.assertIn("legacy-service fallback disabled", markdown)
         self.assertIn("superseded", markdown)
         self.assertIn("OpenAlex in-domain rescue ablation", markdown)
@@ -142,6 +143,33 @@ class IstinaPaperPackageTests(unittest.TestCase):
         self.assertIn("Real-service diagnostic replication", markdown)
         self.assertIn("38 mentions across 14 papers", markdown)
         self.assertIn("Legacy-service result drift", markdown)
+        self.assertIn("Online read-only load canary", markdown)
+        self.assertEqual(
+            package["operational_summary"]["online_canary_classification"],
+            "bounded_non_release_canary",
+        )
+        self.assertFalse(package["operational_summary"]["offline_load_verified"])
+
+    def test_user_canary_cannot_be_relabelled_as_release_evidence(self):
+        inputs = current_inputs()
+        online_canary = copy.deepcopy(inputs["online_canary"])
+        online_canary["safety"]["verified"] = True
+        online_canary["safety"]["institutional_approval"] = True
+        online_canary["safety"]["evidence_classification"] = (
+            "release_scale_online_load"
+        )
+        inputs["online_canary"] = online_canary
+
+        package = compose_paper_package(
+            **inputs,
+            generated_at="2026-07-20T00:00:00+00:00",
+        )
+
+        self.assertFalse(package["integrity"]["verified"])
+        self.assertIn(
+            "online_canary_remains_non_release",
+            {failure["name"] for failure in package["integrity"]["failures"]},
+        )
 
     def test_live_diagnostic_framework_change_fails_closed(self):
         inputs = current_inputs()

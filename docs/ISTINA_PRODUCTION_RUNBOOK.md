@@ -4,7 +4,7 @@
 
 The current branch is authorized for offline replay, live no-write shadow, and
 candidate generation only. It is not authorized to write identity decisions
-back to ISTINA. The 2026-07-19 machine gate passes 8 of 23 checks and reports
+back to ISTINA. The current machine gate passes 7 of 23 checks and reports
 `release_ready: false`. The five-mention live smoke passed, but release shadow
 verification remains false because it is below both the 500-mention floor and
 the prospectively powered paired-comparison requirement.
@@ -80,7 +80,10 @@ assertion without this machine-generated manifest.
    source order before the remaining target is filled in source order.
 6. During an approved operations window, run the explicitly acknowledged,
    rate-limited `experiments/istina_online_read_load.py`; this is a read-only
-   load generator, not a write client.
+   load generator, not a write client. Use `--approval-scope
+   institutional_load_window` for formal evidence. The separate
+   `user_authorized_canary` scope is capped at 20 requests and is permanently
+   non-release.
 7. Generate the audit-retention attachment with
    `evaluation/istina_audit_retention.py`, supplying one retained audit chain
    and one retained shadow telemetry file per worker. Then complete the

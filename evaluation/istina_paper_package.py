@@ -177,6 +177,7 @@ def compose_paper_package(
     gold: Mapping[str, Any],
     live: Mapping[str, Any],
     live_diagnostic: Mapping[str, Any],
+    online_canary: Mapping[str, Any],
     bundle: Mapping[str, Any],
     gate: Mapping[str, Any],
     openalex_default: Mapping[str, Any],
@@ -196,6 +197,10 @@ def compose_paper_package(
     operational_protocol = dict(operational.get("protocol") or {})
     live_protocol = dict(live.get("protocol") or {})
     live_diagnostic_protocol = dict(live_diagnostic.get("protocol") or {})
+    online_canary_protocol = dict(online_canary.get("protocol") or {})
+    online_canary_stats = dict(online_canary.get("stats") or {})
+    online_canary_metrics = dict(online_canary.get("metrics") or {})
+    online_canary_safety = dict(online_canary.get("safety") or {})
     temporal_stats = dict(temporal.get("stats") or {})
     holdout_stats = dict(holdout.get("stats") or {})
     holdout_legacy = dict(holdout.get("legacy_shadow") or {})
@@ -240,6 +245,7 @@ def compose_paper_package(
         str(operational_protocol.get("dataset_sha256") or ""),
         str(live_protocol.get("dataset_sha256") or ""),
         str(live_diagnostic_protocol.get("dataset_sha256") or ""),
+        str(online_canary_protocol.get("dataset_sha256") or ""),
     }
     dataset_hashes.discard("")
     service_hashes = {
@@ -513,6 +519,130 @@ def compose_paper_package(
                     )
                     or {}
                 ).get("minimum_release_shadow_mentions")
+                or 0
+            ),
+        ),
+        _check(
+            "online_canary_dataset_sha256",
+            online_canary_protocol.get("dataset_sha256"),
+            next(iter(dataset_hashes), None) if len(dataset_hashes) == 1 else None,
+        ),
+        _check(
+            "online_canary_code_revision",
+            online_canary_protocol.get("code_revision"),
+            "full 40-hex frozen Git revision",
+            re.fullmatch(
+                r"[0-9a-f]{40}",
+                str(online_canary_protocol.get("code_revision") or ""),
+            )
+            is not None,
+        ),
+        _check(
+            "online_canary_protocol",
+            {
+                "schema_version": online_canary.get("schema_version"),
+                "source_system": online_canary_protocol.get("source_system"),
+                "mode": online_canary_protocol.get("mode"),
+                "approval_scope": online_canary_protocol.get("approval_scope"),
+                "approved_change_reference": bool(
+                    str(
+                        online_canary_protocol.get("approved_change_reference")
+                        or ""
+                    ).strip()
+                ),
+                "duplicate_rows_removed": online_canary_protocol.get(
+                    "exact_duplicate_author_rows_removed"
+                ),
+            },
+            {
+                "schema_version": 1,
+                "source_system": "istina",
+                "mode": "read_only_candidate_lookup",
+                "approval_scope": "user_authorized_canary",
+                "approved_change_reference": True,
+                "duplicate_rows_removed": 52,
+            },
+        ),
+        _check(
+            "online_canary_execution",
+            {
+                "protocol_requests": online_canary_protocol.get("requests"),
+                "stats_requests": online_canary_stats.get("requests"),
+                "completed": online_canary_stats.get("completed"),
+                "errors": online_canary_stats.get("errors"),
+                "error_rate": online_canary_metrics.get("error_rate"),
+                "p95_ms": online_canary_metrics.get("latency_ms_p95"),
+            },
+            "positive equal request/completion counts, zero errors, finite p95 within canary criterion",
+            not isinstance(online_canary_stats.get("requests"), bool)
+            and isinstance(online_canary_stats.get("requests"), int)
+            and int(online_canary_stats["requests"]) > 0
+            and online_canary_protocol.get("requests")
+            == online_canary_stats.get("requests")
+            == online_canary_stats.get("completed")
+            and online_canary_stats.get("errors") == 0
+            and online_canary_metrics.get("error_rate") == 0.0
+            and isinstance(
+                online_canary_metrics.get("latency_ms_p95"),
+                (int, float),
+            )
+            and not isinstance(
+                online_canary_metrics.get("latency_ms_p95"),
+                bool,
+            )
+            and math.isfinite(
+                float(online_canary_metrics.get("latency_ms_p95"))
+            )
+            and 0.0
+            <= float(online_canary_metrics.get("latency_ms_p95"))
+            <= float(
+                (online_canary_safety.get("criteria") or {}).get(
+                    "max_p95_latency_ms"
+                )
+                or 0.0
+            ),
+        ),
+        _check(
+            "online_canary_remains_non_release",
+            {
+                "verified": online_canary_safety.get("verified"),
+                "threshold_passed": online_canary_safety.get(
+                    "threshold_passed"
+                ),
+                "institutional_approval": online_canary_safety.get(
+                    "institutional_approval"
+                ),
+                "classification": online_canary_safety.get(
+                    "evidence_classification"
+                ),
+                "write_client_present": online_canary_safety.get(
+                    "write_client_present"
+                ),
+                "write_calls": online_canary_stats.get("write_calls"),
+                "acknowledged": online_canary_safety.get(
+                    "explicit_operator_acknowledgement"
+                ),
+                "requests": online_canary_stats.get("requests"),
+                "minimum": (
+                    online_canary_safety.get("criteria") or {}
+                ).get("min_requests"),
+            },
+            "bounded user-authorized canary, below release volume, with no write client or calls",
+            online_canary_safety.get("verified") is False
+            and online_canary_safety.get("threshold_passed") is False
+            and online_canary_safety.get("institutional_approval") is False
+            and online_canary_safety.get("evidence_classification")
+            == "bounded_non_release_canary"
+            and online_canary_safety.get("write_client_present") is False
+            and online_canary_safety.get("write_calls") == 0
+            and online_canary_stats.get("write_calls") == 0
+            and online_canary_safety.get("explicit_operator_acknowledgement")
+            is True
+            and int(online_canary_stats.get("requests") or 0)
+            < int(
+                (online_canary_safety.get("criteria") or {}).get(
+                    "min_requests"
+                )
                 or 0
             ),
         ),
@@ -1189,6 +1319,7 @@ def compose_paper_package(
     live_safety = dict(live.get("safety") or {})
     live_diagnostic_metrics = dict(live_diagnostic.get("metrics") or {})
     operational_summary = {
+        "offline_load_verified": load.get("verified"),
         "offline_load_operations": load.get("load_operations"),
         "offline_load_p95_ms": load.get("latency_ms_p95"),
         "offline_throughput_mentions_per_second": load.get("throughput_mentions_per_second"),
@@ -1237,6 +1368,13 @@ def compose_paper_package(
         "legacy_service_correct_delta": legacy_service_drift[
             "legacy_correct_delta"
         ],
+        "online_canary_requests": online_canary_stats.get("requests"),
+        "online_canary_errors": online_canary_stats.get("errors"),
+        "online_canary_p95_ms": online_canary_metrics.get("latency_ms_p95"),
+        "online_canary_concurrency": online_canary_protocol.get("concurrency"),
+        "online_canary_classification": online_canary_safety.get(
+            "evidence_classification"
+        ),
     }
     supported_claims = [
         {
@@ -1267,9 +1405,12 @@ def compose_paper_package(
             "id": "bounded_online_no_write_connectivity",
             "statement": (
                 "A five-mention real-service smoke demonstrates bounded no-write "
-                "connectivity, not release-scale online performance."
+                "connectivity. A separate four-request, concurrency-two online "
+                "load canary completes with zero errors and zero writes, but its "
+                "user-authorized scope and sub-threshold volume make it "
+                "non-release evidence."
             ),
-            "sources": ["live"],
+            "sources": ["live", "online_canary"],
         },
         {
             "id": "diagnostic_online_comparison_current",
@@ -1613,6 +1754,7 @@ def render_markdown(package: Mapping[str, Any]) -> str:
         "## Operational evidence",
         "",
         f"- Offline no-write operations: {operations.get('offline_load_operations')}",
+        f"- Offline load threshold verified: {_value(operations.get('offline_load_verified'))}",
         f"- Offline load p95: {float(operations.get('offline_load_p95_ms') or 0.0):.2f} ms",
         f"- Offline throughput: {float(operations.get('offline_throughput_mentions_per_second') or 0.0):.2f} mentions/s",
         f"- Deterministic mismatches: {operations.get('deterministic_hash_mismatches')}",
@@ -1632,6 +1774,14 @@ def render_markdown(package: Mapping[str, Any]) -> str:
             "authorized commands"
         ),
         f"- Diagnostic live paper-request p95: {float(operations.get('live_diagnostic_p95_ms') or 0.0):.2f} ms",
+        (
+            "- Online read-only load canary: "
+            f"{operations.get('online_canary_requests')} requests at concurrency "
+            f"{operations.get('online_canary_concurrency')}, "
+            f"{operations.get('online_canary_errors')} errors, p95 "
+            f"{float(operations.get('online_canary_p95_ms') or 0.0):.2f} ms, "
+            f"classification={operations.get('online_canary_classification')}"
+        ),
         "",
         "## Article-safe interpretation",
         "",
@@ -1685,6 +1835,7 @@ def main() -> None:
     parser.add_argument("--gold", type=Path, required=True)
     parser.add_argument("--live", type=Path, required=True)
     parser.add_argument("--live-diagnostic", type=Path, required=True)
+    parser.add_argument("--online-canary", type=Path, required=True)
     parser.add_argument("--bundle", type=Path, required=True)
     parser.add_argument("--gate", type=Path, required=True)
     parser.add_argument("--openalex-default", type=Path, required=True)
@@ -1706,6 +1857,7 @@ def main() -> None:
         "gold": args.gold,
         "live": args.live,
         "live_diagnostic": args.live_diagnostic,
+        "online_canary": args.online_canary,
         "bundle": args.bundle,
         "gate": args.gate,
         "openalex_default": args.openalex_default,
@@ -1730,6 +1882,7 @@ def main() -> None:
         gold=documents["gold"],
         live=documents["live"],
         live_diagnostic=documents["live_diagnostic"],
+        online_canary=documents["online_canary"],
         bundle=documents["bundle"],
         gate=documents["gate"],
         openalex_default=documents["openalex_default"],

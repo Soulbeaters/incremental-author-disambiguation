@@ -109,7 +109,7 @@ python evaluation/istina_paired_shadow.py --live-shadow <private-live-shadow.jso
 
 # Run only inside an approved operations window. This endpoint is read-only,
 # but it intentionally generates service load and therefore requires both flags.
-python experiments/istina_online_read_load.py --dataset <private-istina-export.json> --requests 1000 --concurrency 4 --max-rps 2 --man-id <approved-man-id> --code-revision $revision --approved-change-reference <change-ticket> --acknowledge-read-only-load --output <private-online-load.json>
+python experiments/istina_online_read_load.py --dataset <private-istina-export.json> --requests 1000 --concurrency 4 --max-rps 2 --man-id <approved-man-id> --code-revision $revision --approved-change-reference <change-ticket> --approval-scope institutional_load_window --acknowledge-read-only-load --output <private-online-load.json>
 
 # Supply one retained audit JSONL and one retained live-shadow JSON per worker.
 # The output contains aggregate hashes and counts, never event content or paths.

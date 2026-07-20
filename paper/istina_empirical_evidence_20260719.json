@@ -1,19 +1,19 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-20T08:43:34.468454+00:00",
-  "package_id": "5689b25af5089544f3018fb93dbd25c14f1f13aa03ea159c2cda6c3322305121",
+  "generated_at": "2026-07-20T09:08:48.506576+00:00",
+  "package_id": "be5b485accd21b2b1c819407a6e4b49c3d8bce6501793044daccf4d1fe98bbc6",
   "integrity": {
     "verified": true,
     "summary": {
-      "passed": 62,
+      "passed": 67,
       "failed": 0,
-      "total": 62
+      "total": 67
     },
     "checks": [
       {
         "name": "bundle_operational_sha256",
-        "observed": "ee37bbe009812ed92ea102eb07961540bac964b833bce5157c85a6dd87b74f88",
-        "expected": "ee37bbe009812ed92ea102eb07961540bac964b833bce5157c85a6dd87b74f88",
+        "observed": "d520ab7281faabfc413661b4c24c5433a1f122bc7b9e3a28f56c970aad1555fb",
+        "expected": "d520ab7281faabfc413661b4c24c5433a1f122bc7b9e3a28f56c970aad1555fb",
         "passed": true
       },
       {
@@ -201,6 +201,67 @@
           "minimum": 500
         },
         "expected": "verified=false and mentions below the release minimum",
+        "passed": true
+      },
+      {
+        "name": "online_canary_dataset_sha256",
+        "observed": "515c2d5881970f4de1a412d94018fa1aee99b5069956a1e139358bfc0de715fb",
+        "expected": "515c2d5881970f4de1a412d94018fa1aee99b5069956a1e139358bfc0de715fb",
+        "passed": true
+      },
+      {
+        "name": "online_canary_code_revision",
+        "observed": "ccf0c41704b3b72ad376c399c5636a64fc96b974",
+        "expected": "full 40-hex frozen Git revision",
+        "passed": true
+      },
+      {
+        "name": "online_canary_protocol",
+        "observed": {
+          "schema_version": 1,
+          "source_system": "istina",
+          "mode": "read_only_candidate_lookup",
+          "approval_scope": "user_authorized_canary",
+          "approved_change_reference": true,
+          "duplicate_rows_removed": 52
+        },
+        "expected": {
+          "schema_version": 1,
+          "source_system": "istina",
+          "mode": "read_only_candidate_lookup",
+          "approval_scope": "user_authorized_canary",
+          "approved_change_reference": true,
+          "duplicate_rows_removed": 52
+        },
+        "passed": true
+      },
+      {
+        "name": "online_canary_execution",
+        "observed": {
+          "protocol_requests": 4,
+          "stats_requests": 4,
+          "completed": 4,
+          "errors": 0,
+          "error_rate": 0.0,
+          "p95_ms": 10857.66350000631
+        },
+        "expected": "positive equal request/completion counts, zero errors, finite p95 within canary criterion",
+        "passed": true
+      },
+      {
+        "name": "online_canary_remains_non_release",
+        "observed": {
+          "verified": false,
+          "threshold_passed": false,
+          "institutional_approval": false,
+          "classification": "bounded_non_release_canary",
+          "write_client_present": false,
+          "write_calls": 0,
+          "acknowledged": true,
+          "requests": 4,
+          "minimum": 1000
+        },
+        "expected": "bounded user-authorized canary, below release volume, with no write client or calls",
         "passed": true
       },
       {
@@ -639,7 +700,7 @@
     },
     "operational": {
       "name": "istina_operational_validation_20260719.json",
-      "sha256": "ee37bbe009812ed92ea102eb07961540bac964b833bce5157c85a6dd87b74f88"
+      "sha256": "d520ab7281faabfc413661b4c24c5433a1f122bc7b9e3a28f56c970aad1555fb"
     },
     "gold": {
       "name": "istina_gold_readiness_20260719.json",
@@ -653,13 +714,17 @@
       "name": "istina_live_shadow_diagnostic_20260720.json",
       "sha256": "e18168b377e10353daaef77df418800fe362130e8c827653df18cfbe97d77052"
     },
+    "online_canary": {
+      "name": "istina_online_read_load_canary_20260720.json",
+      "sha256": "e94eacd867c2eef535dc61863a953388dcec43be969ab2e606b304988b718d1b"
+    },
     "bundle": {
       "name": "istina_release_evidence_bundle_20260719.json",
-      "sha256": "2a00e57875d014c3a0396822e1e186da93df7af30ff4569f2a9cdcae4c61aecf"
+      "sha256": "910d1df891e8f2b52d597e01eae7edb1cbc5f5da4c886a5626e6de1b80e021df"
     },
     "gate": {
       "name": "istina_production_gate_operational_20260719.json",
-      "sha256": "dfebd5008c091754613e1970b5c8a169b9df3f95181d2ee61df724729aee2fb1"
+      "sha256": "88f3dc95c0193c9bf6b62e13164b1f9e129506ce40f9b31a2a7268fd5e27c439"
     },
     "openalex_default": {
       "name": "openalex_confirmation_default_current_20260719.json",
@@ -1000,9 +1065,10 @@
     "interpretation": "current incumbent observations differ from the frozen comparison; report both and do not overwrite the frozen baseline"
   },
   "operational_summary": {
+    "offline_load_verified": false,
     "offline_load_operations": 13554,
-    "offline_load_p95_ms": 39.28339999401942,
-    "offline_throughput_mentions_per_second": 115.62463927280946,
+    "offline_load_p95_ms": 50.81679999420885,
+    "offline_throughput_mentions_per_second": 86.05044900637363,
     "deterministic_hash_mismatches": 0,
     "runtime_safety_contract_verified": true,
     "rollback_verified": true,
@@ -1021,7 +1087,12 @@
     "live_diagnostic_authorized_commands": 0,
     "live_diagnostic_p95_ms": 18714.94459999667,
     "legacy_service_drift_observed": true,
-    "legacy_service_correct_delta": 3
+    "legacy_service_correct_delta": 3,
+    "online_canary_requests": 4,
+    "online_canary_errors": 0,
+    "online_canary_p95_ms": 10857.66350000631,
+    "online_canary_concurrency": 2,
+    "online_canary_classification": "bounded_non_release_canary"
   },
   "supported_claims": [
     {
@@ -1042,9 +1113,10 @@
     },
     {
       "id": "bounded_online_no_write_connectivity",
-      "statement": "A five-mention real-service smoke demonstrates bounded no-write connectivity, not release-scale online performance.",
+      "statement": "A five-mention real-service smoke demonstrates bounded no-write connectivity. A separate four-request, concurrency-two online load canary completes with zero errors and zero writes, but its user-authorized scope and sub-threshold volume make it non-release evidence.",
       "sources": [
-        "live"
+        "live",
+        "online_canary"
       ]
     },
     {
@@ -1092,8 +1164,8 @@
   ],
   "release": {
     "release_ready": false,
-    "passed": 8,
-    "failed": 15,
+    "passed": 7,
+    "failed": 16,
     "total": 23,
     "remaining_gaps": [
       {
@@ -1155,6 +1227,12 @@
         "category": "comparison",
         "observed": 0.25,
         "required": "<=0.05"
+      },
+      {
+        "name": "offline_load_test_verified",
+        "category": "operations",
+        "observed": false,
+        "required": "deterministic no-write load replay on real ISTINA data"
       },
       {
         "name": "cross_domain_gold_verified",

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-20T08:43:21.155461+00:00",
+  "generated_at": "2026-07-20T09:05:15.680138+00:00",
   "protocol": {
     "dataset": "C:\\program 2 in 2025\\istina test\\chinese_articles_with_authors.json",
     "dataset_sha256": "515c2d5881970f4de1a412d94018fa1aee99b5069956a1e139358bfc0de715fb",
@@ -23,7 +23,7 @@
   },
   "tests": {
     "command": "python -m pytest -q -p no:cacheprovider",
-    "passed": 222,
+    "passed": 228,
     "warnings": 1
   },
   "stats": {
@@ -45,9 +45,9 @@
     "auto_accuracy": 0.9422066549912435,
     "unknown_rate": 0.050788091068301226,
     "wrong_merge_rate": 0.0,
-    "latency_ms_p50": 0.6270000012591481,
-    "latency_ms_p95": 25.150599991320632,
-    "latency_ms_p99": 38.360199992894195
+    "latency_ms_p50": 0.9508999937679619,
+    "latency_ms_p95": 38.720099997590296,
+    "latency_ms_p99": 55.13920000521466
   },
   "stage_counts": {
     "local_fs": 571
@@ -74,7 +74,7 @@
       "durable_audit_chain": {
         "verified": true,
         "records": 8,
-        "head_hash": "41bda3914f6cadaff77e1c9eebc973c451850537e3eda6af32d4636b7af37a72",
+        "head_hash": "48a94877e7451700fc7d906132d3808565405f3f5b90ef6858754c2f71d5c965",
         "restart_verified": true,
         "fsync": true,
         "storage_scope": "ephemeral validation file; not deployed production storage"
@@ -82,15 +82,15 @@
       "no_write_authorized": true
     },
     "offline_load_test": {
-      "verified": true,
+      "verified": false,
       "real_distinct_mentions": 753,
       "replay_iterations": 18,
       "load_operations": 13554,
-      "elapsed_seconds": 117.2241495000053,
-      "throughput_mentions_per_second": 115.62463927280946,
-      "latency_ms_p50": 1.2284000113140792,
-      "latency_ms_p95": 39.28339999401942,
-      "latency_ms_p99": 58.00920000183396,
+      "elapsed_seconds": 157.51225189999968,
+      "throughput_mentions_per_second": 86.05044900637363,
+      "latency_ms_p50": 1.6707999893696979,
+      "latency_ms_p95": 50.81679999420885,
+      "latency_ms_p99": 75.38999999815132,
       "deterministic_hash_mismatches": 0,
       "scope": "offline no-write load replay; repeated operations are not extra gold"
     },
@@ -135,7 +135,7 @@
           "merge_rate": 0.5,
           "service_error_rate": 1.0,
           "candidate_truncation_rate": 0.0,
-          "latency_p95_ms": 23.763799996231683,
+          "latency_p95_ms": 29.825699995853938,
           "stage_total_variation": 1.0,
           "stage_distribution": {
             "fault_injection": 1.0
@@ -174,7 +174,7 @@
           },
           {
             "name": "latency_p95_ms",
-            "observed": 23.763799996231683,
+            "observed": 29.825699995853938,
             "limit": 10000.0,
             "passed": true
           }
@@ -258,7 +258,7 @@
       "durable_audit_chain": {
         "verified": true,
         "records": 8,
-        "head_hash": "41bda3914f6cadaff77e1c9eebc973c451850537e3eda6af32d4636b7af37a72",
+        "head_hash": "48a94877e7451700fc7d906132d3808565405f3f5b90ef6858754c2f71d5c965",
         "restart_verified": true,
         "fsync": true,
         "storage_scope": "ephemeral validation file; not deployed production storage"
@@ -266,15 +266,15 @@
       "no_write_authorized": true
     },
     "offline_load_test_verified": {
-      "verified": true,
+      "verified": false,
       "real_distinct_mentions": 753,
       "replay_iterations": 18,
       "load_operations": 13554,
-      "elapsed_seconds": 117.2241495000053,
-      "throughput_mentions_per_second": 115.62463927280946,
-      "latency_ms_p50": 1.2284000113140792,
-      "latency_ms_p95": 39.28339999401942,
-      "latency_ms_p99": 58.00920000183396,
+      "elapsed_seconds": 157.51225189999968,
+      "throughput_mentions_per_second": 86.05044900637363,
+      "latency_ms_p50": 1.6707999893696979,
+      "latency_ms_p95": 50.81679999420885,
+      "latency_ms_p99": 75.38999999815132,
       "deterministic_hash_mismatches": 0,
       "scope": "offline no-write load replay; repeated operations are not extra gold"
     },
@@ -316,7 +316,7 @@
           "merge_rate": 0.5,
           "service_error_rate": 1.0,
           "candidate_truncation_rate": 0.0,
-          "latency_p95_ms": 23.763799996231683,
+          "latency_p95_ms": 29.825699995853938,
           "stage_total_variation": 1.0,
           "stage_distribution": {
             "fault_injection": 1.0
@@ -355,7 +355,7 @@
           },
           {
             "name": "latency_p95_ms",
-            "observed": 23.763799996231683,
+            "observed": 29.825699995853938,
             "limit": 10000.0,
             "passed": true
           }

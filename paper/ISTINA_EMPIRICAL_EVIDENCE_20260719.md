@@ -1,6 +1,6 @@
 # ISTINA author-disambiguation empirical evidence package
 
-Package ID: `5689b25af5089544f3018fb93dbd25c14f1f13aa03ea159c2cda6c3322305121`.
+Package ID: `be5b485accd21b2b1c819407a6e4b49c3d8bce6501793044daccf4d1fe98bbc6`.
 
 This package is internally consistent and machine-traceable for article use. It is not a write-enabled production authorization.
 
@@ -77,8 +77,9 @@ Legacy-service result drift relative to the frozen comparison: observed=true, fr
 ## Operational evidence
 
 - Offline no-write operations: 13554
-- Offline load p95: 39.28 ms
-- Offline throughput: 115.62 mentions/s
+- Offline load threshold verified: false
+- Offline load p95: 50.82 ms
+- Offline throughput: 86.05 mentions/s
 - Deterministic mismatches: 0
 - Runtime safety / rollback / drift fault tests: passed / passed / passed
 - Real-service shadow: 5 mentions, 0 service errors, 0 authorized commands
@@ -86,12 +87,13 @@ Legacy-service result drift relative to the frozen comparison: observed=true, fr
 - Live audit chain verified / retained: true / false
 - Real-service diagnostic replication: 38 mentions across 14 papers, framework 27 correct versus legacy 27 correct, 0 service errors, 0 authorized commands
 - Diagnostic live paper-request p95: 18714.94 ms
+- Online read-only load canary: 4 requests at concurrency 2, 0 errors, p95 10857.66 ms, classification=bounded_non_release_canary
 
 ## Article-safe interpretation
 
 - The cleaned strict-temporal ISTINA sample has no observed wrong merge, but contains only 5 known-author cases and 0 automatic merges.
 - The cleaned 38-case diagnostic compares the independent framework at 27 correct with the legacy service at 24 correct. A fresh read-only live run keeps the framework at 27 correct while the current legacy service reaches 27 correct; neither paired comparison establishes a statistically significant advantage.
-- A five-mention real-service smoke demonstrates bounded no-write connectivity, not release-scale online performance.
+- A five-mention real-service smoke demonstrates bounded no-write connectivity. A separate four-request, concurrency-two online load canary completes with zero errors and zero writes, but its user-authorized scope and sub-threshold volume make it non-release evidence.
 - A separate 38-mention, 14-paper real-service diagnostic reproduces the framework score at 27 correct, while the current legacy result is 27 correct rather than the frozen baseline. It has zero service errors and zero authorized commands; its overlapping per-author split and sub-threshold volume make it non-release evidence.
 - The current live legacy-service outcome differs from the frozen comparison by +3 correct cases and has a different paired table. The frozen and current results are therefore reported separately.
 - The rescue improves recall without reducing precision on the current OpenAlex confirmation, but lowers precision and increases wrong merges on both the 27,430-mention OpenAlex stress ablation and the complete 6,412-mention AMiner ablation. Universal superiority is therefore unsupported.
@@ -106,7 +108,7 @@ Claims that remain prohibited:
 
 ## Machine release gate
 
-Result: **8/23 passed; `release_ready: false`.**
+Result: **7/23 passed; `release_ready: false`.**
 
 | Missing check | Category | Observed | Required |
 |---|---|---:|---|
@@ -120,6 +122,7 @@ Result: **8/23 passed; `release_ready: false`.**
 | unknown_rate | quality | 0.0507881 | <=0.02 |
 | shadow_absolute_gain | comparison | -0.6 | >=0.02 |
 | shadow_significance | comparison | 0.25 | <=0.05 |
+| offline_load_test_verified | operations | false | deterministic no-write load replay on real ISTINA data |
 | cross_domain_gold_verified | operations | false | validated gold from multiple ISTINA disciplines |
 | online_shadow_verified | operations | false | live shadow run without writes |
 | online_load_test_verified | operations | false | online end-to-end load and latency test |
@@ -134,16 +137,17 @@ Result: **8/23 passed; `release_ready: false`.**
 | aminer_full_current | `aminer_kdd18_test100_default_current_20260719.json` | `f8ef9434a15392b58086cbcb2bd19b339e237f626c3087edabeff0459b951246` |
 | aminer_full_rescue_current | `aminer_kdd18_test100_rescue_current_20260719.json` | `c1c8be7ee0c6cb15a27a13fb0ec0b15c1f1252246cf2b4b0ad9912eff145502d` |
 | aminer_rescue_current | `aminer_kdd18_test100_first10_rescue_current_20260719.json` | `6ca510c9d663d7ba5b23de75098e797bc441e621ba0215f5bb7688462c92f7e7` |
-| bundle | `istina_release_evidence_bundle_20260719.json` | `2a00e57875d014c3a0396822e1e186da93df7af30ff4569f2a9cdcae4c61aecf` |
-| gate | `istina_production_gate_operational_20260719.json` | `dfebd5008c091754613e1970b5c8a169b9df3f95181d2ee61df724729aee2fb1` |
+| bundle | `istina_release_evidence_bundle_20260719.json` | `910d1df891e8f2b52d597e01eae7edb1cbc5f5da4c886a5626e6de1b80e021df` |
+| gate | `istina_production_gate_operational_20260719.json` | `88f3dc95c0193c9bf6b62e13164b1f9e129506ce40f9b31a2a7268fd5e27c439` |
 | gold | `istina_gold_readiness_20260719.json` | `e337fbe9a9f8428353851d3b0626a5bc2ff3163856dca866db66c96972eea4ed` |
 | holdout | `istina_holdout_runtime_replay_deduplicated_20260719.json` | `5006f00d7f8be4cb9ae5502bce9692b355a077a14a1511ee7cc9f41c624ad69d` |
 | live | `istina_live_shadow_smoke_20260719.json` | `f3eb98ed8a0fbfdf5a199bd41a256ddc208cdfa8ff0965112eb59491666d2cf3` |
 | live_diagnostic | `istina_live_shadow_diagnostic_20260720.json` | `e18168b377e10353daaef77df418800fe362130e8c827653df18cfbe97d77052` |
+| online_canary | `istina_online_read_load_canary_20260720.json` | `e94eacd867c2eef535dc61863a953388dcec43be969ab2e606b304988b718d1b` |
 | openalex_default | `openalex_confirmation_default_current_20260719.json` | `038e9874ce9838e8e1153303f04164ccee5bd2c4b8cb2394725739006ae8e118` |
 | openalex_large_default | `openalex_10000works_default_current_20260719.json` | `32ee0aab2ff41a85fba4069e9bb1479035ba366690d1e4d93fad6b20eb17dcc3` |
 | openalex_large_rescue | `openalex_10000works_rescue_current_20260719.json` | `456b0ada4e05851597af19d028bde18b3af5dbeda912ce53c880a298f444d309` |
 | openalex_rescue | `openalex_confirmation_rescue_ablation_current_20260719.json` | `12aeb53b945a4ad38d47850873b91b3c7aa7feda4a54c9dafe682427f41fe825` |
-| operational | `istina_operational_validation_20260719.json` | `ee37bbe009812ed92ea102eb07961540bac964b833bce5157c85a6dd87b74f88` |
+| operational | `istina_operational_validation_20260719.json` | `d520ab7281faabfc413661b4c24c5433a1f122bc7b9e3a28f56c970aad1555fb` |
 | public_validation | `runtime_validation_20260719.json` | `49ada917aac3084921df958e792593107e4f09c6f530c0c2c90d230659be01d2` |
 | temporal | `istina_temporal_runtime_replay_20260719.json` | `7b7f0c305dc20634c598eb59302f6bf82663d19d293ab3e287bfc780e4485557` |

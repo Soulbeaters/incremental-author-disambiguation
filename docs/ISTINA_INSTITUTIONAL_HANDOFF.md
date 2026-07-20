@@ -119,6 +119,10 @@ python evaluation/istina_deployment_evidence.py --manifest <private-deployment-m
 
 python experiments/istina_operational_validation.py --dataset <private-istina-export.json> --service-result <private-frozen-legacy.json> --live-shadow-evidence <private-live-shadow.json> --split-strategy temporal --train-through-year <frozen-year> --iterations 18 --code-revision $revision --performance-trial-id <trial-id> --tests-passed <pytest-pass-count> --test-warnings <pytest-warning-count> --output <private-operational-validation.json>
 
+# Run three sequential unique trial IDs on the same frozen revision, then
+# aggregate them. Every trial must pass; repeated operations are not extra gold.
+python evaluation/istina_offline_performance_reproducibility.py --trial <private-operational-trial1.json> <private-operational-trial2.json> <private-operational-trial3.json> --expected-dataset <private-istina-export.json> --expected-code-revision $revision --output <private-performance-repeatability.json>
+
 python evaluation/istina_evidence_bundle.py --operational-validation <private-operational-validation.json> --gold-readiness <private-gold-readiness.json> --live-shadow <private-live-shadow.json> --deployment-manifest <private-deployment-manifest.json> --deployment-attachment <private-live-shadow.json> <private-online-load.json> <private-drift-verification.json> <private-audit-verification.json> --paired-shadow-plan <private-paired-shadow-plan.json> --expected-code-revision $revision --output <private-release-bundle.json>
 
 python evaluation/production_gate.py --replay-result <private-operational-validation.json> --evidence <private-release-bundle.json> --output <private-production-gate.json>

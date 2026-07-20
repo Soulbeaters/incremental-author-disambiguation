@@ -4,7 +4,7 @@
 
 The current branch is authorized for offline replay, live no-write shadow, and
 candidate generation only. It is not authorized to write identity decisions
-back to ISTINA. The current machine gate passes 7 of 23 checks and reports
+back to ISTINA. The current machine gate passes 8 of 23 checks and reports
 `release_ready: false`. The five-mention live smoke passed, but release shadow
 verification remains false because it is below both the 500-mention floor and
 the prospectively powered paired-comparison requirement.
@@ -70,7 +70,10 @@ assertion without this machine-generated manifest.
    export from a frozen revision, with a unique `--performance-trial-id`.
    Repeated load operations must not be counted as extra gold. The report
    retains every iteration's p95 and the overall all-operation p95; only the
-   latter is compared with the unchanged 50 ms acceptance threshold.
+   latter is compared with the unchanged 50 ms acceptance threshold. Run three
+   sequential unique trials on the same revision and aggregate them with
+   `evaluation/istina_offline_performance_reproducibility.py`; the aggregate
+   requires all three trials to pass.
 5. Before the live window, register and independently approve
    `config/istina_paired_shadow_plan.template.json`. Then run
    the `--plan-only` preflight before `experiments/istina_live_shadow.py` in

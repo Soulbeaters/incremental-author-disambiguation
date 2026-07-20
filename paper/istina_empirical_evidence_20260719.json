@@ -1,19 +1,19 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-20T09:08:48.506576+00:00",
-  "package_id": "be5b485accd21b2b1c819407a6e4b49c3d8bce6501793044daccf4d1fe98bbc6",
+  "generated_at": "2026-07-20T09:30:06.577142+00:00",
+  "package_id": "d78beeceff38c04cb9e2bd6d503ee285ab473a4a206d51c13b4eaf7cab834212",
   "integrity": {
     "verified": true,
     "summary": {
-      "passed": 67,
+      "passed": 74,
       "failed": 0,
-      "total": 67
+      "total": 74
     },
     "checks": [
       {
         "name": "bundle_operational_sha256",
-        "observed": "d520ab7281faabfc413661b4c24c5433a1f122bc7b9e3a28f56c970aad1555fb",
-        "expected": "d520ab7281faabfc413661b4c24c5433a1f122bc7b9e3a28f56c970aad1555fb",
+        "observed": "e9df6479ce0919ba4a4ddc10fed44df860685ac9692e26201089cef23bee0936",
+        "expected": "e9df6479ce0919ba4a4ddc10fed44df860685ac9692e26201089cef23bee0936",
         "passed": true
       },
       {
@@ -262,6 +262,89 @@
           "minimum": 1000
         },
         "expected": "bounded user-authorized canary, below release volume, with no write client or calls",
+        "passed": true
+      },
+      {
+        "name": "offline_performance_reproducibility_dataset",
+        "observed": "515c2d5881970f4de1a412d94018fa1aee99b5069956a1e139358bfc0de715fb",
+        "expected": "515c2d5881970f4de1a412d94018fa1aee99b5069956a1e139358bfc0de715fb",
+        "passed": true
+      },
+      {
+        "name": "offline_performance_reproducibility_code_binding",
+        "observed": {
+          "aggregate": "fb866c3fb4cefb4a4b819683d245e8ce663f5d2d",
+          "operational": "fb866c3fb4cefb4a4b819683d245e8ce663f5d2d"
+        },
+        "expected": "identical full 40-hex frozen revisions",
+        "passed": true
+      },
+      {
+        "name": "offline_performance_reproducibility_protocol",
+        "observed": {
+          "schema_version": 1,
+          "method": "istina_offline_performance_repeatability_v1",
+          "source_system": "istina",
+          "minimum_trials": 3,
+          "trial_count": 3,
+          "verification_method": "overall_nearest_rank_p95_all_replay_operations_v1",
+          "threshold": 50.0,
+          "all_trials_must_pass": true,
+          "host_identifier_included": false,
+          "environment_sha256": "94016178c33b655cab09d8eed4a2d5f2b9c6c4aa0f65075b5fa9659febfab50c"
+        },
+        "expected": "fixed three-or-more-trial, all-pass, path-free 50ms protocol",
+        "passed": true
+      },
+      {
+        "name": "offline_performance_reproducibility_trials",
+        "observed": {
+          "trial_count": 3,
+          "unique_ids": 3,
+          "unique_hashes": 3,
+          "passing": 3
+        },
+        "expected": "three-or-more unique, exact-schema, 64-hex, passing trials",
+        "passed": true
+      },
+      {
+        "name": "offline_performance_reproducibility_summary",
+        "observed": {
+          "verified": true,
+          "passing_trials": 3,
+          "failed_trials": 0,
+          "trial_count": 3,
+          "combined_replay_operations": 40662
+        },
+        "expected": "all trials pass and combined operations equal trial count times canonical operations",
+        "passed": true
+      },
+      {
+        "name": "offline_performance_reproducibility_metrics",
+        "observed": {
+          "trial_p95_ms": [
+            46.179500001017004,
+            46.167499996954575,
+            42.24450000037905
+          ],
+          "trial_p95_minimum_ms": 42.24450000037905,
+          "trial_p95_median_ms": 46.167499996954575,
+          "trial_p95_maximum_ms": 46.179500001017004,
+          "trial_p95_range_ms": 3.935000000637956
+        },
+        "expected": "metrics recomputed from the exact ordered trial p95 values and maximum <=50ms",
+        "passed": true
+      },
+      {
+        "name": "offline_performance_reproducibility_non_release",
+        "observed": {
+          "repeated_operations_are_distinct_gold": false,
+          "write_enabled_replacement_authorized": false
+        },
+        "expected": {
+          "repeated_operations_are_distinct_gold": false,
+          "write_enabled_replacement_authorized": false
+        },
         "passed": true
       },
       {
@@ -700,7 +783,7 @@
     },
     "operational": {
       "name": "istina_operational_validation_20260719.json",
-      "sha256": "d520ab7281faabfc413661b4c24c5433a1f122bc7b9e3a28f56c970aad1555fb"
+      "sha256": "e9df6479ce0919ba4a4ddc10fed44df860685ac9692e26201089cef23bee0936"
     },
     "gold": {
       "name": "istina_gold_readiness_20260719.json",
@@ -718,13 +801,17 @@
       "name": "istina_online_read_load_canary_20260720.json",
       "sha256": "e94eacd867c2eef535dc61863a953388dcec43be969ab2e606b304988b718d1b"
     },
+    "performance_reproducibility": {
+      "name": "istina_offline_performance_reproducibility_20260720.json",
+      "sha256": "9e66f661e0df37aaef0fb6b724b72a2e3053db5d7a15f59c00ebb044f1badef8"
+    },
     "bundle": {
       "name": "istina_release_evidence_bundle_20260719.json",
-      "sha256": "910d1df891e8f2b52d597e01eae7edb1cbc5f5da4c886a5626e6de1b80e021df"
+      "sha256": "8bc5dc2786319c81292423e3f46fc75f3b9eb1cfc51fec63266c555d915f9acf"
     },
     "gate": {
       "name": "istina_production_gate_operational_20260719.json",
-      "sha256": "88f3dc95c0193c9bf6b62e13164b1f9e129506ce40f9b31a2a7268fd5e27c439"
+      "sha256": "ef79f8f47cac8d8109aa846a0458058790cf3f218347baa963f7dc13b5364b27"
     },
     "openalex_default": {
       "name": "openalex_confirmation_default_current_20260719.json",
@@ -1065,10 +1152,10 @@
     "interpretation": "current incumbent observations differ from the frozen comparison; report both and do not overwrite the frozen baseline"
   },
   "operational_summary": {
-    "offline_load_verified": false,
+    "offline_load_verified": true,
     "offline_load_operations": 13554,
-    "offline_load_p95_ms": 50.81679999420885,
-    "offline_throughput_mentions_per_second": 86.05044900637363,
+    "offline_load_p95_ms": 42.24450000037905,
+    "offline_throughput_mentions_per_second": 104.3861425136138,
     "deterministic_hash_mismatches": 0,
     "runtime_safety_contract_verified": true,
     "rollback_verified": true,
@@ -1092,7 +1179,13 @@
     "online_canary_errors": 0,
     "online_canary_p95_ms": 10857.66350000631,
     "online_canary_concurrency": 2,
-    "online_canary_classification": "bounded_non_release_canary"
+    "online_canary_classification": "bounded_non_release_canary",
+    "offline_repeatability_verified": true,
+    "offline_repeatability_trials": 3,
+    "offline_repeatability_combined_operations": 40662,
+    "offline_repeatability_p95_median_ms": 46.167499996954575,
+    "offline_repeatability_p95_maximum_ms": 46.179500001017004,
+    "offline_repeatability_p95_range_ms": 3.935000000637956
   },
   "supported_claims": [
     {
@@ -1117,6 +1210,13 @@
       "sources": [
         "live",
         "online_canary"
+      ]
+    },
+    {
+      "id": "offline_performance_repeatability",
+      "statement": "Three sequential frozen-revision offline trials, totaling 40662 replay operations, all satisfy the unchanged 50 ms all-operation p95 limit; trial median/max p95 are 46.17/46.18 ms. Repeated operations are load evidence, not additional gold.",
+      "sources": [
+        "performance_reproducibility"
       ]
     },
     {
@@ -1164,8 +1264,8 @@
   ],
   "release": {
     "release_ready": false,
-    "passed": 7,
-    "failed": 16,
+    "passed": 8,
+    "failed": 15,
     "total": 23,
     "remaining_gaps": [
       {
@@ -1227,12 +1327,6 @@
         "category": "comparison",
         "observed": 0.25,
         "required": "<=0.05"
-      },
-      {
-        "name": "offline_load_test_verified",
-        "category": "operations",
-        "observed": false,
-        "required": "deterministic no-write load replay on real ISTINA data"
       },
       {
         "name": "cross_domain_gold_verified",

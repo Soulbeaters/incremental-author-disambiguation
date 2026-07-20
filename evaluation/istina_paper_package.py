@@ -25,6 +25,14 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _nearest_rank_percentile(values: Sequence[float], quantile: float) -> float | None:
+    if not values:
+        return None
+    ordered = sorted(values)
+    index = max(0, min(len(ordered) - 1, math.ceil(quantile * len(ordered)) - 1))
+    return ordered[index]
+
+
 def _canonical_json(value: Mapping[str, Any]) -> str:
     return json.dumps(
         value,
@@ -178,6 +186,7 @@ def compose_paper_package(
     live: Mapping[str, Any],
     live_diagnostic: Mapping[str, Any],
     online_canary: Mapping[str, Any],
+    performance_reproducibility: Mapping[str, Any],
     bundle: Mapping[str, Any],
     gate: Mapping[str, Any],
     openalex_default: Mapping[str, Any],
@@ -201,6 +210,20 @@ def compose_paper_package(
     online_canary_stats = dict(online_canary.get("stats") or {})
     online_canary_metrics = dict(online_canary.get("metrics") or {})
     online_canary_safety = dict(online_canary.get("safety") or {})
+    performance_protocol = dict(
+        performance_reproducibility.get("protocol") or {}
+    )
+    performance_summary = dict(
+        performance_reproducibility.get("summary") or {}
+    )
+    performance_metrics = dict(
+        performance_reproducibility.get("metrics") or {}
+    )
+    performance_trials = [
+        dict(item)
+        for item in (performance_reproducibility.get("trials") or [])
+        if isinstance(item, Mapping)
+    ]
     temporal_stats = dict(temporal.get("stats") or {})
     holdout_stats = dict(holdout.get("stats") or {})
     holdout_legacy = dict(holdout.get("legacy_shadow") or {})
@@ -246,6 +269,7 @@ def compose_paper_package(
         str(live_protocol.get("dataset_sha256") or ""),
         str(live_diagnostic_protocol.get("dataset_sha256") or ""),
         str(online_canary_protocol.get("dataset_sha256") or ""),
+        str(performance_protocol.get("dataset_sha256") or ""),
     }
     dataset_hashes.discard("")
     service_hashes = {
@@ -645,6 +669,170 @@ def compose_paper_package(
                 )
                 or 0
             ),
+        ),
+        _check(
+            "offline_performance_reproducibility_dataset",
+            performance_protocol.get("dataset_sha256"),
+            next(iter(dataset_hashes), None) if len(dataset_hashes) == 1 else None,
+        ),
+        _check(
+            "offline_performance_reproducibility_code_binding",
+            {
+                "aggregate": performance_protocol.get("code_revision"),
+                "operational": operational_protocol.get("code_revision"),
+            },
+            "identical full 40-hex frozen revisions",
+            re.fullmatch(
+                r"[0-9a-f]{40}",
+                str(performance_protocol.get("code_revision") or ""),
+            )
+            is not None
+            and performance_protocol.get("code_revision")
+            == operational_protocol.get("code_revision"),
+        ),
+        _check(
+            "offline_performance_reproducibility_protocol",
+            {
+                "schema_version": performance_reproducibility.get(
+                    "schema_version"
+                ),
+                "method": performance_reproducibility.get("method"),
+                "source_system": performance_protocol.get("source_system"),
+                "minimum_trials": performance_protocol.get("minimum_trials"),
+                "trial_count": performance_protocol.get("trial_count"),
+                "verification_method": performance_protocol.get(
+                    "verification_method"
+                ),
+                "threshold": performance_protocol.get(
+                    "acceptance_threshold_ms_p95"
+                ),
+                "all_trials_must_pass": performance_protocol.get(
+                    "all_trials_must_pass"
+                ),
+                "host_identifier_included": performance_protocol.get(
+                    "host_identifier_included"
+                ),
+                "environment_sha256": performance_protocol.get(
+                    "environment_sha256"
+                ),
+            },
+            "fixed three-or-more-trial, all-pass, path-free 50ms protocol",
+            performance_reproducibility.get("schema_version") == 1
+            and performance_reproducibility.get("method")
+            == "istina_offline_performance_repeatability_v1"
+            and performance_protocol.get("source_system") == "istina"
+            and int(performance_protocol.get("minimum_trials") or 0) == 3
+            and int(performance_protocol.get("trial_count") or 0)
+            == len(performance_trials)
+            and len(performance_trials) >= 3
+            and performance_protocol.get("verification_method")
+            == "overall_nearest_rank_p95_all_replay_operations_v1"
+            and performance_protocol.get("acceptance_threshold_ms_p95") == 50.0
+            and performance_protocol.get("all_trials_must_pass") is True
+            and performance_protocol.get("host_identifier_included") is False
+            and re.fullmatch(
+                r"[0-9a-f]{64}",
+                str(performance_protocol.get("environment_sha256") or ""),
+            )
+            is not None,
+        ),
+        _check(
+            "offline_performance_reproducibility_trials",
+            {
+                "trial_count": len(performance_trials),
+                "unique_ids": len({item.get("trial_id") for item in performance_trials}),
+                "unique_hashes": len({item.get("source_sha256") for item in performance_trials}),
+                "passing": sum(item.get("verified") is True for item in performance_trials),
+            },
+            "three-or-more unique, exact-schema, 64-hex, passing trials",
+            len(performance_trials) >= 3
+            and all(
+                set(item)
+                == {
+                    "trial_id",
+                    "source_sha256",
+                    "verified",
+                    "latency_ms_p95",
+                    "threshold_margin_ms",
+                    "throughput_mentions_per_second",
+                    "iteration_p95_minimum_ms",
+                    "iteration_p95_median_ms",
+                    "iteration_p95_maximum_ms",
+                    "passing_iterations",
+                    "total_iterations",
+                }
+                and re.fullmatch(
+                    r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}",
+                    str(item.get("trial_id") or ""),
+                )
+                is not None
+                and re.fullmatch(
+                    r"[0-9a-f]{64}",
+                    str(item.get("source_sha256") or ""),
+                )
+                is not None
+                and item.get("verified") is True
+                and isinstance(item.get("latency_ms_p95"), (int, float))
+                and not isinstance(item.get("latency_ms_p95"), bool)
+                and math.isfinite(float(item["latency_ms_p95"]))
+                and 0.0 <= float(item["latency_ms_p95"]) <= 50.0
+                for item in performance_trials
+            )
+            and len({item["trial_id"] for item in performance_trials})
+            == len(performance_trials)
+            and len({item["source_sha256"] for item in performance_trials})
+            == len(performance_trials),
+        ),
+        _check(
+            "offline_performance_reproducibility_summary",
+            performance_summary,
+            "all trials pass and combined operations equal trial count times canonical operations",
+            performance_summary.get("verified") is True
+            and performance_summary.get("passing_trials")
+            == performance_summary.get("trial_count")
+            == len(performance_trials)
+            and performance_summary.get("failed_trials") == 0
+            and performance_summary.get("combined_replay_operations")
+            == len(performance_trials)
+            * int(
+                (
+                    (operational.get("operational_validation") or {}).get(
+                        "offline_load_test"
+                    )
+                    or {}
+                ).get("load_operations")
+                or 0
+            ),
+        ),
+        _check(
+            "offline_performance_reproducibility_metrics",
+            performance_metrics,
+            "metrics recomputed from the exact ordered trial p95 values and maximum <=50ms",
+            bool(performance_trials)
+            and performance_metrics.get("trial_p95_ms")
+            == [item["latency_ms_p95"] for item in performance_trials]
+            and performance_metrics.get("trial_p95_minimum_ms")
+            == min(item["latency_ms_p95"] for item in performance_trials)
+            and performance_metrics.get("trial_p95_median_ms")
+            == _nearest_rank_percentile(
+                [item["latency_ms_p95"] for item in performance_trials],
+                0.50,
+            )
+            and performance_metrics.get("trial_p95_maximum_ms")
+            == max(item["latency_ms_p95"] for item in performance_trials)
+            and performance_metrics.get("trial_p95_range_ms")
+            == max(item["latency_ms_p95"] for item in performance_trials)
+            - min(item["latency_ms_p95"] for item in performance_trials)
+            and float(performance_metrics.get("trial_p95_maximum_ms") or math.inf)
+            <= 50.0,
+        ),
+        _check(
+            "offline_performance_reproducibility_non_release",
+            performance_reproducibility.get("release_constraints"),
+            {
+                "repeated_operations_are_distinct_gold": False,
+                "write_enabled_replacement_authorized": False,
+            },
         ),
         _check("temporal_total", temporal_stats.get("total"), gold_temporal.get("test_mentions")),
         _check("temporal_existing", temporal_stats.get("existing_gold"), gold_temporal.get("existing_mentions")),
@@ -1375,6 +1563,20 @@ def compose_paper_package(
         "online_canary_classification": online_canary_safety.get(
             "evidence_classification"
         ),
+        "offline_repeatability_verified": performance_summary.get("verified"),
+        "offline_repeatability_trials": performance_summary.get("trial_count"),
+        "offline_repeatability_combined_operations": performance_summary.get(
+            "combined_replay_operations"
+        ),
+        "offline_repeatability_p95_median_ms": performance_metrics.get(
+            "trial_p95_median_ms"
+        ),
+        "offline_repeatability_p95_maximum_ms": performance_metrics.get(
+            "trial_p95_maximum_ms"
+        ),
+        "offline_repeatability_p95_range_ms": performance_metrics.get(
+            "trial_p95_range_ms"
+        ),
     }
     supported_claims = [
         {
@@ -1411,6 +1613,18 @@ def compose_paper_package(
                 "non-release evidence."
             ),
             "sources": ["live", "online_canary"],
+        },
+        {
+            "id": "offline_performance_repeatability",
+            "statement": (
+                "Three sequential frozen-revision offline trials, totaling "
+                f"{performance_summary.get('combined_replay_operations')} replay "
+                "operations, all satisfy the unchanged 50 ms all-operation p95 "
+                f"limit; trial median/max p95 are {float(performance_metrics.get('trial_p95_median_ms') or 0.0):.2f}/"
+                f"{float(performance_metrics.get('trial_p95_maximum_ms') or 0.0):.2f} ms. "
+                "Repeated operations are load evidence, not additional gold."
+            ),
+            "sources": ["performance_reproducibility"],
         },
         {
             "id": "diagnostic_online_comparison_current",
@@ -1782,6 +1996,15 @@ def render_markdown(package: Mapping[str, Any]) -> str:
             f"{float(operations.get('online_canary_p95_ms') or 0.0):.2f} ms, "
             f"classification={operations.get('online_canary_classification')}"
         ),
+        (
+            "- Offline performance repeatability: "
+            f"verified={str(bool(operations.get('offline_repeatability_verified'))).lower()}, "
+            f"{operations.get('offline_repeatability_trials')} trials / "
+            f"{operations.get('offline_repeatability_combined_operations')} operations, "
+            f"trial median/max p95 "
+            f"{float(operations.get('offline_repeatability_p95_median_ms') or 0.0):.2f}/"
+            f"{float(operations.get('offline_repeatability_p95_maximum_ms') or 0.0):.2f} ms"
+        ),
         "",
         "## Article-safe interpretation",
         "",
@@ -1836,6 +2059,7 @@ def main() -> None:
     parser.add_argument("--live", type=Path, required=True)
     parser.add_argument("--live-diagnostic", type=Path, required=True)
     parser.add_argument("--online-canary", type=Path, required=True)
+    parser.add_argument("--performance-reproducibility", type=Path, required=True)
     parser.add_argument("--bundle", type=Path, required=True)
     parser.add_argument("--gate", type=Path, required=True)
     parser.add_argument("--openalex-default", type=Path, required=True)
@@ -1858,6 +2082,7 @@ def main() -> None:
         "live": args.live,
         "live_diagnostic": args.live_diagnostic,
         "online_canary": args.online_canary,
+        "performance_reproducibility": args.performance_reproducibility,
         "bundle": args.bundle,
         "gate": args.gate,
         "openalex_default": args.openalex_default,
@@ -1883,6 +2108,7 @@ def main() -> None:
         live=documents["live"],
         live_diagnostic=documents["live_diagnostic"],
         online_canary=documents["online_canary"],
+        performance_reproducibility=documents["performance_reproducibility"],
         bundle=documents["bundle"],
         gate=documents["gate"],
         openalex_default=documents["openalex_default"],

@@ -30,6 +30,7 @@ def current_inputs():
         "live": "istina_live_shadow_smoke_20260719.json",
         "live_diagnostic": "istina_live_shadow_diagnostic_20260720.json",
         "online_canary": "istina_online_read_load_canary_20260720.json",
+        "performance_reproducibility": "istina_offline_performance_reproducibility_20260720.json",
         "bundle": "istina_release_evidence_bundle_20260719.json",
         "gate": "istina_production_gate_operational_20260719.json",
         "openalex_default": "openalex_confirmation_default_current_20260719.json",
@@ -57,7 +58,7 @@ class IstinaPaperPackageTests(unittest.TestCase):
         )
 
         self.assertTrue(package["integrity"]["verified"])
-        self.assertEqual(package["integrity"]["summary"]["total"], 67)
+        self.assertEqual(package["integrity"]["summary"]["total"], 74)
         self.assertFalse(package["release"]["release_ready"])
         self.assertEqual(package["quality_table"][0]["test_mentions"], 571)
         self.assertEqual(package["quality_table"][1]["paper_overlap"], 13)
@@ -134,7 +135,7 @@ class IstinaPaperPackageTests(unittest.TestCase):
             },
         )
         markdown = render_markdown(package)
-        self.assertIn("7/23 passed", markdown)
+        self.assertIn("8/23 passed", markdown)
         self.assertIn("legacy-service fallback disabled", markdown)
         self.assertIn("superseded", markdown)
         self.assertIn("OpenAlex in-domain rescue ablation", markdown)
@@ -148,7 +149,32 @@ class IstinaPaperPackageTests(unittest.TestCase):
             package["operational_summary"]["online_canary_classification"],
             "bounded_non_release_canary",
         )
-        self.assertFalse(package["operational_summary"]["offline_load_verified"])
+        self.assertTrue(package["operational_summary"]["offline_load_verified"])
+        self.assertTrue(
+            package["operational_summary"]["offline_repeatability_verified"]
+        )
+        self.assertEqual(
+            package["operational_summary"]["offline_repeatability_trials"],
+            3,
+        )
+        self.assertIn("Offline performance repeatability", markdown)
+
+    def test_performance_repeatability_cannot_hide_a_failed_trial(self):
+        inputs = current_inputs()
+        repeatability = copy.deepcopy(inputs["performance_reproducibility"])
+        repeatability["trials"][0]["verified"] = False
+        inputs["performance_reproducibility"] = repeatability
+
+        package = compose_paper_package(
+            **inputs,
+            generated_at="2026-07-20T00:00:00+00:00",
+        )
+
+        self.assertFalse(package["integrity"]["verified"])
+        self.assertIn(
+            "offline_performance_reproducibility_trials",
+            {failure["name"] for failure in package["integrity"]["failures"]},
+        )
 
     def test_user_canary_cannot_be_relabelled_as_release_evidence(self):
         inputs = current_inputs()

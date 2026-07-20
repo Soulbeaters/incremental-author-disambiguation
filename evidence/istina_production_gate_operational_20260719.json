@@ -16,8 +16,8 @@
     "max_shadow_p_value": 0.05
   },
   "summary": {
-    "passed": 7,
-    "failed": 16,
+    "passed": 8,
+    "failed": 15,
     "total": 23
   },
   "checks": [
@@ -95,7 +95,7 @@
       "name": "local_p95_latency_ms",
       "category": "performance",
       "passed": true,
-      "observed": 38.720099997590296,
+      "observed": 41.82830000354443,
       "required": "<=50.0"
     },
     {
@@ -122,8 +122,8 @@
     {
       "name": "offline_load_test_verified",
       "category": "operations",
-      "passed": false,
-      "observed": false,
+      "passed": true,
+      "observed": true,
       "required": "deterministic no-write load replay on real ISTINA data"
     },
     {
@@ -253,13 +253,6 @@
       "passed": false,
       "observed": 0.25,
       "required": "<=0.05"
-    },
-    {
-      "name": "offline_load_test_verified",
-      "category": "operations",
-      "passed": false,
-      "observed": false,
-      "required": "deterministic no-write load replay on real ISTINA data"
     },
     {
       "name": "cross_domain_gold_verified",

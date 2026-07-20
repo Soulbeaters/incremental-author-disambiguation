@@ -28,6 +28,7 @@ def current_inputs():
         "operational": "istina_operational_validation_20260719.json",
         "gold": "istina_gold_readiness_20260719.json",
         "live": "istina_live_shadow_smoke_20260719.json",
+        "live_diagnostic": "istina_live_shadow_diagnostic_20260719.json",
         "bundle": "istina_release_evidence_bundle_20260719.json",
         "gate": "istina_production_gate_operational_20260719.json",
         "openalex_default": "openalex_confirmation_default_current_20260719.json",
@@ -55,6 +56,7 @@ class IstinaPaperPackageTests(unittest.TestCase):
         )
 
         self.assertTrue(package["integrity"]["verified"])
+        self.assertEqual(package["integrity"]["summary"]["total"], 61)
         self.assertFalse(package["release"]["release_ready"])
         self.assertEqual(package["quality_table"][0]["test_mentions"], 571)
         self.assertEqual(package["quality_table"][1]["paper_overlap"], 13)
@@ -86,6 +88,22 @@ class IstinaPaperPackageTests(unittest.TestCase):
         self.assertEqual(package["aminer_full_ablation_table"][1]["wrong_merge"], 1177)
         self.assertEqual(package["aminer_current_ablation_table"][0]["wrong_merge"], 79)
         self.assertEqual(package["aminer_current_ablation_table"][1]["wrong_merge"], 153)
+        self.assertEqual(package["legacy_comparison_table"][2]["n"], 38)
+        self.assertEqual(
+            package["legacy_comparison_table"][2]["paired_table"],
+            {
+                "both_correct": 17,
+                "runtime_only_correct": 10,
+                "legacy_only_correct": 7,
+                "both_incorrect": 4,
+            },
+        )
+        self.assertAlmostEqual(
+            package["legacy_comparison_table"][2][
+                "mcnemar_exact_two_sided_p"
+            ],
+            0.629058837890625,
+        )
         markdown = render_markdown(package)
         self.assertIn("8/23 passed", markdown)
         self.assertIn("legacy-service fallback disabled", markdown)
@@ -93,6 +111,33 @@ class IstinaPaperPackageTests(unittest.TestCase):
         self.assertIn("OpenAlex in-domain rescue ablation", markdown)
         self.assertIn("OpenAlex 10,000-work cross-domain stress", markdown)
         self.assertIn("AMiner complete current-runtime", markdown)
+        self.assertIn("Real-service diagnostic replication", markdown)
+        self.assertIn("38 mentions across 14 papers", markdown)
+
+    def test_live_diagnostic_comparator_dependency_fails_closed(self):
+        inputs = current_inputs()
+        live_diagnostic = copy.deepcopy(inputs["live_diagnostic"])
+        live_diagnostic["protocol"]["framework_legacy_fallback_enabled"] = True
+        live_diagnostic["records"][0]["stage"] = (
+            "legacy_service_validated_fallback"
+        )
+        live_diagnostic["records"][0]["name"] = "raw private name"
+        inputs["live_diagnostic"] = live_diagnostic
+
+        package = compose_paper_package(
+            **inputs,
+            generated_at="2026-07-19T00:00:00+00:00",
+        )
+
+        self.assertFalse(package["integrity"]["verified"])
+        self.assertIn(
+            "legacy_comparator_independence",
+            {failure["name"] for failure in package["integrity"]["failures"]},
+        )
+        self.assertIn(
+            "live_diagnostic_records_redacted",
+            {failure["name"] for failure in package["integrity"]["failures"]},
+        )
 
     def test_large_public_ablation_hash_mismatch_fails_closed(self):
         inputs = current_inputs()

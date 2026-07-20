@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-19T16:08:19.898107+00:00",
+  "generated_at": "2026-07-19T16:30:46.039591+00:00",
   "operational_evidence": {
     "runtime_safety_contract_verified": {
       "verified": true,
@@ -11,7 +11,7 @@
       "durable_audit_chain": {
         "verified": true,
         "records": 8,
-        "head_hash": "b3c9bea96911f396ce2a41f9efdd1bd12f8450db2fc350fef89befc934f79a48",
+        "head_hash": "df2afe0b0228dbce51d0d2913b591f7980c944c3df4bc82f82eaae2af47c8a29",
         "restart_verified": true,
         "fsync": true,
         "storage_scope": "ephemeral validation file; not deployed production storage"
@@ -23,11 +23,11 @@
       "real_distinct_mentions": 753,
       "replay_iterations": 18,
       "load_operations": 13554,
-      "elapsed_seconds": 44.79529080000066,
-      "throughput_mentions_per_second": 302.57644850471206,
-      "latency_ms_p50": 0.40859999717213213,
-      "latency_ms_p95": 14.137300000584219,
-      "latency_ms_p99": 20.680399997218046,
+      "elapsed_seconds": 45.92240319999837,
+      "throughput_mentions_per_second": 295.150058697287,
+      "latency_ms_p50": 0.41649999911896884,
+      "latency_ms_p95": 14.66690000233939,
+      "latency_ms_p99": 21.0088999956497,
       "deterministic_hash_mismatches": 0,
       "scope": "offline no-write load replay; repeated operations are not extra gold"
     },
@@ -69,7 +69,7 @@
           "merge_rate": 0.5,
           "service_error_rate": 1.0,
           "candidate_truncation_rate": 0.0,
-          "latency_p95_ms": 10.564999996859115,
+          "latency_p95_ms": 11.25089999550255,
           "stage_total_variation": 1.0,
           "stage_distribution": {
             "fault_injection": 1.0
@@ -108,7 +108,7 @@
           },
           {
             "name": "latency_p95_ms",
-            "observed": 10.564999996859115,
+            "observed": 11.25089999550255,
             "limit": 10000.0,
             "passed": true
           }
@@ -171,7 +171,7 @@
   "sources": {
     "operational_validation": {
       "name": "istina_operational_validation_20260719.json",
-      "sha256": "da61c3b781a355c43cb775ed239991222e53dff67ee9f242490c6f6e39f8b26f"
+      "sha256": "060e6ce6569f93e028c9ecae4116a9523bf96f74e99cbc3e168389403f308ae7"
     },
     "gold_readiness": {
       "name": "istina_gold_readiness_20260719.json",

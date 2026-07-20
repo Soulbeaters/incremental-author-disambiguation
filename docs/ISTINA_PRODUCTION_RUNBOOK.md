@@ -9,6 +9,12 @@ back to ISTINA. The 2026-07-19 machine gate passes 8 of 23 checks and reports
 verification remains false because it is below both the 500-mention floor and
 the prospectively powered paired-comparison requirement.
 
+A separate 38-mention, 14-paper read-only live diagnostic reproduces the
+frozen per-author comparison (27 framework correct versus 24 legacy correct,
+exact McNemar `p=0.629058837890625`) with zero service errors and zero
+authorized commands. It is deliberately excluded from release evidence because
+the diagnostic split has paper overlap and remains below the shadow floor.
+
 ## Runtime boundary
 
 Use `integrations.istina_production_runtime.IstinaProductionRuntime` around an

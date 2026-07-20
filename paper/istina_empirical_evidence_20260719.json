@@ -1,19 +1,19 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-19T16:11:13.472752+00:00",
-  "package_id": "ff5d42ea706bfe9fb5b4000d6fbdab0814b4c5fe3e9c38f8669419ac68b93146",
+  "generated_at": "2026-07-19T16:35:41.590345+00:00",
+  "package_id": "e94f328de56ca18c8d53f2e6b14f578a4a47d8264ee41bfbb30e09caff4b68a6",
   "integrity": {
     "verified": true,
     "summary": {
-      "passed": 52,
+      "passed": 61,
       "failed": 0,
-      "total": 52
+      "total": 61
     },
     "checks": [
       {
         "name": "bundle_operational_sha256",
-        "observed": "da61c3b781a355c43cb775ed239991222e53dff67ee9f242490c6f6e39f8b26f",
-        "expected": "da61c3b781a355c43cb775ed239991222e53dff67ee9f242490c6f6e39f8b26f",
+        "observed": "060e6ce6569f93e028c9ecae4116a9523bf96f74e99cbc3e168389403f308ae7",
+        "expected": "060e6ce6569f93e028c9ecae4116a9523bf96f74e99cbc3e168389403f308ae7",
         "passed": true
       },
       {
@@ -89,11 +89,120 @@
               false,
               true,
               0
+            ],
+            "live_diagnostic": [
+              false,
+              true,
+              0
             ]
           },
           "gate": true
         },
         "expected": "all framework paths [fallback=False, observation_only=True, fallback_stages=0] and gate=true",
+        "passed": true
+      },
+      {
+        "name": "live_diagnostic_dataset_sha256",
+        "observed": "515c2d5881970f4de1a412d94018fa1aee99b5069956a1e139358bfc0de715fb",
+        "expected": "515c2d5881970f4de1a412d94018fa1aee99b5069956a1e139358bfc0de715fb",
+        "passed": true
+      },
+      {
+        "name": "live_diagnostic_split",
+        "observed": "per-author-holdout",
+        "expected": "per-author-holdout",
+        "passed": true
+      },
+      {
+        "name": "live_diagnostic_code_revision",
+        "observed": "6b5b384a1c1aec55488b2302764e056faf6f4f62",
+        "expected": "full 40-hex frozen Git revision",
+        "passed": true
+      },
+      {
+        "name": "live_diagnostic_sample_matches_holdout",
+        "observed": {
+          "attempted_mentions": 38,
+          "records": 38,
+          "paper_requests": 14
+        },
+        "expected": {
+          "attempted_mentions": 38,
+          "records": 38,
+          "paper_requests": "positive"
+        },
+        "passed": true
+      },
+      {
+        "name": "live_diagnostic_paired_counts_match_frozen_comparison",
+        "observed": {
+          "paired_table": {
+            "both_correct": 17,
+            "runtime_only_correct": 10,
+            "legacy_only_correct": 7,
+            "both_incorrect": 4
+          },
+          "runtime_correct": 27,
+          "legacy_correct": 24
+        },
+        "expected": {
+          "paired_table": {
+            "both_correct": 17,
+            "runtime_only_correct": 10,
+            "legacy_only_correct": 7,
+            "both_incorrect": 4
+          },
+          "runtime_correct": 27,
+          "legacy_correct": 24
+        },
+        "passed": true
+      },
+      {
+        "name": "live_diagnostic_no_write_safety",
+        "observed": {
+          "smoke_verified": true,
+          "write_calls": 0,
+          "authorized_commands": 0,
+          "no_write_authorized": true,
+          "audit_verified": true
+        },
+        "expected": {
+          "smoke_verified": true,
+          "write_calls": 0,
+          "authorized_commands": 0,
+          "no_write_authorized": true,
+          "audit_verified": true
+        },
+        "passed": true
+      },
+      {
+        "name": "live_diagnostic_records_redacted",
+        "observed": 38,
+        "expected": 38,
+        "passed": true
+      },
+      {
+        "name": "live_diagnostic_service_observations_complete",
+        "observed": {
+          "service_errors": 0,
+          "service_successful_mentions": 38,
+          "legacy_result_present": 34
+        },
+        "expected": {
+          "service_errors": 0,
+          "service_successful_mentions": 38,
+          "legacy_result_present": "between zero and attempted; no-match is valid"
+        },
+        "passed": true
+      },
+      {
+        "name": "live_diagnostic_remains_non_release",
+        "observed": {
+          "verified": false,
+          "mentions": 38,
+          "minimum": 500
+        },
+        "expected": "verified=false and mentions below the release minimum",
         "passed": true
       },
       {
@@ -532,7 +641,7 @@
     },
     "operational": {
       "name": "istina_operational_validation_20260719.json",
-      "sha256": "da61c3b781a355c43cb775ed239991222e53dff67ee9f242490c6f6e39f8b26f"
+      "sha256": "060e6ce6569f93e028c9ecae4116a9523bf96f74e99cbc3e168389403f308ae7"
     },
     "gold": {
       "name": "istina_gold_readiness_20260719.json",
@@ -542,13 +651,17 @@
       "name": "istina_live_shadow_smoke_20260719.json",
       "sha256": "f3eb98ed8a0fbfdf5a199bd41a256ddc208cdfa8ff0965112eb59491666d2cf3"
     },
+    "live_diagnostic": {
+      "name": "istina_live_shadow_diagnostic_20260719.json",
+      "sha256": "82fa788f0c0285213752107608e2d3abc294c1817fb2eb8b5301f27d2c57358d"
+    },
     "bundle": {
       "name": "istina_release_evidence_bundle_20260719.json",
-      "sha256": "939ec29c7d2268cece11079a9fcad34e590d8aa0f58af50bfb6236533912be78"
+      "sha256": "5ef2405f4f0a1b4389dd8a456327ac7c6c8d19104de7fff5cb615eb995cc6ec3"
     },
     "gate": {
       "name": "istina_production_gate_operational_20260719.json",
-      "sha256": "347eb2727eedf631c1128bb55487f63fe400d657c19ee9ead0f300ff53f349a0"
+      "sha256": "adfbfab7ebc3d6a0a7cdd43784cf3c7c9c068fcae4d5692ba70092ce072cc8c8"
     },
     "openalex_default": {
       "name": "openalex_confirmation_default_current_20260719.json",
@@ -850,12 +963,26 @@
       "legacy_correct": 24,
       "mcnemar_exact_two_sided_p": 0.629058837890625,
       "statistically_significant_at_0_05": false
+    },
+    {
+      "protocol_role": "per-author live diagnostic only",
+      "n": 38,
+      "paired_table": {
+        "both_correct": 17,
+        "runtime_only_correct": 10,
+        "legacy_only_correct": 7,
+        "both_incorrect": 4
+      },
+      "runtime_correct": 27,
+      "legacy_correct": 24,
+      "mcnemar_exact_two_sided_p": 0.629058837890625,
+      "statistically_significant_at_0_05": false
     }
   ],
   "operational_summary": {
     "offline_load_operations": 13554,
-    "offline_load_p95_ms": 14.137300000584219,
-    "offline_throughput_mentions_per_second": 302.57644850471206,
+    "offline_load_p95_ms": 14.66690000233939,
+    "offline_throughput_mentions_per_second": 295.150058697287,
     "deterministic_hash_mismatches": 0,
     "runtime_safety_contract_verified": true,
     "rollback_verified": true,
@@ -865,7 +992,14 @@
     "live_shadow_authorized_commands": 0,
     "live_shadow_p95_ms": 15205.502400000114,
     "live_audit_chain_verified": true,
-    "live_audit_retained": false
+    "live_audit_retained": false,
+    "live_diagnostic_mentions": 38,
+    "live_diagnostic_papers": 14,
+    "live_diagnostic_framework_correct": 27,
+    "live_diagnostic_legacy_correct": 24,
+    "live_diagnostic_service_errors": 0,
+    "live_diagnostic_authorized_commands": 0,
+    "live_diagnostic_p95_ms": 14918.679199996404
   },
   "supported_claims": [
     {
@@ -878,9 +1012,10 @@
     },
     {
       "id": "legacy_advantage_not_established",
-      "statement": "The cleaned 38-case diagnostic compares the independent framework at 27 correct with the legacy service at 24 correct, but the exact paired test is not statistically significant.",
+      "statement": "The cleaned 38-case diagnostic compares the independent framework at 27 correct with the legacy service at 24 correct. A fresh read-only live run reproduces the same paired cells across 14 papers, but the exact paired test is not statistically significant.",
       "sources": [
-        "holdout"
+        "holdout",
+        "live_diagnostic"
       ]
     },
     {
@@ -888,6 +1023,14 @@
       "statement": "A five-mention real-service smoke demonstrates bounded no-write connectivity, not release-scale online performance.",
       "sources": [
         "live"
+      ]
+    },
+    {
+      "id": "diagnostic_online_comparison_reproduced",
+      "statement": "A separate 38-mention, 14-paper real-service diagnostic reproduces the frozen 27-versus-24 comparison with zero service errors and zero authorized commands; its overlapping per-author split and sub-threshold volume make it non-release evidence.",
+      "sources": [
+        "holdout",
+        "live_diagnostic"
       ]
     },
     {

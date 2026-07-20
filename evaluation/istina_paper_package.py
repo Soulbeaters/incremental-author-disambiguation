@@ -11,6 +11,7 @@ import argparse
 import hashlib
 import json
 import math
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Mapping, Sequence
@@ -58,6 +59,83 @@ def _gate_observed(gate: Mapping[str, Any], name: str) -> Any:
     return None
 
 
+def _paired_counts(records: Sequence[Mapping[str, Any]]) -> Dict[str, int]:
+    counts = {
+        "both_correct": 0,
+        "runtime_only_correct": 0,
+        "legacy_only_correct": 0,
+        "both_incorrect": 0,
+    }
+    for record in records:
+        runtime_correct = record.get("runtime_correct") is True
+        legacy_correct = record.get("legacy_correct") is True
+        if runtime_correct and legacy_correct:
+            counts["both_correct"] += 1
+        elif runtime_correct:
+            counts["runtime_only_correct"] += 1
+        elif legacy_correct:
+            counts["legacy_only_correct"] += 1
+        else:
+            counts["both_incorrect"] += 1
+    return counts
+
+
+def _mcnemar_exact_two_sided(runtime_only: int, legacy_only: int) -> float:
+    discordant = runtime_only + legacy_only
+    if discordant == 0:
+        return 1.0
+    smaller = min(runtime_only, legacy_only)
+    lower_tail = sum(
+        math.comb(discordant, index)
+        for index in range(smaller + 1)
+    ) / (2 ** discordant)
+    return min(1.0, 2.0 * lower_tail)
+
+
+def _live_shadow_record_is_redacted(record: Mapping[str, Any]) -> bool:
+    allowed_fields = {
+        "article_id_hash",
+        "position",
+        "gold_author_id_hash",
+        "runtime_correct",
+        "legacy_correct",
+        "decision",
+        "stage",
+        "legacy_result_present",
+        "legacy_candidate_count",
+        "service_error",
+        "deterministic_hash",
+    }
+    return bool(
+        set(record) == allowed_fields
+        and re.fullmatch(r"[0-9a-f]{16}", str(record.get("article_id_hash") or ""))
+        and re.fullmatch(
+            r"[0-9a-f]{16}",
+            str(record.get("gold_author_id_hash") or ""),
+        )
+        and re.fullmatch(
+            r"[0-9a-f]{16}",
+            str(record.get("deterministic_hash") or ""),
+        )
+        and str(record.get("position") or "").isdigit()
+        and record.get("decision") in {"merge", "new", "unknown"}
+        and isinstance(record.get("stage"), str)
+        and re.fullmatch(r"[a-z0-9_.:-]{1,64}", record["stage"])
+        and all(
+            isinstance(record.get(field), bool)
+            for field in (
+                "runtime_correct",
+                "legacy_correct",
+                "legacy_result_present",
+                "service_error",
+            )
+        )
+        and isinstance(record.get("legacy_candidate_count"), int)
+        and not isinstance(record.get("legacy_candidate_count"), bool)
+        and int(record["legacy_candidate_count"]) >= 0
+    )
+
+
 def _quality_row(
     dataset: str,
     protocol_role: str,
@@ -98,6 +176,7 @@ def compose_paper_package(
     operational: Mapping[str, Any],
     gold: Mapping[str, Any],
     live: Mapping[str, Any],
+    live_diagnostic: Mapping[str, Any],
     bundle: Mapping[str, Any],
     gate: Mapping[str, Any],
     openalex_default: Mapping[str, Any],
@@ -116,8 +195,18 @@ def compose_paper_package(
     holdout_protocol = dict(holdout.get("protocol") or {})
     operational_protocol = dict(operational.get("protocol") or {})
     live_protocol = dict(live.get("protocol") or {})
+    live_diagnostic_protocol = dict(live_diagnostic.get("protocol") or {})
     temporal_stats = dict(temporal.get("stats") or {})
     holdout_stats = dict(holdout.get("stats") or {})
+    holdout_legacy = dict(holdout.get("legacy_shadow") or {})
+    live_diagnostic_stats = dict(live_diagnostic.get("stats") or {})
+    live_diagnostic_safety = dict(live_diagnostic.get("safety") or {})
+    live_diagnostic_records = [
+        record
+        for record in (live_diagnostic.get("records") or [])
+        if isinstance(record, Mapping)
+    ]
+    live_diagnostic_paired = _paired_counts(live_diagnostic_records)
     temporal_metrics = dict(temporal.get("metrics") or {})
     holdout_metrics = dict(holdout.get("metrics") or {})
     gold_temporal = dict(gold.get("production_temporal_split") or {})
@@ -150,6 +239,7 @@ def compose_paper_package(
         str(holdout_protocol.get("dataset_sha256") or ""),
         str(operational_protocol.get("dataset_sha256") or ""),
         str(live_protocol.get("dataset_sha256") or ""),
+        str(live_diagnostic_protocol.get("dataset_sha256") or ""),
     }
     dataset_hashes.discard("")
     service_hashes = {
@@ -164,6 +254,10 @@ def compose_paper_package(
         int(holdout_protocol.get("exact_duplicate_author_rows_removed") or 0),
         int(operational_protocol.get("exact_duplicate_author_rows_removed") or 0),
         int(live_protocol.get("exact_duplicate_author_rows_removed") or 0),
+        int(
+            live_diagnostic_protocol.get("exact_duplicate_author_rows_removed")
+            or 0
+        ),
         int(
             ((gold_dataset.get("automatic_cleaning") or {}).get(
                 "exact_duplicate_author_rows_removed"
@@ -202,6 +296,14 @@ def compose_paper_package(
                 for record in (live.get("records") or [])
             ),
         ],
+        "live_diagnostic": [
+            live_diagnostic_protocol.get("framework_legacy_fallback_enabled"),
+            live_diagnostic_protocol.get("legacy_service_observation_only"),
+            sum(
+                record.get("stage") == "legacy_service_validated_fallback"
+                for record in live_diagnostic_records
+            ),
+        ],
     }
     bundle_sources = dict(bundle.get("sources") or {})
     checks = [
@@ -236,6 +338,7 @@ def compose_paper_package(
                     holdout_protocol,
                     operational_protocol,
                     live_protocol,
+                    live_diagnostic_protocol,
                 )
             ),
         ),
@@ -257,6 +360,152 @@ def compose_paper_package(
                 gate,
                 "legacy_comparator_independence_verified",
             ) is True,
+        ),
+        _check(
+            "live_diagnostic_dataset_sha256",
+            live_diagnostic_protocol.get("dataset_sha256"),
+            next(iter(dataset_hashes), None) if len(dataset_hashes) == 1 else None,
+        ),
+        _check(
+            "live_diagnostic_split",
+            live_diagnostic_protocol.get("split_strategy"),
+            "per-author-holdout",
+        ),
+        _check(
+            "live_diagnostic_code_revision",
+            live_diagnostic_protocol.get("code_revision"),
+            "full 40-hex frozen Git revision",
+            re.fullmatch(
+                r"[0-9a-f]{40}",
+                str(live_diagnostic_protocol.get("code_revision") or ""),
+            )
+            is not None,
+        ),
+        _check(
+            "live_diagnostic_sample_matches_holdout",
+            {
+                "attempted_mentions": live_diagnostic_stats.get(
+                    "attempted_mentions"
+                ),
+                "records": len(live_diagnostic_records),
+                "paper_requests": live_diagnostic_protocol.get("paper_requests"),
+            },
+            {
+                "attempted_mentions": holdout_legacy.get("n"),
+                "records": holdout_legacy.get("n"),
+                "paper_requests": "positive",
+            },
+            live_diagnostic_stats.get("attempted_mentions")
+            == holdout_legacy.get("n")
+            == len(live_diagnostic_records)
+            and int(live_diagnostic_protocol.get("paper_requests") or 0) > 0,
+        ),
+        _check(
+            "live_diagnostic_paired_counts_match_frozen_comparison",
+            {
+                "paired_table": live_diagnostic_paired,
+                "runtime_correct": live_diagnostic_stats.get("runtime_correct"),
+                "legacy_correct": live_diagnostic_stats.get("legacy_correct"),
+            },
+            {
+                "paired_table": holdout_legacy.get("paired_table"),
+                "runtime_correct": holdout_legacy.get("runtime_correct"),
+                "legacy_correct": holdout_legacy.get("legacy_correct"),
+            },
+        ),
+        _check(
+            "live_diagnostic_no_write_safety",
+            {
+                "smoke_verified": live_diagnostic_safety.get(
+                    "online_shadow_smoke_verified"
+                ),
+                "write_calls": live_diagnostic_protocol.get("write_calls"),
+                "authorized_commands": live_diagnostic_stats.get(
+                    "authorized_commands"
+                ),
+                "no_write_authorized": live_diagnostic_safety.get(
+                    "no_write_authorized"
+                ),
+                "audit_verified": (
+                    live_diagnostic_safety.get("durable_audit_chain") or {}
+                ).get("verified"),
+            },
+            {
+                "smoke_verified": True,
+                "write_calls": 0,
+                "authorized_commands": 0,
+                "no_write_authorized": True,
+                "audit_verified": True,
+            },
+        ),
+        _check(
+            "live_diagnostic_records_redacted",
+            sum(
+                _live_shadow_record_is_redacted(record)
+                for record in live_diagnostic_records
+            ),
+            len(live_diagnostic_records),
+        ),
+        _check(
+            "live_diagnostic_service_observations_complete",
+            {
+                "service_errors": live_diagnostic_stats.get("service_errors"),
+                "service_successful_mentions": live_diagnostic_stats.get(
+                    "service_successful_mentions"
+                ),
+                "legacy_result_present": live_diagnostic_stats.get(
+                    "legacy_result_present"
+                ),
+            },
+            {
+                "service_errors": 0,
+                "service_successful_mentions": live_diagnostic_stats.get(
+                    "attempted_mentions"
+                ),
+                "legacy_result_present": "between zero and attempted; no-match is valid",
+            },
+            live_diagnostic_stats.get("service_errors") == 0
+            and live_diagnostic_stats.get("service_successful_mentions")
+            == live_diagnostic_stats.get("attempted_mentions")
+            and 0
+            <= int(live_diagnostic_stats.get("legacy_result_present") or 0)
+            <= int(live_diagnostic_stats.get("attempted_mentions") or 0),
+        ),
+        _check(
+            "live_diagnostic_remains_non_release",
+            {
+                "verified": (
+                    (live_diagnostic.get("operational_evidence") or {}).get(
+                        "online_shadow_verified"
+                    )
+                    or {}
+                ).get("verified"),
+                "mentions": live_diagnostic_stats.get("attempted_mentions"),
+                "minimum": (
+                    (live_diagnostic.get("operational_evidence") or {}).get(
+                        "online_shadow_verified"
+                    )
+                    or {}
+                ).get("minimum_release_shadow_mentions"),
+            },
+            "verified=false and mentions below the release minimum",
+            (
+                (live_diagnostic.get("operational_evidence") or {}).get(
+                    "online_shadow_verified"
+                )
+                or {}
+            ).get("verified")
+            is False
+            and int(live_diagnostic_stats.get("attempted_mentions") or 0)
+            < int(
+                (
+                    (live_diagnostic.get("operational_evidence") or {}).get(
+                        "online_shadow_verified"
+                    )
+                    or {}
+                ).get("minimum_release_shadow_mentions")
+                or 0
+            ),
         ),
         _check("temporal_total", temporal_stats.get("total"), gold_temporal.get("test_mentions")),
         _check("temporal_existing", temporal_stats.get("existing_gold"), gold_temporal.get("existing_mentions")),
@@ -864,6 +1113,10 @@ def compose_paper_package(
     ]
     temporal_legacy = dict(temporal.get("legacy_shadow") or {})
     holdout_legacy = dict(holdout.get("legacy_shadow") or {})
+    live_diagnostic_p = _mcnemar_exact_two_sided(
+        live_diagnostic_paired["runtime_only_correct"],
+        live_diagnostic_paired["legacy_only_correct"],
+    )
     legacy_comparisons = [
         {
             "protocol_role": "strict temporal primary",
@@ -881,6 +1134,15 @@ def compose_paper_package(
                 and holdout_legacy.get("mcnemar_exact_two_sided_p") < 0.05
             ),
         },
+        {
+            "protocol_role": "per-author live diagnostic only",
+            "n": len(live_diagnostic_records),
+            "paired_table": live_diagnostic_paired,
+            "runtime_correct": live_diagnostic_stats.get("runtime_correct"),
+            "legacy_correct": live_diagnostic_stats.get("legacy_correct"),
+            "mcnemar_exact_two_sided_p": live_diagnostic_p,
+            "statistically_significant_at_0_05": live_diagnostic_p < 0.05,
+        },
     ]
     load = dict(
         ((operational.get("operational_validation") or {}).get("offline_load_test"))
@@ -889,6 +1151,7 @@ def compose_paper_package(
     live_stats = dict(live.get("stats") or {})
     live_metrics = dict(live.get("metrics") or {})
     live_safety = dict(live.get("safety") or {})
+    live_diagnostic_metrics = dict(live_diagnostic.get("metrics") or {})
     operational_summary = {
         "offline_load_operations": load.get("load_operations"),
         "offline_load_p95_ms": load.get("latency_ms_p95"),
@@ -913,6 +1176,27 @@ def compose_paper_package(
         "live_audit_retained": bool(
             ((live_safety.get("durable_audit_chain") or {}).get("retained"))
         ),
+        "live_diagnostic_mentions": live_diagnostic_stats.get(
+            "attempted_mentions"
+        ),
+        "live_diagnostic_papers": live_diagnostic_protocol.get(
+            "paper_requests"
+        ),
+        "live_diagnostic_framework_correct": live_diagnostic_stats.get(
+            "runtime_correct"
+        ),
+        "live_diagnostic_legacy_correct": live_diagnostic_stats.get(
+            "legacy_correct"
+        ),
+        "live_diagnostic_service_errors": live_diagnostic_stats.get(
+            "service_errors"
+        ),
+        "live_diagnostic_authorized_commands": live_diagnostic_stats.get(
+            "authorized_commands"
+        ),
+        "live_diagnostic_p95_ms": live_diagnostic_metrics.get(
+            "paper_round_trip_latency_ms_p95"
+        ),
     }
     supported_claims = [
         {
@@ -931,10 +1215,11 @@ def compose_paper_package(
                 f"The cleaned {holdout_legacy.get('n')}-case diagnostic compares "
                 f"the independent framework at {holdout_legacy.get('runtime_correct')} "
                 f"correct with the legacy service at {holdout_legacy.get('legacy_correct')} "
-                "correct, "
-                "but the exact paired test is not statistically significant."
+                "correct. A fresh read-only live run reproduces the same paired "
+                "cells across 14 papers, but the exact paired test is not "
+                "statistically significant."
             ),
-            "sources": ["holdout"],
+            "sources": ["holdout", "live_diagnostic"],
         },
         {
             "id": "bounded_online_no_write_connectivity",
@@ -943,6 +1228,17 @@ def compose_paper_package(
                 "connectivity, not release-scale online performance."
             ),
             "sources": ["live"],
+        },
+        {
+            "id": "diagnostic_online_comparison_reproduced",
+            "statement": (
+                "A separate 38-mention, 14-paper real-service diagnostic "
+                "reproduces the frozen 27-versus-24 comparison with zero "
+                "service errors and zero authorized commands; its overlapping "
+                "per-author split and sub-threshold volume make it non-release "
+                "evidence."
+            ),
+            "sources": ["holdout", "live_diagnostic"],
         },
         {
             "id": "public_negative_transfer",
@@ -1258,6 +1554,18 @@ def render_markdown(package: Mapping[str, Any]) -> str:
         f"- Real-service shadow: {operations.get('live_shadow_mentions')} mentions, {operations.get('live_shadow_service_errors')} service errors, {operations.get('live_shadow_authorized_commands')} authorized commands",
         f"- Live paper-request p95: {float(operations.get('live_shadow_p95_ms') or 0.0):.2f} ms",
         f"- Live audit chain verified / retained: {_value(operations.get('live_audit_chain_verified'))} / {_value(operations.get('live_audit_retained'))}",
+        (
+            "- Real-service diagnostic replication: "
+            f"{operations.get('live_diagnostic_mentions')} mentions across "
+            f"{operations.get('live_diagnostic_papers')} papers, framework "
+            f"{operations.get('live_diagnostic_framework_correct')} correct "
+            f"versus legacy {operations.get('live_diagnostic_legacy_correct')} "
+            f"correct, {operations.get('live_diagnostic_service_errors')} "
+            "service errors, "
+            f"{operations.get('live_diagnostic_authorized_commands')} "
+            "authorized commands"
+        ),
+        f"- Diagnostic live paper-request p95: {float(operations.get('live_diagnostic_p95_ms') or 0.0):.2f} ms",
         "",
         "## Article-safe interpretation",
         "",
@@ -1310,6 +1618,7 @@ def main() -> None:
     parser.add_argument("--operational", type=Path, required=True)
     parser.add_argument("--gold", type=Path, required=True)
     parser.add_argument("--live", type=Path, required=True)
+    parser.add_argument("--live-diagnostic", type=Path, required=True)
     parser.add_argument("--bundle", type=Path, required=True)
     parser.add_argument("--gate", type=Path, required=True)
     parser.add_argument("--openalex-default", type=Path, required=True)
@@ -1330,6 +1639,7 @@ def main() -> None:
         "operational": args.operational,
         "gold": args.gold,
         "live": args.live,
+        "live_diagnostic": args.live_diagnostic,
         "bundle": args.bundle,
         "gate": args.gate,
         "openalex_default": args.openalex_default,
@@ -1353,6 +1663,7 @@ def main() -> None:
         operational=documents["operational"],
         gold=documents["gold"],
         live=documents["live"],
+        live_diagnostic=documents["live_diagnostic"],
         bundle=documents["bundle"],
         gate=documents["gate"],
         openalex_default=documents["openalex_default"],

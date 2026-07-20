@@ -131,6 +131,7 @@ def valid_attachments():
                     "threshold_passed": True,
                     "institutional_approval": True,
                     "load_plan_verified": True,
+                    "repository_head_verified": True,
                 },
             },
         },

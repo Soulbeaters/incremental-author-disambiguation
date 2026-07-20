@@ -518,8 +518,9 @@ def assess_deployment_evidence(
                 load_safety.get("threshold_passed"),
                 load_safety.get("institutional_approval"),
                 load_safety.get("load_plan_verified"),
+                load_safety.get("repository_head_verified"),
             ],
-            [True, False, 0, True, True, True],
+            [True, False, 0, True, True, True, True],
             [
                 load_safety.get("verified"),
                 load_safety.get("write_client_present"),
@@ -527,7 +528,8 @@ def assess_deployment_evidence(
                 load_safety.get("threshold_passed"),
                 load_safety.get("institutional_approval"),
                 load_safety.get("load_plan_verified"),
-            ] == [True, False, 0, True, True, True],
+                load_safety.get("repository_head_verified"),
+            ] == [True, False, 0, True, True, True, True],
             "load_attachment",
         ),
         _check(

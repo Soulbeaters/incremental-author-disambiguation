@@ -39,6 +39,7 @@ artifact whose own `release_ready` value is true. No such artifact exists.
 | `evaluation/istina_audit_retention.py` | stream-verifies retained per-worker audit chains and binds them to fsync shadow telemetry |
 | `evaluation/istina_deployment_evidence.py` | 55-check, content-level institutional shadow/load-plan/load/monitor/audit validator |
 | `evaluation/istina_online_load_plan.py` | immutable institutional load-plan preflight and execution-binding validator |
+| `evaluation/istina_revision_binding.py` | fail-fast verification that the declared 40-hex revision is the executing Git HEAD |
 | `evaluation/istina_paired_shadow.py` | preflighted cluster-adjusted power, exact McNemar, paper-cluster randomization and bootstrap analysis |
 | `experiments/istina_online_read_load.py` | approval-gated, bounded-concurrency read-only online load generator |
 | `config/istina_provenance_manifest.template.json` | intentionally invalid institutional provenance template |
@@ -219,7 +220,9 @@ result can be release-eligible. The plan binds the dataset, exact code revision,
 service endpoint hash, domain-separated man-id hash, request count, concurrency,
 rate, timeout, change reference, approver role, and active window. Its exact
 file hash is retained in the load result and the final deployment gate parses
-the plan as a fifth attachment and repeats all checks.
+the plan as a fifth attachment and repeats all checks. Both the online-load and
+offline-performance runners now obtain the repository HEAD themselves and
+reject a supplied revision that is merely 40-hex but not the executing code.
 
 The offline no-write operational run replayed all 753 temporal test mentions
 (including rows without gold) for 18 iterations:
@@ -257,7 +260,7 @@ fsync shadow telemetry, and emitting a path-free aggregate manifest root. The
 assertion without this machine manifest. No qualifying retained production
 chains exist yet, so this does not claim deployed audit retention.
 
-The final repository regression command reports 246 passed tests and one
+The final repository regression command reports 249 passed tests and one
 collection warning for a manual scenario class with a constructor. The ISTINA,
 provenance, audit-integrity, and production-control suites are included.
 
@@ -395,7 +398,7 @@ python experiments/istina_live_shadow.py --dataset <advisor-export.json> --split
 
 python experiments/istina_live_shadow.py --dataset <advisor-export.json> --split-strategy per-author-holdout --limit 38 --code-revision <frozen-40-hex-revision> --output evidence/istina_live_shadow_diagnostic_20260720.json
 
-python experiments/istina_operational_validation.py --dataset <advisor-export.json> --service-result <frozen-service.json> --live-shadow-evidence evidence/istina_live_shadow_smoke_20260719.json --split-strategy temporal --train-through-year 2023 --iterations 18 --code-revision <frozen-40-hex-revision> --performance-trial-id <trial-id> --tests-passed 246 --test-warnings 1 --output evidence/istina_operational_validation_trial1_20260720.json
+python experiments/istina_operational_validation.py --dataset <advisor-export.json> --service-result <frozen-service.json> --live-shadow-evidence evidence/istina_live_shadow_smoke_20260719.json --split-strategy temporal --train-through-year 2023 --iterations 18 --code-revision <frozen-40-hex-revision> --performance-trial-id <trial-id> --tests-passed 249 --test-warnings 1 --output evidence/istina_operational_validation_trial1_20260720.json
 
 python evaluation/istina_offline_performance_reproducibility.py --trial evidence/istina_operational_validation_trial1_20260720.json evidence/istina_operational_validation_trial2_20260720.json evidence/istina_operational_validation_trial3_20260720.json --expected-dataset <advisor-export.json> --expected-code-revision <frozen-40-hex-revision> --output evidence/istina_offline_performance_reproducibility_20260720.json
 

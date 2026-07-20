@@ -92,7 +92,9 @@ assertion without this machine-generated manifest.
    independently rechecks the dataset, 40-hex revision, endpoint hash,
    domain-separated man-id hash, request count, concurrency, start rate,
    timeout, change reference, approver role, and active window before any
-   service request. Use `--approval-scope institutional_load_window` for
+   service request. It also obtains `git rev-parse HEAD` itself and rejects a
+   supplied 40-hex revision that is merely well-formed but not the executing
+   checkout. Use `--approval-scope institutional_load_window` for
    formal evidence. The separate
    `user_authorized_canary` scope is capped at 20 requests and is permanently
    non-release.

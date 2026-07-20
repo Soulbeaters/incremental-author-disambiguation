@@ -54,6 +54,9 @@ from integrations.istina_observability import (  # noqa: E402
 from integrations.istina_export_quality import (  # noqa: E402
     deduplicate_exact_author_rows,
 )
+from evaluation.istina_revision_binding import (  # noqa: E402
+    require_current_git_revision,
+)
 from integrations.istina_production_runtime import (  # noqa: E402
     CircuitBreaker,
     CircuitBreakerConfig,
@@ -444,8 +447,10 @@ def main() -> None:
     args = parser.parse_args()
     if args.iterations < 1:
         raise ValueError("iterations must be positive")
-    if re.fullmatch(r"[0-9a-fA-F]{40}", args.code_revision) is None:
-        raise ValueError("code-revision must be a full 40-hex Git commit")
+    observed_code_revision = require_current_git_revision(
+        args.code_revision,
+        PROJECT_ROOT,
+    )
     if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", args.performance_trial_id) is None:
         raise ValueError("performance-trial-id must be 1-64 safe characters")
 
@@ -578,7 +583,8 @@ def main() -> None:
             "exact_duplicate_author_rows_removed": exact_duplicates_removed,
             "exact_duplicate_cleaning_applied": True,
             "load_iterations": args.iterations,
-            "code_revision": args.code_revision.lower(),
+            "code_revision": observed_code_revision,
+            "repository_head_verified": True,
             "performance_trial_id": args.performance_trial_id,
             "network_calls": 0,
             "write_calls": 0,

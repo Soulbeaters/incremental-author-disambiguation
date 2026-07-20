@@ -89,7 +89,10 @@ claim that enables fallback or any record produced by the
 ## Execution sequence
 
 Run all commands from a frozen, clean revision. Replace angle-bracket values
-with private paths and approved institutional identifiers.
+with private paths and approved institutional identifiers. Evidence-producing
+load commands independently compare `--code-revision` with the executing
+repository's `git rev-parse HEAD`; a well-formed but mistyped hash fails before
+the dataset is processed or the service is contacted.
 
 The default service transport is direct and ignores ambient `HTTP_PROXY` /
 `HTTPS_PROXY` settings. This prevents a workstation proxy from turning a

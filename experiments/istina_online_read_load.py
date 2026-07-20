@@ -10,7 +10,6 @@ from __future__ import annotations
 import argparse
 import json
 import math
-import re
 import sys
 import threading
 import time
@@ -30,6 +29,7 @@ from evaluation.istina_online_load_plan import (
     sha256_file,
     sha256_text,
 )
+from evaluation.istina_revision_binding import require_current_git_revision
 from experiments.istina_export_temporal_evaluation import load_articles
 from integrations.istina_disambiguation_client import (
     DEFAULT_ISTINA_DISAMBIGUATION_URL,
@@ -233,8 +233,10 @@ def main() -> None:
         args.approval_scope,
         load_plan_supplied=args.load_plan is not None,
     )
-    if re.fullmatch(r"[0-9a-fA-F]{40}", args.code_revision) is None:
-        raise ValueError("code-revision must be a full 40-hex Git commit")
+    observed_code_revision = require_current_git_revision(
+        args.code_revision,
+        PROJECT_ROOT,
+    )
 
     dataset_sha256 = sha256_file(args.dataset)
     load_plan_sha256 = None
@@ -245,7 +247,7 @@ def main() -> None:
         load_plan_validation = assess_online_load_plan(
             _load_json_object(args.load_plan),
             expected_dataset_sha256=dataset_sha256,
-            expected_code_revision=args.code_revision,
+            expected_code_revision=observed_code_revision,
             expected_service_url_sha256=sha256_text(args.service_url),
             expected_man_id_sha256=man_id_sha256(args.man_id),
             expected_requests=args.requests,
@@ -316,7 +318,8 @@ def main() -> None:
             "mode": "read_only_candidate_lookup",
             "dataset_name": args.dataset.name,
             "dataset_sha256": dataset_sha256,
-            "code_revision": args.code_revision.lower(),
+            "code_revision": observed_code_revision,
+            "repository_head_verified": True,
             "service_url_sha256": sha256_text(args.service_url),
             "man_id_sha256": man_id_sha256(args.man_id),
             "requests": args.requests,
@@ -351,6 +354,7 @@ def main() -> None:
             "load_plan_verified": bool(
                 load_plan_validation and load_plan_validation["verified"]
             ),
+            "repository_head_verified": True,
             "evidence_classification": assessment[
                 "evidence_classification"
             ],

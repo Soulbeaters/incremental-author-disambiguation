@@ -1,19 +1,19 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-20T06:44:09.121050+00:00",
-  "package_id": "235eb392b08f78ed52424c9724984e66fd382fc6d31df3022b71479d732cd004",
+  "generated_at": "2026-07-20T08:43:34.468454+00:00",
+  "package_id": "5689b25af5089544f3018fb93dbd25c14f1f13aa03ea159c2cda6c3322305121",
   "integrity": {
     "verified": true,
     "summary": {
-      "passed": 61,
+      "passed": 62,
       "failed": 0,
-      "total": 61
+      "total": 62
     },
     "checks": [
       {
         "name": "bundle_operational_sha256",
-        "observed": "585ea8c931e74336813d93c6c2f06971e6f1b7148da307b2a09e64c5e7f02118",
-        "expected": "585ea8c931e74336813d93c6c2f06971e6f1b7148da307b2a09e64c5e7f02118",
+        "observed": "ee37bbe009812ed92ea102eb07961540bac964b833bce5157c85a6dd87b74f88",
+        "expected": "ee37bbe009812ed92ea102eb07961540bac964b833bce5157c85a6dd87b74f88",
         "passed": true
       },
       {
@@ -115,7 +115,7 @@
       },
       {
         "name": "live_diagnostic_code_revision",
-        "observed": "6b5b384a1c1aec55488b2302764e056faf6f4f62",
+        "observed": "f04e0da3475e3ea6ac9a60d9d8dcc6f4035289b8",
         "expected": "full 40-hex frozen Git revision",
         "passed": true
       },
@@ -134,27 +134,25 @@
         "passed": true
       },
       {
-        "name": "live_diagnostic_paired_counts_match_frozen_comparison",
+        "name": "live_diagnostic_paired_counts_internally_consistent",
         "observed": {
           "paired_table": {
-            "both_correct": 17,
-            "runtime_only_correct": 10,
+            "both_correct": 20,
+            "runtime_only_correct": 7,
             "legacy_only_correct": 7,
             "both_incorrect": 4
           },
           "runtime_correct": 27,
-          "legacy_correct": 24
+          "legacy_correct": 27,
+          "records": 38
         },
-        "expected": {
-          "paired_table": {
-            "both_correct": 17,
-            "runtime_only_correct": 10,
-            "legacy_only_correct": 7,
-            "both_incorrect": 4
-          },
-          "runtime_correct": 27,
-          "legacy_correct": 24
-        },
+        "expected": "paired cells sum to records and reproduce both correctness totals",
+        "passed": true
+      },
+      {
+        "name": "live_diagnostic_framework_matches_frozen_framework",
+        "observed": 27,
+        "expected": 27,
         "passed": true
       },
       {
@@ -186,7 +184,7 @@
         "observed": {
           "service_errors": 0,
           "service_successful_mentions": 38,
-          "legacy_result_present": 34
+          "legacy_result_present": 38
         },
         "expected": {
           "service_errors": 0,
@@ -641,7 +639,7 @@
     },
     "operational": {
       "name": "istina_operational_validation_20260719.json",
-      "sha256": "585ea8c931e74336813d93c6c2f06971e6f1b7148da307b2a09e64c5e7f02118"
+      "sha256": "ee37bbe009812ed92ea102eb07961540bac964b833bce5157c85a6dd87b74f88"
     },
     "gold": {
       "name": "istina_gold_readiness_20260719.json",
@@ -652,16 +650,16 @@
       "sha256": "f3eb98ed8a0fbfdf5a199bd41a256ddc208cdfa8ff0965112eb59491666d2cf3"
     },
     "live_diagnostic": {
-      "name": "istina_live_shadow_diagnostic_20260719.json",
-      "sha256": "82fa788f0c0285213752107608e2d3abc294c1817fb2eb8b5301f27d2c57358d"
+      "name": "istina_live_shadow_diagnostic_20260720.json",
+      "sha256": "e18168b377e10353daaef77df418800fe362130e8c827653df18cfbe97d77052"
     },
     "bundle": {
       "name": "istina_release_evidence_bundle_20260719.json",
-      "sha256": "ee34143439bbc9b6bd652b725b66e80315bf0954410b28a0b09a4055bdfecdbd"
+      "sha256": "2a00e57875d014c3a0396822e1e186da93df7af30ff4569f2a9cdcae4c61aecf"
     },
     "gate": {
       "name": "istina_production_gate_operational_20260719.json",
-      "sha256": "3bd470774cb2fc1f91e5c3de2cb2df901b8b33b76a6c2f7903545636f099413c"
+      "sha256": "dfebd5008c091754613e1970b5c8a169b9df3f95181d2ee61df724729aee2fb1"
     },
     "openalex_default": {
       "name": "openalex_confirmation_default_current_20260719.json",
@@ -965,24 +963,46 @@
       "statistically_significant_at_0_05": false
     },
     {
-      "protocol_role": "per-author live diagnostic only",
+      "protocol_role": "per-author current-service live diagnostic only",
       "n": 38,
       "paired_table": {
-        "both_correct": 17,
-        "runtime_only_correct": 10,
+        "both_correct": 20,
+        "runtime_only_correct": 7,
         "legacy_only_correct": 7,
         "both_incorrect": 4
       },
       "runtime_correct": 27,
-      "legacy_correct": 24,
-      "mcnemar_exact_two_sided_p": 0.629058837890625,
+      "legacy_correct": 27,
+      "mcnemar_exact_two_sided_p": 1.0,
       "statistically_significant_at_0_05": false
     }
   ],
+  "legacy_service_drift": {
+    "observed": true,
+    "framework_correct_frozen": 27,
+    "framework_correct_current_live": 27,
+    "legacy_correct_frozen": 24,
+    "legacy_correct_current_live": 27,
+    "legacy_correct_delta": 3,
+    "paired_table_frozen": {
+      "both_correct": 17,
+      "runtime_only_correct": 10,
+      "legacy_only_correct": 7,
+      "both_incorrect": 4
+    },
+    "paired_table_current_live": {
+      "both_correct": 20,
+      "runtime_only_correct": 7,
+      "legacy_only_correct": 7,
+      "both_incorrect": 4
+    },
+    "current_live_generated_at": "2026-07-20T08:34:26.969760+00:00",
+    "interpretation": "current incumbent observations differ from the frozen comparison; report both and do not overwrite the frozen baseline"
+  },
   "operational_summary": {
     "offline_load_operations": 13554,
-    "offline_load_p95_ms": 15.133199995034374,
-    "offline_throughput_mentions_per_second": 283.1596525046369,
+    "offline_load_p95_ms": 39.28339999401942,
+    "offline_throughput_mentions_per_second": 115.62463927280946,
     "deterministic_hash_mismatches": 0,
     "runtime_safety_contract_verified": true,
     "rollback_verified": true,
@@ -996,10 +1016,12 @@
     "live_diagnostic_mentions": 38,
     "live_diagnostic_papers": 14,
     "live_diagnostic_framework_correct": 27,
-    "live_diagnostic_legacy_correct": 24,
+    "live_diagnostic_legacy_correct": 27,
     "live_diagnostic_service_errors": 0,
     "live_diagnostic_authorized_commands": 0,
-    "live_diagnostic_p95_ms": 14918.679199996404
+    "live_diagnostic_p95_ms": 18714.94459999667,
+    "legacy_service_drift_observed": true,
+    "legacy_service_correct_delta": 3
   },
   "supported_claims": [
     {
@@ -1012,7 +1034,7 @@
     },
     {
       "id": "legacy_advantage_not_established",
-      "statement": "The cleaned 38-case diagnostic compares the independent framework at 27 correct with the legacy service at 24 correct. A fresh read-only live run reproduces the same paired cells across 14 papers, but the exact paired test is not statistically significant.",
+      "statement": "The cleaned 38-case diagnostic compares the independent framework at 27 correct with the legacy service at 24 correct. A fresh read-only live run keeps the framework at 27 correct while the current legacy service reaches 27 correct; neither paired comparison establishes a statistically significant advantage.",
       "sources": [
         "holdout",
         "live_diagnostic"
@@ -1026,8 +1048,16 @@
       ]
     },
     {
-      "id": "diagnostic_online_comparison_reproduced",
-      "statement": "A separate 38-mention, 14-paper real-service diagnostic reproduces the frozen 27-versus-24 comparison with zero service errors and zero authorized commands; its overlapping per-author split and sub-threshold volume make it non-release evidence.",
+      "id": "diagnostic_online_comparison_current",
+      "statement": "A separate 38-mention, 14-paper real-service diagnostic reproduces the framework score at 27 correct, while the current legacy result is 27 correct rather than the frozen baseline. It has zero service errors and zero authorized commands; its overlapping per-author split and sub-threshold volume make it non-release evidence.",
+      "sources": [
+        "holdout",
+        "live_diagnostic"
+      ]
+    },
+    {
+      "id": "legacy_service_output_drift_observed",
+      "statement": "The current live legacy-service outcome differs from the frozen comparison by +3 correct cases and has a different paired table. The frozen and current results are therefore reported separately.",
       "sources": [
         "holdout",
         "live_diagnostic"

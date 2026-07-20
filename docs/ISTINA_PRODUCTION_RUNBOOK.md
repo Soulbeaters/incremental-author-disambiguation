@@ -9,11 +9,12 @@ back to ISTINA. The 2026-07-19 machine gate passes 8 of 23 checks and reports
 verification remains false because it is below both the 500-mention floor and
 the prospectively powered paired-comparison requirement.
 
-A separate 38-mention, 14-paper read-only live diagnostic reproduces the
-frozen per-author comparison (27 framework correct versus 24 legacy correct,
-exact McNemar `p=0.629058837890625`) with zero service errors and zero
-authorized commands. It is deliberately excluded from release evidence because
-the diagnostic split has paper overlap and remains below the shadow floor.
+A current 38-mention, 14-paper read-only live diagnostic keeps the framework at
+27 correct while the incumbent changes from the frozen 24 correct to 27 correct
+(current exact McNemar `p=1`). The article package records this incumbent drift
+without overwriting the frozen baseline. The run has zero service errors and
+zero authorized commands, but remains excluded from release evidence because
+the diagnostic split has paper overlap and is below both shadow floors.
 
 The advisor endpoint is reached directly by IP. The project client disables
 `requests` environment-proxy inheritance by default because a workstation proxy

@@ -28,7 +28,7 @@ def current_inputs():
         "operational": "istina_operational_validation_20260719.json",
         "gold": "istina_gold_readiness_20260719.json",
         "live": "istina_live_shadow_smoke_20260719.json",
-        "live_diagnostic": "istina_live_shadow_diagnostic_20260719.json",
+        "live_diagnostic": "istina_live_shadow_diagnostic_20260720.json",
         "bundle": "istina_release_evidence_bundle_20260719.json",
         "gate": "istina_production_gate_operational_20260719.json",
         "openalex_default": "openalex_confirmation_default_current_20260719.json",
@@ -56,7 +56,7 @@ class IstinaPaperPackageTests(unittest.TestCase):
         )
 
         self.assertTrue(package["integrity"]["verified"])
-        self.assertEqual(package["integrity"]["summary"]["total"], 61)
+        self.assertEqual(package["integrity"]["summary"]["total"], 62)
         self.assertFalse(package["release"]["release_ready"])
         self.assertEqual(package["quality_table"][0]["test_mentions"], 571)
         self.assertEqual(package["quality_table"][1]["paper_overlap"], 13)
@@ -92,8 +92,8 @@ class IstinaPaperPackageTests(unittest.TestCase):
         self.assertEqual(
             package["legacy_comparison_table"][2]["paired_table"],
             {
-                "both_correct": 17,
-                "runtime_only_correct": 10,
+                "both_correct": 20,
+                "runtime_only_correct": 7,
                 "legacy_only_correct": 7,
                 "both_incorrect": 4,
             },
@@ -102,7 +102,35 @@ class IstinaPaperPackageTests(unittest.TestCase):
             package["legacy_comparison_table"][2][
                 "mcnemar_exact_two_sided_p"
             ],
-            0.629058837890625,
+            1.0,
+        )
+        self.assertEqual(
+            package["legacy_service_drift"],
+            {
+                "observed": True,
+                "framework_correct_frozen": 27,
+                "framework_correct_current_live": 27,
+                "legacy_correct_frozen": 24,
+                "legacy_correct_current_live": 27,
+                "legacy_correct_delta": 3,
+                "paired_table_frozen": {
+                    "both_correct": 17,
+                    "runtime_only_correct": 10,
+                    "legacy_only_correct": 7,
+                    "both_incorrect": 4,
+                },
+                "paired_table_current_live": {
+                    "both_correct": 20,
+                    "runtime_only_correct": 7,
+                    "legacy_only_correct": 7,
+                    "both_incorrect": 4,
+                },
+                "current_live_generated_at": "2026-07-20T08:34:26.969760+00:00",
+                "interpretation": (
+                    "current incumbent observations differ from the frozen "
+                    "comparison; report both and do not overwrite the frozen baseline"
+                ),
+            },
         )
         markdown = render_markdown(package)
         self.assertIn("8/23 passed", markdown)
@@ -113,6 +141,30 @@ class IstinaPaperPackageTests(unittest.TestCase):
         self.assertIn("AMiner complete current-runtime", markdown)
         self.assertIn("Real-service diagnostic replication", markdown)
         self.assertIn("38 mentions across 14 papers", markdown)
+        self.assertIn("Legacy-service result drift", markdown)
+
+    def test_live_diagnostic_framework_change_fails_closed(self):
+        inputs = current_inputs()
+        live_diagnostic = copy.deepcopy(inputs["live_diagnostic"])
+        record = next(
+            item
+            for item in live_diagnostic["records"]
+            if item["runtime_correct"] and not item["legacy_correct"]
+        )
+        record["runtime_correct"] = False
+        live_diagnostic["stats"]["runtime_correct"] -= 1
+        inputs["live_diagnostic"] = live_diagnostic
+
+        package = compose_paper_package(
+            **inputs,
+            generated_at="2026-07-20T00:00:00+00:00",
+        )
+
+        self.assertFalse(package["integrity"]["verified"])
+        self.assertIn(
+            "live_diagnostic_framework_matches_frozen_framework",
+            {failure["name"] for failure in package["integrity"]["failures"]},
+        )
 
     def test_live_diagnostic_comparator_dependency_fails_closed(self):
         inputs = current_inputs()

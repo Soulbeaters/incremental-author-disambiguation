@@ -401,17 +401,26 @@ def compose_paper_package(
             and int(live_diagnostic_protocol.get("paper_requests") or 0) > 0,
         ),
         _check(
-            "live_diagnostic_paired_counts_match_frozen_comparison",
+            "live_diagnostic_paired_counts_internally_consistent",
             {
                 "paired_table": live_diagnostic_paired,
                 "runtime_correct": live_diagnostic_stats.get("runtime_correct"),
                 "legacy_correct": live_diagnostic_stats.get("legacy_correct"),
+                "records": len(live_diagnostic_records),
             },
-            {
-                "paired_table": holdout_legacy.get("paired_table"),
-                "runtime_correct": holdout_legacy.get("runtime_correct"),
-                "legacy_correct": holdout_legacy.get("legacy_correct"),
-            },
+            "paired cells sum to records and reproduce both correctness totals",
+            sum(live_diagnostic_paired.values()) == len(live_diagnostic_records)
+            and int(live_diagnostic_stats.get("runtime_correct") or 0)
+            == int(live_diagnostic_paired.get("both_correct") or 0)
+            + int(live_diagnostic_paired.get("runtime_only_correct") or 0)
+            and int(live_diagnostic_stats.get("legacy_correct") or 0)
+            == int(live_diagnostic_paired.get("both_correct") or 0)
+            + int(live_diagnostic_paired.get("legacy_only_correct") or 0),
+        ),
+        _check(
+            "live_diagnostic_framework_matches_frozen_framework",
+            live_diagnostic_stats.get("runtime_correct"),
+            holdout_legacy.get("runtime_correct"),
         ),
         _check(
             "live_diagnostic_no_write_safety",
@@ -1117,6 +1126,33 @@ def compose_paper_package(
         live_diagnostic_paired["runtime_only_correct"],
         live_diagnostic_paired["legacy_only_correct"],
     )
+    frozen_paired = dict(holdout_legacy.get("paired_table") or {})
+    legacy_service_drift = {
+        "observed": (
+            live_diagnostic_stats.get("legacy_correct")
+            != holdout_legacy.get("legacy_correct")
+            or live_diagnostic_paired != frozen_paired
+        ),
+        "framework_correct_frozen": holdout_legacy.get("runtime_correct"),
+        "framework_correct_current_live": live_diagnostic_stats.get(
+            "runtime_correct"
+        ),
+        "legacy_correct_frozen": holdout_legacy.get("legacy_correct"),
+        "legacy_correct_current_live": live_diagnostic_stats.get(
+            "legacy_correct"
+        ),
+        "legacy_correct_delta": (
+            int(live_diagnostic_stats.get("legacy_correct") or 0)
+            - int(holdout_legacy.get("legacy_correct") or 0)
+        ),
+        "paired_table_frozen": frozen_paired,
+        "paired_table_current_live": live_diagnostic_paired,
+        "current_live_generated_at": live_diagnostic.get("generated_at"),
+        "interpretation": (
+            "current incumbent observations differ from the frozen comparison; "
+            "report both and do not overwrite the frozen baseline"
+        ),
+    }
     legacy_comparisons = [
         {
             "protocol_role": "strict temporal primary",
@@ -1135,7 +1171,7 @@ def compose_paper_package(
             ),
         },
         {
-            "protocol_role": "per-author live diagnostic only",
+            "protocol_role": "per-author current-service live diagnostic only",
             "n": len(live_diagnostic_records),
             "paired_table": live_diagnostic_paired,
             "runtime_correct": live_diagnostic_stats.get("runtime_correct"),
@@ -1197,6 +1233,10 @@ def compose_paper_package(
         "live_diagnostic_p95_ms": live_diagnostic_metrics.get(
             "paper_round_trip_latency_ms_p95"
         ),
+        "legacy_service_drift_observed": legacy_service_drift["observed"],
+        "legacy_service_correct_delta": legacy_service_drift[
+            "legacy_correct_delta"
+        ],
     }
     supported_claims = [
         {
@@ -1215,9 +1255,11 @@ def compose_paper_package(
                 f"The cleaned {holdout_legacy.get('n')}-case diagnostic compares "
                 f"the independent framework at {holdout_legacy.get('runtime_correct')} "
                 f"correct with the legacy service at {holdout_legacy.get('legacy_correct')} "
-                "correct. A fresh read-only live run reproduces the same paired "
-                "cells across 14 papers, but the exact paired test is not "
-                "statistically significant."
+                "correct. A fresh read-only live run keeps the framework at "
+                f"{live_diagnostic_stats.get('runtime_correct')} correct while the "
+                f"current legacy service reaches {live_diagnostic_stats.get('legacy_correct')} "
+                "correct; neither paired comparison establishes a statistically "
+                "significant advantage."
             ),
             "sources": ["holdout", "live_diagnostic"],
         },
@@ -1230,13 +1272,24 @@ def compose_paper_package(
             "sources": ["live"],
         },
         {
-            "id": "diagnostic_online_comparison_reproduced",
+            "id": "diagnostic_online_comparison_current",
             "statement": (
                 "A separate 38-mention, 14-paper real-service diagnostic "
-                "reproduces the frozen 27-versus-24 comparison with zero "
-                "service errors and zero authorized commands; its overlapping "
-                "per-author split and sub-threshold volume make it non-release "
-                "evidence."
+                f"reproduces the framework score at {live_diagnostic_stats.get('runtime_correct')} "
+                f"correct, while the current legacy result is {live_diagnostic_stats.get('legacy_correct')} "
+                "correct rather than the frozen baseline. It has zero service "
+                "errors and zero authorized commands; its overlapping per-author "
+                "split and sub-threshold volume make it non-release evidence."
+            ),
+            "sources": ["holdout", "live_diagnostic"],
+        },
+        {
+            "id": "legacy_service_output_drift_observed",
+            "statement": (
+                "The current live legacy-service outcome differs from the frozen "
+                f"comparison by {legacy_service_drift['legacy_correct_delta']:+d} "
+                "correct cases and has a different paired table. The frozen and "
+                "current results are therefore reported separately."
             ),
             "sources": ["holdout", "live_diagnostic"],
         },
@@ -1322,6 +1375,7 @@ def compose_paper_package(
         "aminer_full_ablation_table": aminer_full_ablation,
         "aminer_current_ablation_table": aminer_current_ablation,
         "legacy_comparison_table": legacy_comparisons,
+        "legacy_service_drift": legacy_service_drift,
         "operational_summary": operational_summary,
         "supported_claims": supported_claims,
         "prohibited_claims": prohibited_claims,
@@ -1541,6 +1595,18 @@ def render_markdown(package: Mapping[str, Any]) -> str:
                 significant=str(row.get("statistically_significant_at_0_05")).lower(),
             )
         )
+    drift = dict(package.get("legacy_service_drift") or {})
+    lines.extend([
+        "",
+        (
+            "Legacy-service result drift relative to the frozen comparison: "
+            f"observed={str(bool(drift.get('observed'))).lower()}, frozen "
+            f"legacy correct={drift.get('legacy_correct_frozen')}, current-live "
+            f"legacy correct={drift.get('legacy_correct_current_live')} "
+            f"(delta {int(drift.get('legacy_correct_delta') or 0):+d}); framework "
+            f"correct remained {drift.get('framework_correct_current_live')}."
+        ),
+    ])
     operations = dict(package.get("operational_summary") or {})
     lines.extend([
         "",

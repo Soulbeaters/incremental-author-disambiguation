@@ -29,7 +29,7 @@ artifact whose own `release_ready` value is true. No such artifact exists.
 | `evidence/istina_temporal_runtime_replay_20260719.json` | primary, leakage-free temporal quality replay |
 | `evidence/istina_holdout_runtime_replay_deduplicated_20260719.json` | secondary per-author diagnostic |
 | `evidence/istina_live_shadow_smoke_20260719.json` | bounded real-service no-write connectivity smoke |
-| `evidence/istina_live_shadow_diagnostic_20260719.json` | 38-case real-service diagnostic replication; ineligible for release gates |
+| `evidence/istina_live_shadow_diagnostic_20260720.json` | current-service 38-case real-service diagnostic with explicit incumbent drift; ineligible for release gates |
 | `evidence/istina_operational_validation_20260719.json` | load, determinism, audit, rollback, circuit-breaker, and drift tests |
 | `evidence/istina_release_evidence_bundle_20260719.json` | SHA-256-bound composition of independently generated evidence |
 | `evidence/istina_production_gate_operational_20260719.json` | authoritative 23-check release decision |
@@ -54,8 +54,8 @@ artifact whose own `release_ready` value is true. No such artifact exists.
 | `paper/istina_empirical_evidence_20260719.json` | 61-check, SHA-256-bound machine article package |
 | `paper/ISTINA_EMPIRICAL_EVIDENCE_20260719.md` | article-ready tables, claims, limitations, and source traceability |
 
-The current article package passes 61/61 integrity checks and has package ID
-`235eb392b08f78ed52424c9724984e66fd382fc6d31df3022b71479d732cd004`.
+The current article package passes 62/62 integrity checks and has package ID
+`5689b25af5089544f3018fb93dbd25c14f1f13aa03ea159c2cda6c3322305121`.
 Its independent release field remains false.
 
 Raw mention-level advisor records and the private adjudication queue are
@@ -178,15 +178,17 @@ mentions across four complete-paper requests:
 - smoke health passed, but release shadow verification failed because 5 is
   below the predeclared 500-mention minimum.
 
-A second live run used the cleaned per-author diagnostic split and queried all
-38 known mentions across 14 complete-paper requests. It reproduced the frozen
-paired result exactly: both correct 17, framework only 10, legacy only 7, and
-both incorrect 4, giving 27/38 framework versus 24/38 legacy and exact
-two-sided McNemar `p = 0.629058837890625`. The run had zero service errors,
-zero authorized commands, zero writes, a verified ephemeral audit chain, no
-legacy-fallback framework stages, and 14.919-second paper-request p95. This is
-valuable real-service replication, but the per-author split overlaps papers
-and 38 is below 500, so the artifact is machine-marked as non-release evidence.
+A current-service live run on 2026-07-20 used the cleaned per-author diagnostic
+split and queried all 38 known mentions across 14 complete-paper requests. The
+framework remained 27/38 correct, while the live incumbent changed from the
+frozen 24/38 to 27/38. Current paired cells are both correct 20, framework only
+7, legacy only 7, and both incorrect 4, giving exact two-sided McNemar `p = 1`.
+The run had zero service errors, zero authorized commands, zero writes, a
+verified ephemeral audit chain, no legacy-fallback framework stages, and
+18.715-second paper-request p95. The article package preserves the frozen and
+current incumbent results separately and machine-records the +3-correct drift.
+This remains non-release evidence because the split overlaps papers and 38 is
+below the 500-mention and 100-paper floors.
 
 A follow-up availability check on 2026-07-20 initially found HTTP 503 responses
 despite a reachable host and TCP port. Controlled direct/proxied replication
@@ -207,8 +209,8 @@ The offline no-write operational run replayed all 753 temporal test mentions
 | Operational measure | Result |
 |---|---:|
 | Load operations | 13,554 |
-| Throughput | 283.16 mentions/s |
-| Local p95 | 15.13 ms |
+| Throughput | 115.62 mentions/s |
+| Local p95 | 39.28 ms |
 | Deterministic-hash mismatches | 0 |
 | Runtime safety/idempotency/redaction | passed |
 | Durable fsync audit hash chain / restart verification | passed (8 records) |
@@ -228,7 +230,7 @@ fsync shadow telemetry, and emitting a path-free aggregate manifest root. The
 assertion without this machine manifest. No qualifying retained production
 chains exist yet, so this does not claim deployed audit retention.
 
-The final repository regression command reports 219 passed tests and one
+The final repository regression command reports 222 passed tests and one
 collection warning for a manual scenario class with a constructor. The ISTINA,
 provenance, audit-integrity, and production-control suites are included.
 
@@ -364,15 +366,15 @@ python experiments/aminer_kdd18_runtime_replay.py --data-root <aminer-data-globa
 $env:ISTINA_AUDIT_SALT = <secret-manager-value>
 python experiments/istina_live_shadow.py --dataset <advisor-export.json> --split-strategy temporal --train-through-year 2023 --limit 5 --audit-output <private-audit.jsonl> --output evidence/istina_live_shadow_smoke_20260719.json
 
-python experiments/istina_live_shadow.py --dataset <advisor-export.json> --split-strategy per-author-holdout --limit 38 --code-revision <frozen-40-hex-revision> --output evidence/istina_live_shadow_diagnostic_20260719.json
+python experiments/istina_live_shadow.py --dataset <advisor-export.json> --split-strategy per-author-holdout --limit 38 --code-revision <frozen-40-hex-revision> --output evidence/istina_live_shadow_diagnostic_20260720.json
 
-python experiments/istina_operational_validation.py --dataset <advisor-export.json> --service-result <frozen-service.json> --live-shadow-evidence evidence/istina_live_shadow_smoke_20260719.json --split-strategy temporal --train-through-year 2023 --iterations 18 --tests-passed 219 --test-warnings 1 --output evidence/istina_operational_validation_20260719.json
+python experiments/istina_operational_validation.py --dataset <advisor-export.json> --service-result <frozen-service.json> --live-shadow-evidence evidence/istina_live_shadow_smoke_20260719.json --split-strategy temporal --train-through-year 2023 --iterations 18 --tests-passed 222 --test-warnings 1 --output evidence/istina_operational_validation_20260719.json
 
 python evaluation/istina_evidence_bundle.py --operational-validation evidence/istina_operational_validation_20260719.json --gold-readiness evidence/istina_gold_readiness_20260719.json --live-shadow evidence/istina_live_shadow_smoke_20260719.json --output evidence/istina_release_evidence_bundle_20260719.json
 
 python evaluation/production_gate.py --replay-result evidence/istina_operational_validation_20260719.json --evidence evidence/istina_release_evidence_bundle_20260719.json --output evidence/istina_production_gate_operational_20260719.json
 
-python evaluation/istina_paper_package.py --temporal evidence/istina_temporal_runtime_replay_20260719.json --holdout evidence/istina_holdout_runtime_replay_deduplicated_20260719.json --operational evidence/istina_operational_validation_20260719.json --gold evidence/istina_gold_readiness_20260719.json --live evidence/istina_live_shadow_smoke_20260719.json --live-diagnostic evidence/istina_live_shadow_diagnostic_20260719.json --bundle evidence/istina_release_evidence_bundle_20260719.json --gate evidence/istina_production_gate_operational_20260719.json --openalex-default evidence/openalex_confirmation_default_current_20260719.json --openalex-rescue evidence/openalex_confirmation_rescue_ablation_current_20260719.json --openalex-large-default evidence/openalex_10000works_default_current_20260719.json --openalex-large-rescue evidence/openalex_10000works_rescue_current_20260719.json --aminer-full-current evidence/aminer_kdd18_test100_default_current_20260719.json --aminer-full-rescue-current evidence/aminer_kdd18_test100_rescue_current_20260719.json --aminer-default-current evidence/aminer_kdd18_test100_first10_default_current_20260719.json --aminer-rescue-current evidence/aminer_kdd18_test100_first10_rescue_current_20260719.json --public-validation evidence/runtime_validation_20260719.json --output-json paper/istina_empirical_evidence_20260719.json --output-markdown paper/ISTINA_EMPIRICAL_EVIDENCE_20260719.md
+python evaluation/istina_paper_package.py --temporal evidence/istina_temporal_runtime_replay_20260719.json --holdout evidence/istina_holdout_runtime_replay_deduplicated_20260719.json --operational evidence/istina_operational_validation_20260719.json --gold evidence/istina_gold_readiness_20260719.json --live evidence/istina_live_shadow_smoke_20260719.json --live-diagnostic evidence/istina_live_shadow_diagnostic_20260720.json --bundle evidence/istina_release_evidence_bundle_20260719.json --gate evidence/istina_production_gate_operational_20260719.json --openalex-default evidence/openalex_confirmation_default_current_20260719.json --openalex-rescue evidence/openalex_confirmation_rescue_ablation_current_20260719.json --openalex-large-default evidence/openalex_10000works_default_current_20260719.json --openalex-large-rescue evidence/openalex_10000works_rescue_current_20260719.json --aminer-full-current evidence/aminer_kdd18_test100_default_current_20260719.json --aminer-full-rescue-current evidence/aminer_kdd18_test100_rescue_current_20260719.json --aminer-default-current evidence/aminer_kdd18_test100_first10_default_current_20260719.json --aminer-rescue-current evidence/aminer_kdd18_test100_first10_rescue_current_20260719.json --public-validation evidence/runtime_validation_20260719.json --output-json paper/istina_empirical_evidence_20260719.json --output-markdown paper/ISTINA_EMPIRICAL_EVIDENCE_20260719.md
 ```
 
 ## Evidence still required for replacement

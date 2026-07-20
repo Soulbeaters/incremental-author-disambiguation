@@ -1,5 +1,9 @@
 # Incremental author disambiguation for ISTINA
 
+> Local project location and editing guide:
+> [`00_PROJECT2_START_HERE.md`](00_PROJECT2_START_HERE.md). The canonical local
+> home is `C:\program 2 in 2025`; Codex copies are development mirrors.
+
 Research framework for conservative, incremental author disambiguation and
 evaluation against the current ISTINA candidate service. The intended outcome
 is an algorithmic component that can be integrated into ISTINA, not a separate

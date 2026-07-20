@@ -8,6 +8,12 @@ from evaluation.istina_deployment_evidence import (
     _load_attachment,
     assess_deployment_evidence,
 )
+from evaluation.istina_audit_retention import (
+    AUDIT_CHAIN_MANIFEST_ALGORITHM,
+    AUDIT_HEAD_HASH_SCOPE,
+    AUDIT_RETENTION_METHOD,
+    audit_chain_manifest_sha256,
+)
 
 
 DATASET_SHA = "b" * 64
@@ -18,6 +24,42 @@ ATTACHMENT_FILES = [
     {"name": "drift.json", "sha256": "3" * 64},
     {"name": "audit.json", "sha256": "4" * 64},
 ]
+
+
+def valid_audit_verification():
+    entries = [
+        {
+            "chain_sha256": "7" * 64,
+            "telemetry_sha256": "9" * 64,
+            "records": 200,
+            "head_hash": "b" * 64,
+        },
+        {
+            "chain_sha256": "8" * 64,
+            "telemetry_sha256": "a" * 64,
+            "records": 300,
+            "head_hash": "c" * 64,
+        },
+    ]
+    manifest_sha256 = audit_chain_manifest_sha256(entries)
+    return {
+        "durable": True,
+        "chain_verified": True,
+        "retention_days": 90,
+        "records": 500,
+        "head_hash": manifest_sha256,
+        "head_hash_scope": AUDIT_HEAD_HASH_SCOPE,
+        "verification_method": AUDIT_RETENTION_METHOD,
+        "chain_count": 2,
+        "telemetry_count": 2,
+        "chain_manifest_algorithm": AUDIT_CHAIN_MANIFEST_ALGORITHM,
+        "chain_manifest_sha256": manifest_sha256,
+        "telemetry_binding_verified": True,
+        "record_level_content_included": False,
+        "chain_entries": entries,
+        "storage_reference": "AUDIT-STORE-123",
+        "retention_policy_reference": "RETENTION-456",
+    }
 
 
 def valid_attachments():
@@ -107,15 +149,7 @@ def valid_attachments():
                 "dataset_sha256": DATASET_SHA,
                 "code_revision": CODE_REVISION,
                 "generated_at": "2026-07-19T00:30:00+00:00",
-                "verification": {
-                    "durable": True,
-                    "chain_verified": True,
-                    "retention_days": 90,
-                    "records": 500,
-                    "head_hash": "6" * 64,
-                    "storage_reference": "AUDIT-STORE-123",
-                    "retention_policy_reference": "RETENTION-456",
-                },
+                "verification": valid_audit_verification(),
             },
         },
     ]
@@ -176,7 +210,7 @@ class IstinaDeploymentEvidenceTests(unittest.TestCase):
         result = self.assess(valid_manifest())
 
         self.assertTrue(result["verified"])
-        self.assertEqual(result["summary"], {"passed": 47, "failed": 0, "total": 47})
+        self.assertEqual(result["summary"], {"passed": 53, "failed": 0, "total": 53})
         self.assertTrue(
             result["operational_evidence"]["online_shadow_verified"]["verified"]
         )
@@ -299,6 +333,51 @@ class IstinaDeploymentEvidenceTests(unittest.TestCase):
             "audit_attachment_references",
             {failure["name"] for failure in result["failures"]},
         )
+
+    def test_handwritten_legacy_audit_assertion_fails_closed(self):
+        attachments = valid_attachments()
+        proof = attachments[3]["document"]["verification"]
+        for field in (
+            "head_hash_scope",
+            "verification_method",
+            "chain_count",
+            "telemetry_count",
+            "chain_manifest_algorithm",
+            "chain_manifest_sha256",
+            "telemetry_binding_verified",
+            "record_level_content_included",
+            "chain_entries",
+        ):
+            proof.pop(field)
+
+        result = assess_deployment_evidence(
+            valid_manifest(),
+            attachments,
+            expected_dataset_sha256=DATASET_SHA,
+            expected_code_revision=CODE_REVISION,
+        )
+        failures = {failure["name"] for failure in result["failures"]}
+
+        self.assertFalse(result["verified"])
+        self.assertIn("audit_attachment_machine_verification", failures)
+        self.assertIn("audit_attachment_chain_manifest", failures)
+
+    def test_audit_chain_entry_tampering_fails_closed(self):
+        attachments = valid_attachments()
+        proof = attachments[3]["document"]["verification"]
+        proof["chain_entries"][0]["records"] += 1
+
+        result = assess_deployment_evidence(
+            valid_manifest(),
+            attachments,
+            expected_dataset_sha256=DATASET_SHA,
+            expected_code_revision=CODE_REVISION,
+        )
+        failures = {failure["name"] for failure in result["failures"]}
+
+        self.assertFalse(result["verified"])
+        self.assertIn("audit_attachment_chain_manifest", failures)
+        self.assertIn("audit_attachment_record_total", failures)
 
 
 if __name__ == "__main__":

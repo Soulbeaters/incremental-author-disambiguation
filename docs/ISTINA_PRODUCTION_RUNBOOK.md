@@ -40,6 +40,13 @@ an fsync-enabled SHA-256 chain, verifies the full chain on restart, and causes
 the runtime to suppress commands and roll back to `shadow` on storage failure.
 For multiple workers, use one chain per worker or a transactional central append
 service; sharing one JSONL file between processes is unsupported.
+After the observation window, use
+`evaluation/istina_audit_retention.py` to stream-verify every retained worker
+chain and bind it to the corresponding retained, fsync-enabled shadow telemetry.
+The generated attachment contains only per-file hashes, record counts, chain
+heads, and a deterministic aggregate root; it excludes private paths and audit
+events. The deployment validator rejects a hand-written `chain_verified`
+assertion without this machine-generated manifest.
 
 ## Safe deployment sequence
 
@@ -67,9 +74,12 @@ service; sharing one JSONL file between processes is unsupported.
 6. During an approved operations window, run the explicitly acknowledged,
    rate-limited `experiments/istina_online_read_load.py`; this is a read-only
    load generator, not a write client.
-7. Complete the deployment template and validate its four exact attachments
-   with `evaluation/istina_deployment_evidence.py`. The validator requires the
-   same dataset SHA-256 and frozen 40-hex code revision.
+7. Generate the audit-retention attachment with
+   `evaluation/istina_audit_retention.py`, supplying one retained audit chain
+   and one retained shadow telemetry file per worker. Then complete the
+   deployment template and validate its four exact attachments with
+   `evaluation/istina_deployment_evidence.py`. The 53-check validator requires
+   the same dataset SHA-256 and frozen 40-hex code revision.
 8. Compose operational, gold-readiness, live, and validated deployment
    artifacts with
    `evaluation/istina_evidence_bundle.py`. The bundle records each source
@@ -93,10 +103,12 @@ service; sharing one JSONL file between processes is unsupported.
    commit or evidence hash.
 
 The exact institution-side inputs, fixed thresholds, and commands are in
-`docs/ISTINA_INSTITUTIONAL_HANDOFF.md`. The provenance, deployment,
-drift-monitor, and audit-retention JSON templates are deliberately invalid
-until completed and approved. The deployment validator parses each attachment;
-matching only its filename and hash is insufficient.
+`docs/ISTINA_INSTITUTIONAL_HANDOFF.md`. The provenance, deployment, and
+drift-monitor JSON templates are deliberately invalid until completed and
+approved. The audit-retention template documents the output shape, but a valid
+artifact must be generated from private chains and retained telemetry rather
+than hand-edited. The deployment validator parses each attachment; matching
+only its filename and hash is insufficient.
 
 ## Article evidence hygiene
 

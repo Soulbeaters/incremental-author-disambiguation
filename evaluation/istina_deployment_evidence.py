@@ -12,10 +12,23 @@ import argparse
 import hashlib
 import json
 import re
+import sys
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Mapping, Sequence
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from evaluation.istina_audit_retention import (  # noqa: E402
+    AUDIT_CHAIN_MANIFEST_ALGORITHM,
+    AUDIT_HEAD_HASH_SCOPE,
+    AUDIT_RETENTION_METHOD,
+    CHAIN_ENTRY_FIELDS,
+    audit_chain_manifest_sha256,
+)
 
 
 REQUIRED_ATTACHMENT_ROLES = {
@@ -233,6 +246,54 @@ def assess_deployment_evidence(
     audit_document = documents_by_role.get("audit_verification", {})
     audit_proof = _mapping(audit_document.get("verification"))
     audit_records = _integer(audit_proof.get("records"))
+    audit_chain_count = _integer(audit_proof.get("chain_count"))
+    audit_telemetry_count = _integer(audit_proof.get("telemetry_count"))
+    audit_chain_entries = [
+        dict(item)
+        for item in audit_proof.get("chain_entries") or []
+        if isinstance(item, Mapping)
+    ]
+    audit_entry_records = [
+        _integer(item.get("records")) for item in audit_chain_entries
+    ]
+    audit_entries_valid = bool(audit_chain_entries) and all(
+        set(item) == CHAIN_ENTRY_FIELDS
+        and re.fullmatch(
+            r"[0-9a-f]{64}",
+            str(item.get("chain_sha256") or "").lower(),
+        )
+        is not None
+        and re.fullmatch(
+            r"[0-9a-f]{64}",
+            str(item.get("telemetry_sha256") or "").lower(),
+        )
+        is not None
+        and re.fullmatch(
+            r"[0-9a-f]{64}",
+            str(item.get("head_hash") or "").lower(),
+        )
+        is not None
+        and _integer(item.get("records")) is not None
+        and int(item["records"]) > 0
+        for item in audit_chain_entries
+    )
+    audit_entries_unique = bool(audit_chain_entries) and all(
+        len({str(item.get(field) or "").lower() for item in audit_chain_entries})
+        == len(audit_chain_entries)
+        for field in ("chain_sha256", "telemetry_sha256", "head_hash")
+    )
+    audit_entries_ordered = audit_chain_entries == sorted(
+        audit_chain_entries,
+        key=lambda item: str(item.get("chain_sha256") or ""),
+    )
+    audit_manifest_sha256 = str(
+        audit_proof.get("chain_manifest_sha256") or ""
+    ).lower()
+    recomputed_audit_manifest_sha256 = (
+        audit_chain_manifest_sha256(audit_chain_entries)
+        if audit_entries_valid
+        else None
+    )
 
     shadow_attachment_identity = [
         shadow_document.get("schema_version"),
@@ -475,6 +536,107 @@ def assess_deployment_evidence(
             "audit_attachment",
         ),
         _check(
+            "audit_attachment_machine_verification",
+            [
+                audit_proof.get("verification_method"),
+                audit_proof.get("chain_manifest_algorithm"),
+                audit_proof.get("head_hash_scope"),
+                audit_proof.get("telemetry_binding_verified"),
+            ],
+            [
+                AUDIT_RETENTION_METHOD,
+                AUDIT_CHAIN_MANIFEST_ALGORITHM,
+                AUDIT_HEAD_HASH_SCOPE,
+                True,
+            ],
+            [
+                audit_proof.get("verification_method"),
+                audit_proof.get("chain_manifest_algorithm"),
+                audit_proof.get("head_hash_scope"),
+                audit_proof.get("telemetry_binding_verified"),
+            ]
+            == [
+                AUDIT_RETENTION_METHOD,
+                AUDIT_CHAIN_MANIFEST_ALGORITHM,
+                AUDIT_HEAD_HASH_SCOPE,
+                True,
+            ],
+            "audit_attachment",
+        ),
+        _check(
+            "audit_attachment_chain_cardinality",
+            {
+                "chain_count": audit_chain_count,
+                "telemetry_count": audit_telemetry_count,
+                "entries": len(audit_chain_entries),
+            },
+            "equal positive counts",
+            audit_chain_count is not None
+            and audit_chain_count > 0
+            and audit_chain_count
+            == audit_telemetry_count
+            == len(audit_chain_entries),
+            "audit_attachment",
+        ),
+        _check(
+            "audit_attachment_chain_entries",
+            {
+                "schema_valid": audit_entries_valid,
+                "unique": audit_entries_unique,
+                "deterministically_ordered": audit_entries_ordered,
+            },
+            {
+                "schema_valid": True,
+                "unique": True,
+                "deterministically_ordered": True,
+            },
+            audit_entries_valid
+            and audit_entries_unique
+            and audit_entries_ordered,
+            "audit_attachment",
+        ),
+        _check(
+            "audit_attachment_chain_manifest",
+            {
+                "declared": audit_manifest_sha256,
+                "recomputed": recomputed_audit_manifest_sha256,
+                "head_hash": str(audit_proof.get("head_hash") or "").lower(),
+            },
+            "three identical 64-hex aggregate roots",
+            re.fullmatch(r"[0-9a-f]{64}", audit_manifest_sha256) is not None
+            and audit_manifest_sha256
+            == recomputed_audit_manifest_sha256
+            == str(audit_proof.get("head_hash") or "").lower(),
+            "audit_attachment",
+        ),
+        _check(
+            "audit_attachment_record_total",
+            {
+                "declared": audit_records,
+                "entry_sum": (
+                    sum(int(value) for value in audit_entry_records)
+                    if audit_entry_records
+                    and all(value is not None for value in audit_entry_records)
+                    else None
+                ),
+            },
+            "positive equal totals",
+            audit_records is not None
+            and audit_records > 0
+            and audit_entry_records
+            and all(value is not None for value in audit_entry_records)
+            and audit_records
+            == sum(int(value) for value in audit_entry_records),
+            "audit_attachment",
+        ),
+        _check(
+            "audit_attachment_privacy",
+            audit_proof.get("record_level_content_included"),
+            False,
+            audit_proof.get("record_level_content_included") is False,
+            "audit_attachment",
+        ),
+        _check(
             "audit_attachment_references",
             {
                 "records": audit_proof.get("records"),
@@ -554,6 +716,10 @@ def assess_deployment_evidence(
                 "verified": category_verified({"identity", "binding", "audit", "attachments", "audit_attachment", "approval"}),
                 "retention_days": retention_days,
                 "chain_verified": audit.get("chain_verified"),
+                "verification_method": audit_proof.get("verification_method"),
+                "chain_count": audit_chain_count,
+                "records": audit_records,
+                "chain_manifest_sha256": audit_manifest_sha256,
             },
         },
     }

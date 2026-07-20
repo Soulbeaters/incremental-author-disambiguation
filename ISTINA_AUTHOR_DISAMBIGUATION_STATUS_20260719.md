@@ -33,7 +33,8 @@ artifact whose own `release_ready` value is true. No such artifact exists.
 | `evidence/istina_operational_validation_20260719.json` | load, determinism, audit, rollback, circuit-breaker, and drift tests |
 | `evidence/istina_release_evidence_bundle_20260719.json` | SHA-256-bound composition of independently generated evidence |
 | `evidence/istina_production_gate_operational_20260719.json` | authoritative 23-check release decision |
-| `evaluation/istina_deployment_evidence.py` | 47-check, content-level institutional shadow/load/monitor/audit validator |
+| `evaluation/istina_audit_retention.py` | stream-verifies retained per-worker audit chains and binds them to fsync shadow telemetry |
+| `evaluation/istina_deployment_evidence.py` | 53-check, content-level institutional shadow/load/monitor/audit validator |
 | `evaluation/istina_paired_shadow.py` | preflighted cluster-adjusted power, exact McNemar, paper-cluster randomization and bootstrap analysis |
 | `experiments/istina_online_read_load.py` | approval-gated, bounded-concurrency read-only online load generator |
 | `config/istina_provenance_manifest.template.json` | intentionally invalid institutional provenance template |
@@ -54,7 +55,7 @@ artifact whose own `release_ready` value is true. No such artifact exists.
 | `paper/ISTINA_EMPIRICAL_EVIDENCE_20260719.md` | article-ready tables, claims, limitations, and source traceability |
 
 The current article package passes 61/61 integrity checks and has package ID
-`e94f328de56ca18c8d53f2e6b14f578a4a47d8264ee41bfbb30e09caff4b68a6`.
+`235eb392b08f78ed52424c9724984e66fd382fc6d31df3022b71479d732cd004`.
 Its independent release field remains false.
 
 Raw mention-level advisor records and the private adjudication queue are
@@ -187,14 +188,22 @@ legacy-fallback framework stages, and 14.919-second paper-request p95. This is
 valuable real-service replication, but the per-author split overlaps papers
 and 38 is below 500, so the artifact is machine-marked as non-release evidence.
 
+A follow-up availability check on 2026-07-20 found the host and TCP port 9091
+reachable (24.17 ms), but three correctly encoded POST requests—the original
+short-Cyrillic-name query, its query-only `ч` guard variant, and a known Latin
+guard case—each returned HTTP 503 with an empty body in 445–460 ms. This does
+not invalidate the earlier successful frozen/live comparisons, but it confirms
+that production availability is not established and should be investigated by
+the legacy-service operator before another live window.
+
 The offline no-write operational run replayed all 753 temporal test mentions
 (including rows without gold) for 18 iterations:
 
 | Operational measure | Result |
 |---|---:|
 | Load operations | 13,554 |
-| Throughput | 295.15 mentions/s |
-| Local p95 | 14.67 ms |
+| Throughput | 283.16 mentions/s |
+| Local p95 | 15.13 ms |
 | Deterministic-hash mismatches | 0 |
 | Runtime safety/idempotency/redaction | passed |
 | Durable fsync audit hash chain / restart verification | passed (8 records) |
@@ -206,11 +215,15 @@ This is valid local load and failure-injection evidence. It is not an online
 end-to-end load test and does not prove that the drift monitor is connected to
 production telemetry or paging. The audit test uses a temporary local file and
 proves redaction, append durability, hash-chain integrity, and restart
-verification for the single-process sink. It does not claim deployed audit
-retention; multi-worker deployment requires separate per-worker chains or a
-transactional central append service.
+verification for the single-process sink. The audit-retention evidence
+generator now supports the documented multi-worker pattern by stream-verifying
+one retained chain per worker, matching each head and record total to retained
+fsync shadow telemetry, and emitting a path-free aggregate manifest root. The
+53-check deployment validator rejects a hand-written `chain_verified`
+assertion without this machine manifest. No qualifying retained production
+chains exist yet, so this does not claim deployed audit retention.
 
-The final repository regression command reports 212 passed tests and one
+The final repository regression command reports 219 passed tests and one
 collection warning for a manual scenario class with a constructor. The ISTINA,
 provenance, audit-integrity, and production-control suites are included.
 
@@ -348,7 +361,7 @@ python experiments/istina_live_shadow.py --dataset <advisor-export.json> --split
 
 python experiments/istina_live_shadow.py --dataset <advisor-export.json> --split-strategy per-author-holdout --limit 38 --code-revision <frozen-40-hex-revision> --output evidence/istina_live_shadow_diagnostic_20260719.json
 
-python experiments/istina_operational_validation.py --dataset <advisor-export.json> --service-result <frozen-service.json> --live-shadow-evidence evidence/istina_live_shadow_smoke_20260719.json --split-strategy temporal --train-through-year 2023 --iterations 18 --tests-passed 212 --test-warnings 1 --output evidence/istina_operational_validation_20260719.json
+python experiments/istina_operational_validation.py --dataset <advisor-export.json> --service-result <frozen-service.json> --live-shadow-evidence evidence/istina_live_shadow_smoke_20260719.json --split-strategy temporal --train-through-year 2023 --iterations 18 --tests-passed 219 --test-warnings 1 --output evidence/istina_operational_validation_20260719.json
 
 python evaluation/istina_evidence_bundle.py --operational-validation evidence/istina_operational_validation_20260719.json --gold-readiness evidence/istina_gold_readiness_20260719.json --live-shadow evidence/istina_live_shadow_smoke_20260719.json --output evidence/istina_release_evidence_bundle_20260719.json
 

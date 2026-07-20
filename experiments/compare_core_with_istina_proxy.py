@@ -833,6 +833,7 @@ def main() -> int:
         help="Enable the already-frozen OpenAlex-trained interpretable rescue model.",
     )
     parser.add_argument("--calibrated-candidate-threshold", type=float)
+    parser.add_argument("--disable-project2-alias-index", action="store_true")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if (args.frozen_hybrid_policy is None) != (args.frozen_hybrid_threshold is None):
@@ -882,6 +883,7 @@ def main() -> int:
             args.enable_calibrated_candidate_rescue,
             args.calibrated_candidate_threshold,
         ),
+        index_aliases=not args.disable_project2_alias_index,
     )
     project2 = evaluate(pipeline, test, {})
 
@@ -1069,6 +1071,7 @@ def main() -> int:
             "calibrated_candidate_threshold": args.calibrated_candidate_threshold,
             "native_graph_half_life_years": args.native_graph_half_life_years,
             "project2_evidence_ablation": args.ablate_project2_evidence,
+            "project2_alias_index": not args.disable_project2_alias_index,
             "adapter_summary": adapter_summary,
         },
         "istina_hypergraph_proxy": proxy,

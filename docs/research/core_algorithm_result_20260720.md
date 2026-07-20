@@ -39,6 +39,9 @@ After exact de-duplication, missing-label removal, structured-field validation a
 
 - Accepting a zero-support unique candidate: rejected because validation unseen-author false-link rose to 2.33%.
 - Running graph search over the unfiltered local top-k: rejected because noisy candidates overwhelmed graph evidence.
+- Listwise/topic gate: retained only as an experiment. It improves recall but
+  also significantly increases unseen-author false links; see
+  [literature_guided_algorithm_roadmap.md](literature_guided_algorithm_roadmap.md).
 - GNN: deferred until the non-neural baseline and independent ISTINA labels are sufficient.
 
 ## Frozen-history clustering

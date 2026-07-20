@@ -3,6 +3,7 @@ import json
 import os
 import sys
 import unittest
+from unittest.mock import patch
 
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -188,6 +189,37 @@ class TestIstinaDisambiguationClient(unittest.TestCase):
             "man_id": 4705445,
         })
         self.assertEqual(response["result_id"], ["637512347"])
+
+    def test_default_transport_does_not_inherit_environment_proxy(self):
+        response = FakeResponse({"authors": [[]], "result_id": ["0"]})
+        with patch(
+            "integrations.istina_disambiguation_client.requests.Session"
+        ) as session_factory:
+            session = session_factory.return_value
+            session.post.return_value = response
+
+            client = IstinaDisambiguationClient("http://example.invalid/")
+            result = client.request_candidates(
+                [IstinaServiceAuthor("Wu", "Junde", "x")],
+                man_id=4705445,
+            )
+
+        self.assertFalse(session.trust_env)
+        self.assertEqual(result["result_id"], ["0"])
+        session.post.assert_called_once()
+
+    def test_environment_proxy_can_be_explicitly_enabled(self):
+        with patch(
+            "integrations.istina_disambiguation_client.requests.Session"
+        ) as session_factory:
+            session = session_factory.return_value
+
+            IstinaDisambiguationClient(
+                "http://example.invalid/",
+                trust_env=True,
+            )
+
+        self.assertTrue(session.trust_env)
 
     def test_conservative_decision_accepts_unique_exact_candidate_with_service_agreement(self):
         response = {

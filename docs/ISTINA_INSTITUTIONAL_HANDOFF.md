@@ -86,6 +86,12 @@ claim that enables fallback or any record produced by the
 Run all commands from a frozen, clean revision. Replace angle-bracket values
 with private paths and approved institutional identifiers.
 
+The default service transport is direct and ignores ambient `HTTP_PROXY` /
+`HTTPS_PROXY` settings. This prevents a workstation proxy from turning a
+healthy advisor endpoint into an empty HTTP 503. If an institutional proxy is
+required, enable `trust_env=True` in the client only after separately validating
+that route; record that transport choice in the change ticket.
+
 ```powershell
 $revision = git rev-parse HEAD
 

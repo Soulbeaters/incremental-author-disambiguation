@@ -15,6 +15,12 @@ exact McNemar `p=0.629058837890625`) with zero service errors and zero
 authorized commands. It is deliberately excluded from release evidence because
 the diagnostic split has paper overlap and remains below the shadow floor.
 
+The advisor endpoint is reached directly by IP. The project client disables
+`requests` environment-proxy inheritance by default because a workstation proxy
+was observed returning an empty HTTP 503 for a healthy direct endpoint. Proxy
+use is an explicit `IstinaDisambiguationClient(..., trust_env=True)` opt-in and
+must be validated in the target environment before a collection window.
+
 ## Runtime boundary
 
 Use `integrations.istina_production_runtime.IstinaProductionRuntime` around an

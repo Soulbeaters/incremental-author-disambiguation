@@ -188,13 +188,18 @@ legacy-fallback framework stages, and 14.919-second paper-request p95. This is
 valuable real-service replication, but the per-author split overlaps papers
 and 38 is below 500, so the artifact is machine-marked as non-release evidence.
 
-A follow-up availability check on 2026-07-20 found the host and TCP port 9091
-reachable (24.17 ms), but three correctly encoded POST requests—the original
-short-Cyrillic-name query, its query-only `ч` guard variant, and a known Latin
-guard case—each returned HTTP 503 with an empty body in 445–460 ms. This does
-not invalidate the earlier successful frozen/live comparisons, but it confirms
-that production availability is not established and should be investigated by
-the legacy-service operator before another live window.
+A follow-up availability check on 2026-07-20 initially found HTTP 503 responses
+despite a reachable host and TCP port. Controlled direct/proxied replication
+isolated the 503 to the workstation's inherited HTTP proxy: the same request
+returned HTTP 200 and valid JSON when sent directly. The default project client
+now disables ambient proxy inheritance, with explicit opt-in still available
+for an approved proxy. A direct real-service diagnostic reproduced the
+advisor's short-Cyrillic-family failure: the unguarded `Ма/Цзясин` request
+returned the spurious ID `2508867`, which the conservative local layer rejected.
+The query-only `ч` guard returned an exact name candidate, ID `621785695`, at
+similarity 0.85, which the local layer accepted. This establishes current
+read-only reachability and revalidates the guard behavior; it does not establish
+release-scale availability or quality.
 
 The offline no-write operational run replayed all 753 temporal test mentions
 (including rows without gold) for 18 iterations:

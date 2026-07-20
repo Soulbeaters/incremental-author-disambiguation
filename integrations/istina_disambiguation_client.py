@@ -99,10 +99,20 @@ class IstinaDisambiguationClient:
         service_url: str = DEFAULT_ISTINA_DISAMBIGUATION_URL,
         timeout: float = 30.0,
         post_func: Optional[Callable[..., Any]] = None,
+        trust_env: bool = False,
     ) -> None:
         self.service_url = service_url
         self.timeout = timeout
-        self._post = post_func or requests.post
+        self._session: Optional[requests.Session] = None
+        if post_func is not None:
+            self._post = post_func
+        else:
+            # The advisor service is reached directly by IP. Inheriting a
+            # workstation HTTP_PROXY can turn a healthy direct response into
+            # a proxy-generated 503, so proxy use must be an explicit opt-in.
+            self._session = requests.Session()
+            self._session.trust_env = trust_env
+            self._post = self._session.post
 
     @staticmethod
     def from_exported_author(

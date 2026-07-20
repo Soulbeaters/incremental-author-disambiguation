@@ -67,7 +67,10 @@ assertion without this machine-generated manifest.
 3. Run the full test suite and the strict temporal replay. Per-author holdout
    is diagnostic only and must not replace the zero-paper-overlap result.
 4. Run `experiments/istina_operational_validation.py` on the approved ISTINA
-   export. Repeated load operations must not be counted as extra gold.
+   export from a frozen revision, with a unique `--performance-trial-id`.
+   Repeated load operations must not be counted as extra gold. The report
+   retains every iteration's p95 and the overall all-operation p95; only the
+   latter is compared with the unchanged 50 ms acceptance threshold.
 5. Before the live window, register and independently approve
    `config/istina_paired_shadow_plan.template.json`. Then run
    the `--plan-only` preflight before `experiments/istina_live_shadow.py` in

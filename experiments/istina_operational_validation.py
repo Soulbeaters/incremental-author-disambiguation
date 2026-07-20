@@ -12,6 +12,10 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
+import os
+import platform
+import re
 import sys
 import tempfile
 import time
@@ -60,6 +64,12 @@ from integrations.istina_production_runtime import (  # noqa: E402
     DriftThresholds,
     IstinaProductionRuntime,
     RuntimeMode,
+)
+
+
+OFFLINE_LOAD_P95_LIMIT_MS = 50.0
+OFFLINE_LOAD_VERIFICATION_METHOD = (
+    "overall_nearest_rank_p95_all_replay_operations_v1"
 )
 
 
@@ -304,6 +314,77 @@ def runtime_contract_validation(
     }
 
 
+def summarize_load_measurements(
+    iteration_latencies: List[List[float]],
+    *,
+    operations: int,
+    elapsed_seconds: float,
+    deterministic_hash_mismatches: int,
+) -> Dict[str, Any]:
+    if not iteration_latencies or any(not values for values in iteration_latencies):
+        raise ValueError("every performance iteration must contain latency samples")
+    latencies = [value for values in iteration_latencies for value in values]
+    if any(
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(float(value))
+        or float(value) < 0.0
+        for value in latencies
+    ):
+        raise ValueError("latency samples must be finite non-negative numbers")
+    if operations != len(latencies) or operations <= 0:
+        raise ValueError("operation count must equal the latency sample count")
+    if not math.isfinite(elapsed_seconds) or elapsed_seconds <= 0.0:
+        raise ValueError("elapsed_seconds must be finite and positive")
+
+    iteration_p95 = [percentile(values, 0.95) for values in iteration_latencies]
+    overall_p95 = percentile(latencies, 0.95)
+    verified = bool(
+        deterministic_hash_mismatches == 0
+        and overall_p95 is not None
+        and overall_p95 <= OFFLINE_LOAD_P95_LIMIT_MS
+    )
+    return {
+        "verified": verified,
+        "verification_method": OFFLINE_LOAD_VERIFICATION_METHOD,
+        "acceptance_threshold_ms_p95": OFFLINE_LOAD_P95_LIMIT_MS,
+        "threshold_margin_ms": (
+            OFFLINE_LOAD_P95_LIMIT_MS - overall_p95
+            if overall_p95 is not None
+            else None
+        ),
+        "load_operations": operations,
+        "elapsed_seconds": elapsed_seconds,
+        "throughput_mentions_per_second": operations / elapsed_seconds,
+        "latency_ms_p50": percentile(latencies, 0.50),
+        "latency_ms_p95": overall_p95,
+        "latency_ms_p99": percentile(latencies, 0.99),
+        "iteration_latency_ms_p95": iteration_p95,
+        "iteration_p95_summary_ms": {
+            "minimum": min(iteration_p95),
+            "median": percentile(iteration_p95, 0.50),
+            "maximum": max(iteration_p95),
+            "passing_iterations": sum(
+                value <= OFFLINE_LOAD_P95_LIMIT_MS for value in iteration_p95
+            ),
+            "total_iterations": len(iteration_p95),
+        },
+        "deterministic_hash_mismatches": deterministic_hash_mismatches,
+    }
+
+
+def benchmark_environment() -> Dict[str, Any]:
+    return {
+        "python_version": platform.python_version(),
+        "python_implementation": platform.python_implementation(),
+        "operating_system": platform.system(),
+        "operating_system_release": platform.release(),
+        "machine": platform.machine(),
+        "logical_cpu_count": os.cpu_count(),
+        "host_identifier_included": False,
+    }
+
+
 def repeated_load_replay(
     pipeline: IstinaDisambiguationPipeline,
     mentions: List[Dict[str, Any]],
@@ -311,10 +392,11 @@ def repeated_load_replay(
     baseline_hashes: List[str],
     iterations: int,
 ) -> Dict[str, Any]:
-    latencies: List[float] = []
+    iteration_latencies: List[List[float]] = []
     mismatches = 0
     started = time.perf_counter()
     for _ in range(iterations):
+        current_latencies: List[float] = []
         for index, mention in enumerate(mentions):
             service_record = service_records.get(mention_identity(mention))
             decision = pipeline.decide_mention(
@@ -322,22 +404,22 @@ def repeated_load_replay(
                 service_response=record_service_response(service_record),
                 emit_audit=False,
             )
-            latencies.append(decision.latency_ms)
+            current_latencies.append(decision.latency_ms)
             mismatches += decision.deterministic_hash != baseline_hashes[index]
+        iteration_latencies.append(current_latencies)
     elapsed = time.perf_counter() - started
     operations = len(mentions) * iterations
-    p95 = percentile(latencies, 0.95)
+    summary = summarize_load_measurements(
+        iteration_latencies,
+        operations=operations,
+        elapsed_seconds=elapsed,
+        deterministic_hash_mismatches=mismatches,
+    )
     return {
-        "verified": bool(operations) and mismatches == 0 and (p95 or 0.0) <= 50.0,
+        **summary,
         "real_distinct_mentions": len(mentions),
         "replay_iterations": iterations,
-        "load_operations": operations,
-        "elapsed_seconds": elapsed,
-        "throughput_mentions_per_second": operations / elapsed if elapsed else None,
-        "latency_ms_p50": percentile(latencies, 0.50),
-        "latency_ms_p95": p95,
-        "latency_ms_p99": percentile(latencies, 0.99),
-        "deterministic_hash_mismatches": mismatches,
+        "environment": benchmark_environment(),
         "scope": "offline no-write load replay; repeated operations are not extra gold",
     }
 
@@ -354,12 +436,18 @@ def main() -> None:
     )
     parser.add_argument("--train-through-year", type=int, default=2023)
     parser.add_argument("--iterations", type=int, default=8)
+    parser.add_argument("--code-revision", required=True)
+    parser.add_argument("--performance-trial-id", required=True)
     parser.add_argument("--tests-passed", type=int)
     parser.add_argument("--test-warnings", type=int)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if args.iterations < 1:
         raise ValueError("iterations must be positive")
+    if re.fullmatch(r"[0-9a-fA-F]{40}", args.code_revision) is None:
+        raise ValueError("code-revision must be a full 40-hex Git commit")
+    if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", args.performance_trial_id) is None:
+        raise ValueError("performance-trial-id must be 1-64 safe characters")
 
     raw_articles = load_articles(args.dataset)
     raw_mentions = sum(
@@ -490,6 +578,8 @@ def main() -> None:
             "exact_duplicate_author_rows_removed": exact_duplicates_removed,
             "exact_duplicate_cleaning_applied": True,
             "load_iterations": args.iterations,
+            "code_revision": args.code_revision.lower(),
+            "performance_trial_id": args.performance_trial_id,
             "network_calls": 0,
             "write_calls": 0,
             "framework_legacy_fallback_enabled": False,

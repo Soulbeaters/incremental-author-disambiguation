@@ -1,4 +1,8 @@
-# ISTINA production runbook
+# ISTINA production runbook (future adoption reference)
+
+> This document is retained for a possible future ISTINA staging/production
+> adoption. It is not a completion requirement for the research framework or a
+> correctly scoped article, and current work does not authorize writes.
 
 ## Current authorization
 

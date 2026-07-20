@@ -1,4 +1,35 @@
-# ISTINA author-disambiguation: production evidence status — 2026-07-19
+# ISTINA author-disambiguation: research and evidence status — 2026-07-19
+
+## Research-first interpretation (20 July 2026)
+
+Project 2 is now explicitly scoped as an embeddable ISTINA research component,
+not a standalone replacement service. The core algorithm, read-only ISTINA
+adapter, deterministic experiments, current public-data replays, evidence
+packaging and safety boundary are implemented. This is a usable research
+framework.
+
+The current research gate passes all 9 framework-readiness checks and 0 of 9
+superiority-claim checks: `framework_ready: true`,
+`superiority_claim_ready: false`, and `writes_authorized: false`.
+
+Two decisions must not be conflated:
+
+- **Framework readiness:** implementation and reproducible experiment protocol.
+  This is evaluated separately by `evaluation/istina_research_gate.py`.
+- **Superiority-claim readiness:** enough independently labelled ISTINA cases to
+  establish an advantage over the incumbent service. The current advisor
+  export cannot establish this: the strict temporal test has 571 mentions but
+  only 5 known identities, while the latest 38-case diagnostic is tied at
+  27/38 (`p=1.0`).
+
+The 23-check production gate below is retained for a possible future ISTINA
+deployment. Its current 8/23 result does not mean the research software is only
+8/23 complete. Online release-scale load, deployed paging, durable retention
+and write authorization are deferred unless ISTINA requests an adoption
+exercise or the article makes service-level claims. Writes remain disabled.
+
+The exact active/deferred boundary and minimum additional scientific evidence
+are recorded in `docs/ISTINA_RESEARCH_SCOPE.md`.
 
 ## Executive verdict
 

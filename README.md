@@ -1,701 +1,122 @@
-# 增量作者消歧系统 / Система инкрементального устранения неоднозначности авторов
+# Incremental author disambiguation for ISTINA
 
-> 当前发布状态、真实数据结果与上线限制见
-> [`ISTINA_AUTHOR_DISAMBIGUATION_STATUS_20260718.md`](ISTINA_AUTHOR_DISAMBIGUATION_STATUS_20260718.md)。生产安全运行手册见
-> [`docs/ISTINA_PRODUCTION_RUNBOOK.md`](docs/ISTINA_PRODUCTION_RUNBOOK.md)。当前版本已完成真实数据离线负载和熔断/回退/漂移故障注入，并尝试了小规模在线无写入 shadow；严格重跑发生服务超时并按设计安全熔断。数据规模、可靠在线 shadow、在线负载和部署漂移门禁仍未通过，因此未批准直接替换 ИСТИНА 服务。
+Research framework for conservative, incremental author disambiguation and
+evaluation against the current ISTINA candidate service. The intended outcome
+is an algorithmic component that can be integrated into ISTINA, not a separate
+replacement information system.
 
-## 项目概述 / Обзор проекта
+## Scope
 
-本项目实现了一个完整的增量作者消歧系统，用于解决科学计量系统（如ИСТИНА）中的作者身份识别、文章去重和数据验证问题。系统集成了Crossref API用于获取学术文章元数据，并通过多维相似度计算实现智能的作者消歧和合并。
+| Layer | Status | Purpose |
+|---|---|---|
+| Research core | Active | Normalization, blocking, evidence scoring, `MERGE` / `NEW` / `UNKNOWN`, reproducible evaluation and ablations |
+| ISTINA integration | Active | Read-only candidate lookup, fail-closed decision pipeline, audit-safe adapter contract |
+| Deployment operations | Future optional | Load plans, release gate, monitoring, rollback and institutional handoff for a later ISTINA deployment |
 
-Этот проект реализует полную систему инкрементального устранения неоднозначности авторов для решения задач идентификации авторов, дедупликации статей и верификации данных в наукометрических системах (например, ИСТИНА). Система интегрирует Crossref API для получения метаданных научных статей и использует многомерный расчёт сходства для интеллектуального устранения неоднозначности и слияния авторов.
+The production-oriented files remain versioned because they may be useful when
+ISTINA adopts the component. They are not requirements for demonstrating the
+research method and are not being expanded into a standalone service.
 
----
+## Current research status (20 July 2026)
 
-## 核心特性 / Основные характеристики
+- The framework, tests, deterministic replay, public-data validation and
+  read-only ISTINA adapter are implemented.
+- The article evidence package passes all 74 internal integrity checks.
+- Three frozen-revision offline trials cover 40,662 operations; median/max p95
+  latency is 6.67/7.29 ms with zero deterministic mismatches.
+- A current-service diagnostic covers 38 known mentions in 14 papers. The
+  framework and current service are both correct on 27/38; exact McNemar
+  `p=1.0`. This does not establish superiority.
+- The strict temporal advisor export contains 571 test mentions, but only five
+  known-author cases. Its provenance is not independently adjudicated and two
+  possible identity conflicts remain unresolved.
+- ISTINA writes remain disabled. No current artifact authorizes writes.
 
-### 1. Crossref API 集成 / Интеграция Crossref API
-- 通过DOI自动获取文章元数据 / Автоматическое получение метаданных по DOI
-- 支持批量并发查询 / Поддержка пакетных параллельных запросов
-- Etiquette优先级机制 / Механизм приоритета через этикет
-- 完整的作者、期刊、ORCID信息解析 / Полный парсинг информации об авторах, журналах, ORCID
+The framework is usable for research experiments and integration development.
+The missing item is sufficiently large, independently verified ISTINA evidence
+for a statistically powered comparison with the incumbent service. Public
+OpenAlex and AMiner experiments demonstrate transfer behaviour and negative
+transfer risks, but cannot replace ISTINA identity labels.
 
-### 2. 智能文章去重 / Интеллектуальная дедупликация статей
-- **DOI优先匹配** / **Приоритет DOI**: 最可靠的去重方式
-- **标题相似度匹配** / **Сходство заголовков**: 基于Levenshtein距离的模糊匹配
-- **双索引机制** / **Двойное индексирование**: DOI索引 + 标题索引
-- 防止重复文章添加到系统 / Предотвращение добавления дубликатов статей
+See [research scope](docs/ISTINA_RESEARCH_SCOPE.md), the
+[current status report](ISTINA_AUTHOR_DISAMBIGUATION_STATUS_20260719.md), and
+the [empirical evidence package](paper/ISTINA_EMPIRICAL_EVIDENCE_20260719.md).
 
-### 3. 多维作者消歧 / Многомерное устранение неоднозначности авторов
-采用加权相似度计算，综合多个维度判断作者身份：
-- **姓名相似度 (40%)** / **Сходство имён (40%)**: Levenshtein距离 + 备选姓名匹配
-- **ORCID匹配 (30%)** / **Совпадение ORCID (30%)**: 唯一标识符精确匹配
-- **合著者重叠 (15%)** / **Пересечение соавторов (15%)**: Jaccard相似度
-- **期刊重叠 (10%)** / **Пересечение журналов (10%)**: 发表期刊匹配
-- **机构相似度 (5%)** / **Сходство аффилиаций (5%)**: 所属机构匹配
+## Research questions
 
-### 4. 高效数据库管理 / Эффективное управление базой данных
-- **多索引架构** / **Мультииндексная архитектура**: 姓氏、ORCID、ID索引
-- **O(1)查找复杂度** / **Сложность поиска O(1)**: 极速作者查询
-- **增量更新支持** / **Поддержка инкрементальных обновлений**: 实时添加新作者和文章
+1. Can conservative multi-signal decisions reduce false identity links while
+   preserving useful known-author recall?
+2. Does the framework outperform the frozen/current ISTINA service on the same
+   independently labelled future mentions?
+3. How robust is it to short surnames, initials, transliteration variants and
+   missing patronymics?
+4. Which rules transfer across ISTINA, OpenAlex and AMiner, and where does
+   negative transfer occur?
+5. Are decisions reproducible and computationally suitable for embedding in
+   the existing ISTINA pipeline?
 
-### 5. 灵活的CLI接口 / Гибкий CLI интерфейс
-- 统一的命令行参数配置 / Единая конфигурация параметров командной строки
-- 支持自定义数据文件路径 / Поддержка пользовательских путей к файлам данных
-- 可配置的阈值和并发数 / Настраиваемые пороги и количество потоков
-- 详细的日志和调试模式 / Подробное логирование и режим отладки
+## Architecture
 
----
-
-## 项目结构 / Структура проекта
-
-```
-author_disambiguation/
-├── models/                              # 数据模型 / Модели данных
-│   ├── __init__.py
-│   ├── author.py                        # 作者数据模型 / Модель данных автора
-│   ├── publication.py                   # 出版物数据模型 / Модель публикации
-│   └── database.py                      # 作者数据库管理 / Управление БД авторов
-│
-├── disambiguation_engine/               # 消歧引擎 / Движок устранения неоднозначности
-│   ├── __init__.py
-│   ├── similarity_scorer.py             # 相似度评分器 / Оценщик сходства
-│   ├── author_merger.py                 # 作者合并引擎 / Движок слияния авторов
-│   └── article_deduplicator.py          # 文章去重器 / Дедупликатор статей
-│
-├── integrations/                        # 外部API集成 / Интеграция внешних API
-│   ├── __init__.py
-│   └── crossref_client.py               # Crossref API客户端 / Клиент Crossref API
-│
-├── scripts/                             # 测试脚本 / Тестовые скрипты
-│   ├── demo_incremental_disambiguation.py  # 增量消歧演示
-│   ├── demo_auto.py                     # 自动消歧演示
-│   ├── test_with_real_dois.py           # 真实DOI测试
-│   └── test_full_scenario.py            # 完整测试场景 / Полный тестовый сценарий
-│
-├── cli_config.py                        # CLI配置管理 / Управление конфигурацией CLI
-├── config.py                            # 系统配置 / Системная конфигурация
-├── requirements.txt                     # 依赖包列表 / Список зависимостей
-└── README.md                            # 项目文档 / Документация проекта
+```text
+publication author mention
+  -> normalization and script-aware name variants
+  -> candidate retrieval (local history + optional read-only ISTINA service)
+  -> multi-signal scoring and conservative thresholds
+  -> MERGE | NEW | UNKNOWN
+  -> redacted trace / evaluation evidence
 ```
 
----
+The incumbent service is an observation-only comparator during fair
+experiments. Its response must never be consumed as fallback evidence by the
+framework arm being compared with it.
 
-## 安装和环境配置 / Установка и настройка среды
+## Reproduce the checked evidence
 
-### 1. 系统要求 / Системные требования
-- Python 3.8+
-- Windows / Linux / macOS
-- 网络连接（用于Crossref API）/ Интернет-соединение (для Crossref API)
+Install Python 3.10 or 3.11 dependencies and run:
 
-### 2. 安装依赖 / Установка зависимостей
-```bash
-cd "C:\program 2 in 2025\author_disambiguation"
-pip install -r requirements.txt
+```powershell
+python -m pip install -r requirements.txt
+python -m pytest -q
+
+python evaluation/istina_research_gate.py `
+  --temporal-replay evidence/istina_temporal_runtime_replay_20260719.json `
+  --gold-readiness evidence/istina_gold_readiness_20260719.json `
+  --live-diagnostic evidence/istina_live_shadow_diagnostic_20260720.json `
+  --performance evidence/istina_offline_performance_reproducibility_20260720.json `
+  --paper-package paper/istina_empirical_evidence_20260719.json
 ```
 
-主要依赖包 / Основные зависимости:
-- `crossrefapi>=1.5.0` - Crossref API客户端
-- `python-Levenshtein>=0.12.0` - 快速字符串相似度计算
-
-### 3. 测试数据 / Тестовые данные / Test Data
-
-项目包含完整的测试数据集，位于 `test_data/` 目录：
-
-**数据文件 / Файлы данных / Data Files:**
-- `authors.json` (864KB) - 8,997个初始作者记录
-- `dois.json` (216KB) - 7,723个DOI用于测试
-
-**数据来源 / Источник / Source:**
-- ✅ 所有数据来自公开学术出版物
-- ✅ 不包含个人隐私信息
-- ✅ 用于系统验证和可复现研究
-
-**详细说明：** 查看 [`test_data/README.md`](test_data/README.md) 获取完整的数据说明文档。
-
-**完整测试数据集 / Полный набор тестовых данных / Full Test Dataset:**
-
-GitHub仓库包含完整的测试数据（authors.json + dois.json），这些数据也可通过Google Drive访问，便于大规模测试和研究复现：
-
-Репозиторий GitHub содержит полные тестовые данные (authors.json + dois.json), эти данные также доступны через Google Drive для крупномасштабного тестирования и воспроизводимых исследований:
-
-The GitHub repository contains the complete test data (authors.json + dois.json), which is also available via Google Drive for large-scale testing and reproducible research:
-
-🔗 **[访问完整测试数据 / Доступ к полным данным / Access Full Test Data](https://drive.google.com/drive/folders/1BHyZJt8MhTPz6isMRoBIT2NVQuf1H6Eq?usp=sharing)**
-
-**完整数据集 / Полный набор / Full Dataset:**
-- `authors.json` (864 KB) - 8,997个初始作者记录，用于建立基础数据库
-- `dois.json` (216 KB) - 7,723个DOI，用于测试Crossref API集成和作者消歧
-- 其他相关测试数据 / Другие тестовые данные / Other related test data
-
----
-
-## 快速开始 / Быстрый старт
-
-### 1. 基础演示 / Базовая демонстрация
-运行增量消歧演示程序：
-```bash
-python scripts/demo_incremental_disambiguation.py
-```
-
-### 2. 自动消歧演示 / Автоматическая демонстрация
-```bash
-python scripts/demo_auto.py
-```
-
-### 3. 一键评估实验 / Запуск экспериментов одной командой / One-Command Evaluation
-
-**数据准备 (首次运行) / Data Preparation (First Run):**
-```bash
-# 从Crossref数据构建mentions
-python data/build_mentions.py --input <crossref.json> --output data/mentions.jsonl
-
-# 构建ORCID金标准聚类
-python data/build_orcid_gold.py --input data/mentions.jsonl --output data/gold_clusters.json
-
-# 创建dev/test划分
-python data/build_splits.py --gold data/gold_clusters.json --output data/splits.json
-```
-
-**运行所有基线实验 / Run All Baseline Experiments:**
-```bash
-python experiments/run_all.py --seed 42 --out results
-```
-
-输出 / Output:
-- `results/experiment_summary.json` - 详细结果
-- `results/baselines.csv` - 基线比较表
-- `results/*_clusters.json` - 各方法的聚类结果
-
-**评估指标 / Metrics:**
-- B³ Precision/Recall/F1 (聚类质量)
-- Pairwise Precision/Recall/F1 (配对质量)
-- ORCID Conflict Rate (错误合并率)
-
-### 4. 生成LaTeX表格 / Generate LaTeX Tables
-```bash
-python scripts/make_results_tables.py --input results/baselines.csv --type baselines
-```
-
-### 3. 真实DOI测试 / Тест с реальными DOI
-```bash
-python scripts/test_with_real_dois.py --dois-limit 100 --max-workers 5
-```
-
-### 4. 完整测试场景 / Полный тестовый сценарий
-运行完整的端到端测试，使用真实数据：
-```bash
-python scripts/test_full_scenario.py \
-    --initial-authors-limit 1000 \
-    --dois-limit 500 \
-    --max-workers 5 \
-    --author-threshold 0.85 \
-    --output test_results/full_scenario_report.json
-```
-
----
-
-## 详细使用指南 / Подробное руководство по использованию
-
-### 1. 基本代码示例 / Пример базового кода
-
-#### 1.1 Crossref API使用 / Использование Crossref API
-```python
-from integrations.crossref_client import CrossrefClient
-
-# 创建客户端 / Создание клиента
-client = CrossrefClient(email='your.email@example.com')
-
-# 单个DOI查询 / Одиночный запрос DOI
-article = client.get_work_by_doi('10.1038/nature12373')
-print(f"Title: {article['title']}")
-print(f"Authors: {len(article['authors'])}")
-
-# 批量查询 / Пакетный запрос
-dois = ['10.1038/nature12373', '10.1126/science.1248506']
-results = client.batch_get_works(dois, max_workers=3)
-print(f"Fetched {len(results)} articles")
-```
-
-#### 1.2 文章去重 / Дедупликация статей
-```python
-from disambiguation_engine.article_deduplicator import ArticleDeduplicator
-
-# 创建去重器 / Создание дедупликатора
-deduplicator = ArticleDeduplicator(title_similarity_threshold=0.95)
-
-# 检查文章是否重复 / Проверка дубликата
-article = {'doi': '10.1038/nature12373', 'title': 'Example Article'}
-is_duplicate, existing = deduplicator.check_duplicate(article)
-
-if not is_duplicate:
-    deduplicator.add_article(article)
-    print("Article added / Статья добавлена")
-else:
-    print("Duplicate detected / Обнаружен дубликат")
-
-# 获取统计信息 / Получение статистики
-stats = deduplicator.get_statistics()
-print(f"Total articles indexed: {stats['total_articles']}")
-```
-
-#### 1.3 作者消歧和合并 / Устранение неоднозначности и слияние авторов
-```python
-from models.database import AuthorDatabase
-from disambiguation_engine.author_merger import AuthorMerger
-
-# 创建数据库和合并引擎 / Создание БД и движка слияния
-db = AuthorDatabase()
-
-# 使用双阈值三分决策 / Двухпороговое тройное решение
-# mode: "baseline"（加权相似度）或 "fs"（Fellegi-Sunter）
-merger = AuthorMerger(
-    database=db,
-    mode="fs",                    # Fellegi-Sunter模式
-    accept_threshold=0.90,        # MERGE阈值（分数>=此值判定为MERGE）
-    reject_threshold=0.20         # NEW阈值（分数<=此值判定为NEW）
-)
-
-# 添加初始作者 / Добавление начальных авторов
-author1_data = {
-    'name': 'John Smith',
-    'orcid': '0000-0001-2345-6789',
-    'affiliation': ['MIT'],
-    'journals': ['Nature', 'Science']
-}
-db.add_author(author1_data)
-
-# 新记录候选 / Новый кандидат
-mention = {
-    'name': 'J. Smith',
-    'orcid': '',
-    'coauthors': ['Jane Doe'],
-    'journals': ['Nature'],
-    'surname': 'Smith'
-}
-
-# 进行消歧决策 / Принятие решения о дизамбигуации
-result = merger.make_decision(mention)
-
-# 决策结果 / Результат решения
-# result.decision: Decision.MERGE / Decision.NEW / Decision.UNKNOWN
-# result.score_total: 相似度分数
-# result.best_author_id: 最匹配的作者ID（如果MERGE）
-print(f"Decision: {result.decision.name}")
-print(f"Score: {result.score_total:.3f}")
-```
-
-### 2. CLI参数说明 / Описание параметров CLI
-
-#### 2.1 完整测试场景参数 / Параметры полного тестового сценария
-```bash
-python scripts/test_full_scenario.py [OPTIONS]
-```
-
-**数据文件 / Файлы данных:**
-- `--authors-file PATH` - 初始作者数据文件路径（必填）/ Путь к файлу начальных авторов (обязательно)
-  - 示例 / Пример: `test_data/authors.json`
-- `--dois-file PATH` - DOI列表文件路径（必填）/ Путь к файлу списка DOI (обязательно)
-  - 示例 / Пример: `test_data/dois.json`
-
-**输出配置 / Конфигурация вывода:**
-- `--output PATH` - 测试报告输出路径 / Путь для вывода отчёта
-  - 默认 / По умолчанию: `test_results/test_full_scenario_report.json`
-
-**性能参数 / Параметры производительности:**
-- `--initial-authors-limit N` - 加载初始作者数量限制 / Лимит начальных авторов
-  - 默认 / По умолчанию: 1000
-- `--dois-limit N` - 处理DOI数量限制 / Лимит обработки DOI
-  - 默认 / По умолчанию: all (所有 / все)
-- `--max-workers N` - 并发工作线程数 / Количество параллельных потоков
-  - 默认 / По умолчанию: 5
-
-**阈值配置 / Конфигурация порогов:**
-- `--author-threshold FLOAT` - 作者相似度阈值 [0-1] / Порог сходства авторов
-  - 默认 / По умолчанию: 0.85
-- `--title-threshold FLOAT` - 标题相似度阈值 [0-1] / Порог сходства заголовков
-  - 默认 / По умолчанию: 0.95
-
-**调试选项 / Опции отладки:**
-- `--verbose` - 详细输出模式 / Подробный вывод
-- `--debug` - 调试模式（最详细输出）/ Режим отладки (самый подробный вывод)
-- `--email EMAIL` - Crossref API联系邮箱 / Email для Crossref API
-
-**示例 / Примеры:**
-```bash
-# 小规模测试 / Небольшой тест
-python scripts/test_full_scenario.py \
-    --initial-authors-limit 100 \
-    --dois-limit 50 \
-    --max-workers 3 \
-    --verbose
-
-# 大规模测试 / Масштабный тест
-python scripts/test_full_scenario.py \
-    --initial-authors-limit 5000 \
-    --dois-limit 2000 \
-    --max-workers 10 \
-    --author-threshold 0.85 \
-    --output results/large_test_report.json
-
-# 调试模式 / Режим отладки
-python scripts/test_full_scenario.py \
-    --initial-authors-limit 10 \
-    --dois-limit 5 \
-    --debug
-```
-
----
-
-## 测试结果示例 / Пример результатов тестирования
-
-### 测试配置 / Конфигурация теста
-- 初始作者数 / Начальных авторов: 100
-- 处理DOI数 / Обработано DOI: 50
-- 并发线程 / Параллельных потоков: 3
-- 作者阈值 / Порог авторов: 0.85
-
-### 测试结果 / Результаты теста
-```
-【DOI处理 / Обработка DOI】
-  处理DOI总数 / Всего обработано DOI: 50
-  成功获取文章 / Успешно получено статей: 50
-  失败DOI数 / Ошибок DOI: 0
-
-【文章去重 / Дедупликация】
-  检测到重复文章 / Дубликатов обнаружено: 0
-  按DOI索引 / Индекс по DOI: 50
-  按标题索引 / Индекс по заголовкам: 50
-
-【作者消歧 / Устранение неоднозначности】
-  匹配现有作者 / Совпадений с существующими: 3 (0.62%)
-  创建新作者 / Новых авторов создано: 480
-  最终作者总数 / Всего авторов: 580
-
-【性能 / Производительность】
-  总处理时间 / Общее время: 52.35 s
-  平均每DOI / Среднее время на DOI: 1.05 s
-```
-
-详细的测试报告以JSON格式保存，包含：
-- 测试元数据和配置 / Метаданные и конфигурация теста
-- 详细统计信息 / Подробная статистика
-- 数据库状态 / Состояние базы данных
-- 失败DOI列表 / Список неудачных DOI
-- 重复文章样本 / Примеры дубликатов статей
-
----
-
-## 算法详解 / Подробное описание алгоритмов
-
-### 1. 作者相似度计算 / Расчёт сходства авторов
-
-系统采用多维加权相似度计算：
-
-```
-总相似度 = 0.40 × 姓名相似度
-         + 0.30 × ORCID相似度
-         + 0.15 × 合著者相似度
-         + 0.10 × 期刊相似度
-         + 0.05 × 机构相似度
-```
-
-**姓名相似度 / Сходство имён:**
-- 使用Levenshtein距离计算编辑距离
-- 支持备选姓名匹配（John Smith ↔ J. Smith）
-- 标准化处理：小写化、移除标点、移除多余空格
-
-**ORCID相似度 / Сходство ORCID:**
-- 二值匹配：完全匹配=1.0，否则=0.0
-- ORCID是全球唯一的研究者标识符
-- 最可靠的作者识别方式
-
-**合著者相似度 / Сходство соавторов:**
-```
-Jaccard系数 = |交集| / |并集|
-```
-- 共同合著者越多，相似度越高
-- 反映研究合作网络的重叠程度
-
-**期刊相似度 / Сходство журналов:**
-- Jaccard系数计算发表期刊重叠
-- 标准化处理期刊名称（移除"Journal of"等常见词）
-
-**机构相似度 / Сходство аффилиаций:**
-- 最高相似度匹配（支持多个机构）
-- 标准化处理：university→univ, institute→inst
-
-### 2. 文章去重策略 / Стратегия дедупликации статей
-
-**两阶段去重 / Двухэтапная дедупликация:**
-
-1. **DOI精确匹配** （优先级最高）
-   - O(1)时间复杂度
-   - 100%准确率
-
-2. **标题模糊匹配** （后备方案）
-   - 标准化标题（小写、移除标点、移除停用词）
-   - Levenshtein相似度计算
-   - 默认阈值：0.95
-
-### 3. 数据库索引结构 / Структура индексов БД
-
-```python
-AuthorDatabase:
-  - authors: List[Author]                    # 主存储
-  - surname_index: Dict[str, List[Author]]   # 姓氏索引
-  - orcid_index: Dict[str, Author]           # ORCID索引
-  - id_index: Dict[str, Author]              # ID索引
-```
-
-查找性能 / Производительность поиска:
-- 按ORCID查找：O(1)
-- 按ID查找：O(1)
-- 按姓氏查找：O(k)，其中k是同姓作者数量
-
----
-
-## 系统性能 / Производительность системы
-
-### 性能指标 / Показатели производительности
-
-**Crossref API查询 / Запросы к Crossref API:**
-- 单个DOI查询：~0.5-1.5秒 / запрос
-- 批量查询（并发=5）：~1.0秒/DOI
-- 受网络延迟和API限流影响
-
-**作者消歧 / Устранение неоднозначности авторов:**
-- 100作者数据库：<0.01秒/查询
-- 1000作者数据库：<0.05秒/查询
-- 10000作者数据库：<0.5秒/查询
-
-**文章去重 / Дедупликация статей:**
-- DOI匹配：O(1)，<0.001秒
-- 标题匹配：O(n)，n为已索引文章数
-
-### 优化建议 / Рекомендации по оптимизации
-
-1. **批量处理** / **Пакетная обработка**
-   - 使用batch_get_works()进行批量DOI查询
-   - 调整max_workers参数平衡速度和API限制
-
-2. **缓存机制** / **Механизм кэширования**
-   - Crossref结果可缓存避免重复查询
-   - 文章去重索引持久化
-
-3. **阈值调优** / **Настройка порогов**
-   - 提高阈值：减少误匹配，但可能漏掉真实匹配
-   - 降低阈值：增加匹配率，但可能产生误匹配
-   - 建议范围：0.80-0.90
-
----
-
-## 配置说明 / Описание конфигурации
-
-### 系统配置文件 / Файл конфигурации системы
-
-`config.py` 包含全局配置：
-
-```python
-# 相似度权重 / Веса сходства
-SIMILARITY_WEIGHTS = {
-    'name': 0.40,
-    'orcid': 0.30,
-    'coauthor': 0.15,
-    'journal': 0.10,
-    'affiliation': 0.05
-}
-
-# 阈值 / Пороги
-SIMILARITY_THRESHOLD = 0.85          # 作者匹配阈值
-TITLE_SIMILARITY_THRESHOLD = 0.95    # 标题去重阈值
-
-# API配置 / Конфигурация API
-CROSSREF_EMAIL = 'majiaxing@mail.ru'
-CROSSREF_MAX_WORKERS = 5
-```
-
-### CLI配置 / Конфигурация CLI
-
-`cli_config.py` 提供统一的CLI参数管理：
-
-```python
-from cli_config import CLIConfig
-
-# 创建解析器 / Создание парсера
-parser = CLIConfig.create_base_parser(
-    description='My Script',
-    add_data_files=True,
-    add_output_files=True,
-    add_config=True
-)
-
-args = parser.parse_args()
-```
-
----
-
-## 错误处理和日志 / Обработка ошибок и логирование
-
-### 日志级别 / Уровни логирования
-
-系统支持三种日志级别：
-
-1. **正常模式** / **Обычный режим** (WARNING):
-   - 仅显示警告和错误
-   - 适合生产环境
-
-2. **详细模式** / **Подробный режим** (INFO): `--verbose`
-   - 显示处理进度和关键操作
-   - 适合监控和调试
-
-3. **调试模式** / **Режим отладки** (DEBUG): `--debug`
-   - 显示所有详细信息
-   - 包括相似度计算细节
-   - 适合开发和问题诊断
-
-### 常见错误处理 / Обработка распространённых ошибок
-
-**网络错误 / Сетевые ошибки:**
-```python
-# Crossref API调用失败会记录警告并继续处理
-# При сбое API регистрируется предупреждение и обработка продолжается
-logger.warning(f"Failed to fetch DOI {doi}: {error}")
-```
-
-**数据验证 / Валидация данных:**
-```python
-# 空字段和无效数据会被安全忽略
-# Пустые поля и недействительные данные безопасно игнорируются
-if not author_name:
-    continue
-```
-
-**文件操作 / Файловые операции:**
-```python
-# 自动创建输出目录
-# Автоматическое создание выходных директорий
-if not os.path.exists(output_dir):
-    os.makedirs(output_dir, exist_ok=True)
-```
-
----
-
-## 测试和验证 / Тестирование и верификация
-
-### 代码质量保证 / Обеспечение качества кода
-
-项目包含全面的代码审查报告：`CODE_REVIEW_REPORT.md`
-
-**已修复的关键问题 / Исправленные критические проблемы:**
-- ✅ Author模型ORCID字段缺失
-- ✅ AuthorDatabase字段名称不匹配
-- ✅ Author构造函数参数错误
-- ✅ ArticleDeduplicator统计方法类型错误
-
-**测试覆盖 / Покрытие тестами:**
-- ✅ 模型创建和字段访问
-- ✅ 数据库CRUD操作
-- ✅ 作者相似度计算
-- ✅ 文章去重逻辑
-- ✅ Crossref API集成
-- ✅ 端到端测试场景
-
-### 验证步骤 / Шаги верификации
-
-1. **语法检查** / **Проверка синтаксиса**: 所有模块通过Python编译
-2. **模块导入** / **Импорт модулей**: 核心模块成功导入
-3. **功能测试** / **Функциональное тестирование**: 所有功能测试通过
-4. **性能测试** / **Тестирование производительности**: 满足性能要求
-
----
-
-## 技术栈 / Технологический стек
-
-### 核心技术 / Основные технологии
-- **Python 3.8+**: 主要编程语言
-- **crossrefapi**: Crossref REST API官方客户端
-- **python-Levenshtein**: 快速字符串相似度计算
-
-### 数据结构 / Структуры данных
-- **dataclasses**: 类型安全的数据模型
-- **typing**: 完整的类型注解
-- **Set/Dict**: 高效的索引和查找
-
-### 并发处理 / Параллельная обработка
-- **ThreadPoolExecutor**: 多线程并发
-- **concurrent.futures**: Future对象管理
-
-### API集成 / Интеграция API
-- **Crossref REST API**: 学术元数据检索
-- **Etiquette机制**: API优先级提升
-
----
-
-## 未来开发计划 / Планы дальнейшей разработки
-
-### 阶段1：持久化和缓存 / Этап 1: Персистентность и кэширование
-- [ ] SQLite/PostgreSQL数据库集成
-- [ ] Crossref查询结果缓存
-- [ ] 增量数据导入导出
-
-### 阶段2：高级消歧算法 / Этап 2: Продвинутые алгоритмы
-- [ ] 机器学习相似度模型
-- [ ] 作者关系图分析
-- [ ] 时间序列分析（考虑发表时间）
-
-### 阶段3：Web界面 / Этап 3: Веб-интерфейс
-- [ ] RESTful API服务
-- [ ] 交互式Web管理界面
-- [ ] 批量数据上传和导出
-
-### 阶段4：ИСТИНА集成 / Этап 4: Интеграция с ИСТИНА
-- [ ] ИСТИНА API连接
-- [ ] 实时数据同步
-- [ ] 自动化验证流程
-
----
-
-## 贡献指南 / Руководство по участию
-
-欢迎贡献代码和提出改进建议！
-
-### 开发流程 / Процесс разработки
-1. Fork项目 / Форк проекта
-2. 创建功能分支 / Создание ветки функции
-3. 提交代码并测试 / Коммит кода и тестирование
-4. 发起Pull Request / Создание Pull Request
-
-### 代码规范 / Стандарты кода
-- 遵循PEP 8编码规范
-- 保持三语言注释（中文、俄语、英语）
-- 编写单元测试覆盖新功能
-- 更新文档说明
-
----
-
-## 许可证 / Лицензия
-
-本项目用于科研和教育目的，遵循MIT许可证。
-
-Этот проект предназначен для исследовательских и образовательных целей и следует лицензии MIT.
-
----
-
-## 联系方式 / Контактная информация
-
-**作者 / Автор**: Ма Цзясин (Ma Jiaxin)
-
-**机构 / Учреждение**: МГУ имени М.В. Ломоносова (莫斯科国立大学)
-
-**研究方向 / Направление исследований**: Вопросы ввода и верификации больших данных в интерактивных наукометрических системах
-
-**GitHub**: https://github.com/Soulbeaters/incremental-author-disambiguation
-
-**项目仓库 / Репозиторий проекта**: https://github.com/Soulbeaters/incremental-author-disambiguation
-
----
-
-**版本 / Версия**: 2.0.0
-
-**最后更新 / Последнее обновление**: 2026-01-07
+Private advisor exports, raw names, identity IDs, service responses and audit
+logs must remain outside Git. Repository evidence contains aggregates, hashes
+and redacted identifiers only.
+
+## Repository map
+
+- `disambiguation_engine/`: normalization, blocking, scoring and decision core.
+- `integrations/`: ISTINA client, pipeline, safety contract and audit support.
+- `experiments/`: deterministic offline and bounded read-only live runners.
+- `evaluation/`: gold/provenance checks, paired inference, paper package and
+  independent research/production gates.
+- `evidence/`: redacted machine-readable aggregate evidence.
+- `paper/`: article-ready tables and claim boundaries.
+- `docs/ISTINA_RESEARCH_SCOPE.md`: active scientific protocol and completion
+  criteria.
+- `docs/ISTINA_PRODUCTION_RUNBOOK.md` and
+  `docs/ISTINA_INSTITUTIONAL_HANDOFF.md`: deferred ISTINA deployment references.
+
+## Interpreting the gates
+
+`evaluation/istina_research_gate.py` reports two independent outcomes:
+
+- `framework_ready`: implementation, leakage controls, comparator independence,
+  reproducibility and evidence integrity are suitable for continued research.
+- `superiority_claim_ready`: independent labels and a preregistered, adequately
+  powered, paper-cluster-aware paired comparison support a superiority claim.
+
+`evaluation/production_gate.py` is stricter and operational. It is retained for
+a future institutional deployment decision. Neither gate grants write access;
+write authorization belongs to ISTINA's institutional release process.
+
+## License
+
+MIT; see [LICENSE](LICENSE).

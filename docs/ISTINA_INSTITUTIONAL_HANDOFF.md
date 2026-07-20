@@ -1,4 +1,9 @@
-# ISTINA institutional production-evidence handoff
+# ISTINA institutional production-evidence handoff (future adoption reference)
+
+> This document is intentionally deferred unless ISTINA chooses a deployment
+> exercise. Release-scale load, paging, retention and write authorization are
+> institutional adoption concerns, not prerequisites for the active research
+> study.
 
 This handoff is the remaining institution-side path from the current
 research/candidate framework to a machine-verifiable release decision. It does

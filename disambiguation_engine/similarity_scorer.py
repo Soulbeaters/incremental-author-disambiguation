@@ -15,6 +15,7 @@ import string
 import math
 import logging
 import unicodedata
+from functools import lru_cache
 from typing import Dict, Set, Tuple, Any, Optional
 from models.author import Author
 
@@ -270,6 +271,7 @@ class SimilarityScorer:
         return self._calculate_jaccard_similarity(normalized1, normalized2)
 
     @staticmethod
+    @lru_cache(maxsize=65536)
     def _normalize_coauthor_name(value: str) -> str:
         """Build a conservative order-insensitive key for a coauthor name."""
 
@@ -336,6 +338,7 @@ class SimilarityScorer:
 
         return intersection / union
 
+    @lru_cache(maxsize=65536)
     def _normalize_name(self, name: str) -> str:
         """
         标准化姓名字符串 / Нормализация строки имени
@@ -363,6 +366,7 @@ class SimilarityScorer:
 
         return name
 
+    @lru_cache(maxsize=65536)
     def _normalize_string(self, text: str) -> str:
         """
         通用字符串标准化 / Универсальная нормализация строк

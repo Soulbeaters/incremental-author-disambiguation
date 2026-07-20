@@ -132,6 +132,7 @@ def valid_attachments():
                     "institutional_approval": True,
                     "load_plan_verified": True,
                     "repository_head_verified": True,
+                    "repository_source_tree_clean_verified": True,
                 },
             },
         },

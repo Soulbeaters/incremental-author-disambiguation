@@ -320,6 +320,7 @@ def main() -> None:
             "dataset_sha256": dataset_sha256,
             "code_revision": observed_code_revision,
             "repository_head_verified": True,
+            "repository_source_tree_clean_verified": True,
             "service_url_sha256": sha256_text(args.service_url),
             "man_id_sha256": man_id_sha256(args.man_id),
             "requests": args.requests,
@@ -355,6 +356,7 @@ def main() -> None:
                 load_plan_validation and load_plan_validation["verified"]
             ),
             "repository_head_verified": True,
+            "repository_source_tree_clean_verified": True,
             "evidence_classification": assessment[
                 "evidence_classification"
             ],

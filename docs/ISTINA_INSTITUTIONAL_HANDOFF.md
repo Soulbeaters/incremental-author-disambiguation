@@ -92,7 +92,9 @@ Run all commands from a frozen, clean revision. Replace angle-bracket values
 with private paths and approved institutional identifiers. Evidence-producing
 load commands independently compare `--code-revision` with the executing
 repository's `git rev-parse HEAD`; a well-formed but mistyped hash fails before
-the dataset is processed or the service is contacted.
+the dataset is processed or the service is contacted. Uncommitted source files
+also fail; generated evidence, paper, and run-output files are the only ignored
+worktree paths.
 
 The default service transport is direct and ignores ambient `HTTP_PROXY` /
 `HTTPS_PROXY` settings. This prevents a workstation proxy from turning a

@@ -585,6 +585,7 @@ def main() -> None:
             "load_iterations": args.iterations,
             "code_revision": observed_code_revision,
             "repository_head_verified": True,
+            "repository_source_tree_clean_verified": True,
             "performance_trial_id": args.performance_trial_id,
             "network_calls": 0,
             "write_calls": 0,

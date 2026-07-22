@@ -36,6 +36,12 @@ Latest model-level grouped-ranker experiment:
 docs\research\grouped_ranker_result_20260722.md
 ```
 
+Frozen official S2AND baseline and adapter contract:
+
+```text
+docs\research\s2and_official_baseline_adapter_audit_20260723.md
+```
+
 GitHub research branch:
 
 ```text
@@ -110,7 +116,8 @@ adequately powered ISTINA identity evidence—not a new standalone service.
 The current selective gate is a promising development result but is not
 promoted: it dominates the Project Two base on the public 2023+ development
 benchmark, while its independent new-author risk certificate still fails.
-An official public strong baseline and the final verified ISTINA blind test
-remain outstanding.
+The official S2AND baseline is now version-frozen and its fair input contract
+is specified.  Building the leakage-safe Arrow/SPECTER2 adapter, scoring that
+baseline, and the final verified ISTINA blind test remain outstanding.
 
 No current artifact authorizes writes to ISTINA.

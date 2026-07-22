@@ -6,6 +6,7 @@ from experiments.istina_export_temporal_evaluation import (
     combine_local_with_unknown_fallback,
     evaluate_known_author_unknown_fallback,
     evaluate_service_papers,
+    exported_author_name,
     select_local_decision_mentions,
     select_service_mentions,
     split_mentions,
@@ -13,6 +14,17 @@ from experiments.istina_export_temporal_evaluation import (
 
 
 class IstinaExportEvaluationTests(unittest.TestCase):
+    def test_exported_author_name_ignores_synthetic_original_name(self):
+        author = {
+            "lastname": "Ма",
+            "firstname": "Цзясин",
+            "middlename": "",
+            "original_name": "Fabricated Identity",
+            "name": "Another Unstructured Alias",
+        }
+
+        self.assertEqual("Ма Цзясин", exported_author_name(author))
+
     def test_per_author_holdout_uses_first_repeated_mention_as_history(self):
         mentions = [
             {"gold_author_id": "a", "year": 2021, "article_index": 2, "position": 1},

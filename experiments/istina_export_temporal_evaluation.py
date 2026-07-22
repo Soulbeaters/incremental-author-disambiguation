@@ -60,9 +60,14 @@ def load_articles(path: Path) -> List[Dict[str, Any]]:
 
 
 def exported_author_name(author: Dict[str, Any]) -> str:
-    original = (author.get("original_name") or author.get("name") or "").strip()
-    if original:
-        return original
+    """Build a display key only from observed structured name fields.
+
+    ``original_name`` belongs to an early synthetic export and is therefore
+    intentionally unreadable here.  Keeping this older evaluation entrypoint
+    on the same contract as the current experiments prevents accidental label
+    or fabricated-name leakage.
+    """
+
     parts = [
         (author.get("lastname") or author.get("last_name") or "").strip(),
         (author.get("firstname") or author.get("first_name") or "").strip(),

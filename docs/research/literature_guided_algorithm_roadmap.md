@@ -184,3 +184,11 @@ risk-bounded NIL gate lowers final known recall to 71.87%.  This confirms that
 the model-level ranking change is useful while cross-time open-set calibration
 remains the limiting scientific problem.  The model is not promoted; see
 [grouped_ranker_result_20260722.md](grouped_ranker_result_20260722.md).
+
+The official S2AND `0.51.1` / production-model `v1.21` comparison is also now
+version-frozen.  Its promoted incremental linker uses 53 row features, fixed
+top-25 cluster retrieval, and a separate calibrated gate.  It requires full
+paper context, history-only seed clusters, and SPECTER2 embeddings, so a
+name-only or zero-filled invocation would not be a valid strong baseline.  The
+fair adapter and evaluation contract are recorded in
+[s2and_official_baseline_adapter_audit_20260723.md](s2and_official_baseline_adapter_audit_20260723.md).

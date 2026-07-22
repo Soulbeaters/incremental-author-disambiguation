@@ -86,6 +86,7 @@ docs/research/*
 !docs/research/risk_calibration_result_20260722.md
 !docs/research/selective_risk_gate_result_20260722.md
 !docs/research/grouped_ranker_result_20260722.md
+!docs/research/s2and_official_baseline_adapter_audit_20260723.md
 *.pdf
 *.tex
 *.aux

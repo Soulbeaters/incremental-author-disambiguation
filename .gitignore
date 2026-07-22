@@ -87,6 +87,7 @@ docs/research/*
 !docs/research/selective_risk_gate_result_20260722.md
 !docs/research/grouped_ranker_result_20260722.md
 !docs/research/s2and_official_baseline_adapter_audit_20260723.md
+!docs/research/public_s2and_dataset_result_20260723.md
 *.pdf
 *.tex
 *.aux

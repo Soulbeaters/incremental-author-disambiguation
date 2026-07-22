@@ -42,6 +42,12 @@ Frozen official S2AND baseline and adapter contract:
 docs\research\s2and_official_baseline_adapter_audit_20260723.md
 ```
 
+Paper-grade public S2AND dataset audit and temporal split sizes:
+
+```text
+docs\research\public_s2and_dataset_result_20260723.md
+```
+
 GitHub research branch:
 
 ```text
@@ -116,8 +122,10 @@ adequately powered ISTINA identity evidence—not a new standalone service.
 The current selective gate is a promising development result but is not
 promoted: it dominates the Project Two base on the public 2023+ development
 benchmark, while its independent new-author risk certificate still fails.
-The official S2AND baseline is now version-frozen and its fair input contract
-is specified.  Building the leakage-safe Arrow/SPECTER2 adapter, scoring that
-baseline, and the final verified ISTINA blind test remain outstanding.
+The official S2AND baseline is version-frozen and its fair input contract is
+specified.  Public metadata and SPECTER2 enrichment now provide a sufficiently
+large paper-grade development subset.  Building the final Arrow artifacts,
+scoring S2AND on the frozen paired protocol, and the verified ISTINA blind test
+remain outstanding.
 
 No current artifact authorizes writes to ISTINA.

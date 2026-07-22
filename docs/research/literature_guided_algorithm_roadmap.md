@@ -192,3 +192,12 @@ paper context, history-only seed clusters, and SPECTER2 embeddings, so a
 name-only or zero-filled invocation would not be a valid strong baseline.  The
 fair adapter and evaluation contract are recorded in
 [s2and_official_baseline_adapter_audit_20260723.md](s2and_official_baseline_adapter_audit_20260723.md).
+
+The required public context has now been assembled without changing labels or
+candidates.  Semantic Scholar batch enrichment over all 29,360 public DOI keys
+matched 25,344 works and returned 22,549 SPECTER2 vectors.  The strict
+paper-grade subset contains 108,905 labelled authorships, 20,329 papers and
+39,759 identities; 13,238 identities occur on at least two papers.  With a
+2021 history cutoff it yields 31,209 known and 41,920 new-author queries.  This
+removes public sample size as the blocker to S2AND reproduction, but the whole
+set remains opened development evidence and cannot certify the final claim.

@@ -133,11 +133,19 @@ not score the baseline until SPECTER2 and DOI-join coverage are recorded and
 all invariants pass.  The final comparison still waits for the independently
 verified ISTINA split from the advisor.
 
-`experiments/audit_crossref_s2and_coverage.py` now provides an aggregate-only,
-standard-library scanner for the two local Crossref arrays.  It never emits
-record values and keeps only counters plus DOI keys.  The first implementation
-reparsed incomplete large array items and hit the 192-second unattended limit;
-it produced no artifact and no coverage claim.  The parser was replaced by a
-linear boundary scanner and now passes chunk-boundary and large-item tests.
-The real full scan was deliberately not repeated in this unattended session,
-so DOI-join and field-coverage counts remain pending.
+`experiments/audit_crossref_s2and_coverage.py` provides an aggregate-only,
+standard-library scanner.  It never emits record values and keeps only
+counters plus join keys.  The first implementation reparsed incomplete large
+array items and hit the 192-second unattended limit; it produced no artifact.
+The parser was replaced by a linear boundary scanner and the completed audit
+showed that `crossref.json` is an author-collection wrapper, not a works file.
+
+The author export has 301,586 rows over 29,360 DOI/article ids.  Its separate
+article-author map covers all 301,586 rows and supplies 410,724 complete paper
+author entries with source order, but the local files contain no title,
+abstract, venue, journal, or embedding fields.  A resume-safe Semantic Scholar
+batch enrichment subsequently matched 25,344 DOI records and supplied 22,549
+SPECTER2 vectors.  After requiring structured name, label-only ORCID, year,
+complete paper context and SPECTER2, 108,905 authorships over 20,329 papers are
+available for public development.  See
+[public_s2and_dataset_result_20260723.md](public_s2and_dataset_result_20260723.md).

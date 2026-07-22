@@ -45,6 +45,28 @@ frozen native graph threshold, and writes aggregate data only:
 This is a reproducible Pareto/negative-result experiment, not a promoted
 configuration.  See [literature_guided_algorithm_roadmap.md](literature_guided_algorithm_roadmap.md).
 
+To prevent a threshold chosen on the validation year from certifying itself,
+reserve one deterministic paper bucket for a fixed-decision risk certificate:
+
+```powershell
+& 'C:\ProgramData\anaconda3\python.exe' experiments\evaluate_listwise_graph_gate.py `
+  --dataset '<crossref-orcid-author-records.json>' `
+  --project1-root '<project-one-root>' `
+  --preserve-native-threshold 0.5 `
+  --max-unseen-false-rate 0 `
+  --max-wrong-known 0 `
+  --validation-certification-modulus 5 `
+  --risk-confidence 0.95 `
+  --certificate-max-unseen-false-rate 0.005 `
+  --certificate-max-wrong-known-rate 0.01 `
+  --output '<aggregate-risk-certificate-report.json>'
+```
+
+The selected threshold sees only four of the five paper-hash buckets.  The
+fifth bucket reports a conservative one-sided binary-KL upper bound for the
+final combined system.  This certificate assumes representative Bernoulli
+risk observations and does not replace an independent ISTINA-domain test.
+
 Run the focused tests with:
 
 ```powershell

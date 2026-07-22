@@ -10,10 +10,12 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter, defaultdict
+import hashlib
 import json
 import math
 from pathlib import Path
 import sys
+import time
 from typing import Any, Mapping, Sequence
 
 import numpy as np
@@ -29,6 +31,7 @@ from disambiguation_engine.listwise_open_set_gate import (  # noqa: E402
 )
 from disambiguation_engine.paper_graph_rescue import HistoricalCoauthorGraph  # noqa: E402
 from disambiguation_engine.topic_profile_evidence import TopicProfileIndex  # noqa: E402
+from evaluation.risk_bounds import chernoff_kl_upper_bound  # noqa: E402
 from experiments.compare_core_with_istina_proxy import (  # noqa: E402
     ablate_project2_evidence,
     apply_fallback_predictions,
@@ -173,6 +176,109 @@ def build_replay_from_positions(
         "profile_sizes": HistoricalCoauthorGraph.from_mentions(history).profile_sizes,
         "history_mentions_raw": history,
         "test_mentions_raw": test,
+    }
+
+
+def validation_selection_and_certification_positions(
+    mentions: Sequence[Any],
+    *,
+    history_through_year: int,
+    validation_year: int,
+    certification_modulus: int,
+) -> tuple[list[int], list[int], list[int]]:
+    """Split one validation year by paper before constructing either replay.
+
+    One hash bucket is reserved for certification.  Consequently every author
+    mention from the same paper stays on the same side, and the threshold
+    selected on the remaining papers cannot adapt to certification outcomes.
+    """
+
+    if certification_modulus < 2:
+        raise ValueError("certification_modulus must be at least two")
+    history = [
+        position
+        for position, mention in enumerate(mentions)
+        if mention.year is not None and mention.year <= history_through_year
+    ]
+    validation = [
+        position
+        for position, mention in enumerate(mentions)
+        if mention.year is not None
+        and mention.year > history_through_year
+        and mention.year == validation_year
+    ]
+
+    def held_out(paper_key: str) -> bool:
+        digest = hashlib.sha256(paper_key.casefold().encode("utf-8")).digest()
+        return int.from_bytes(digest[:8], "big") % certification_modulus == 0
+
+    selection = [
+        position
+        for position in validation
+        if not held_out(str(mentions[position].paper_key))
+    ]
+    certification = [
+        position
+        for position in validation
+        if held_out(str(mentions[position].paper_key))
+    ]
+    if not selection or not certification:
+        raise ValueError(
+            "paper-group validation split produced an empty selection or "
+            "certification partition"
+        )
+    return history, selection, certification
+
+
+def fixed_decision_risk_certificate(
+    replay: Mapping[str, Any],
+    predictions: Sequence[str | None],
+    *,
+    confidence: float,
+    max_unseen_false_rate: float,
+    max_wrong_known_rate: float,
+) -> dict[str, Any]:
+    """Certify the final combined decisions on an untouched paper split."""
+
+    if len(predictions) != len(replay["project2"]["records"]):
+        raise ValueError("predictions must align with certification records")
+    if not 0.0 <= max_unseen_false_rate <= 1.0:
+        raise ValueError("max_unseen_false_rate must be in [0, 1]")
+    if not 0.0 <= max_wrong_known_rate <= 1.0:
+        raise ValueError("max_wrong_known_rate must be in [0, 1]")
+    summary = prediction_counts(replay["project2"]["records"], predictions)
+    counts = summary["counts"]
+    unseen_upper = chernoff_kl_upper_bound(
+        counts["false_links_new"], counts["new"], confidence=confidence
+    )
+    wrong_known_upper = chernoff_kl_upper_bound(
+        counts["wrong_known"], counts["known"], confidence=confidence
+    )
+    unseen_passed = unseen_upper <= max_unseen_false_rate
+    known_passed = wrong_known_upper <= max_wrong_known_rate
+    return {
+        "method": "one_sided_chernoff_binary_kl",
+        "confidence": confidence,
+        "threshold_fixed_before_certification": True,
+        "unseen_false_link": {
+            "events": counts["false_links_new"],
+            "trials": counts["new"],
+            "observed_rate": summary["metrics"]["new_author_false_link_rate"],
+            "upper_bound": unseen_upper,
+            "target": max_unseen_false_rate,
+            "passed": unseen_passed,
+        },
+        "wrong_known_link": {
+            "events": counts["wrong_known"],
+            "trials": counts["known"],
+            "observed_rate": (
+                counts["wrong_known"] / counts["known"] if counts["known"] else 0.0
+            ),
+            "upper_bound": wrong_known_upper,
+            "target": max_wrong_known_rate,
+            "passed": known_passed,
+        },
+        "eligible_for_promotion": unseen_passed and known_passed,
     }
 
 
@@ -535,6 +641,8 @@ def model_artifact(
 
 
 def main() -> int:
+    wall_started = time.perf_counter()
+    cpu_started = time.process_time()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset", type=Path, required=True)
     parser.add_argument("--crossref-raw", type=Path)
@@ -559,6 +667,22 @@ def main() -> int:
     )
     parser.add_argument("--max-unseen-false-rate", type=float, default=0.001)
     parser.add_argument("--max-wrong-known", type=int, default=1)
+    parser.add_argument(
+        "--validation-certification-modulus",
+        type=int,
+        default=0,
+        help=(
+            "Reserve one deterministic paper-hash bucket out of this many "
+            "validation buckets for independent risk certification (0 disables)."
+        ),
+    )
+    parser.add_argument("--risk-confidence", type=float, default=0.95)
+    parser.add_argument(
+        "--certificate-max-unseen-false-rate", type=float, default=0.005
+    )
+    parser.add_argument(
+        "--certificate-max-wrong-known-rate", type=float, default=0.01
+    )
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
 
@@ -573,14 +697,41 @@ def main() -> int:
     )
     api = load_project1_proxy(args.project1_root)
     mentions = build_proxy_mentions(rows, api["row_to_mention"])
-    validation = build_replay(
-        mentions,
-        api,
-        cutoff_year=args.evaluation_history_cutoff,
-        test_from_year=args.validation_year,
-        test_through_year=args.validation_year,
-        calibrated_candidate_threshold=args.calibrated_candidate_threshold,
-    )
+    certification = None
+    if args.validation_certification_modulus:
+        history_positions, selection_positions, certification_positions = (
+            validation_selection_and_certification_positions(
+                mentions,
+                history_through_year=args.evaluation_history_cutoff,
+                validation_year=args.validation_year,
+                certification_modulus=args.validation_certification_modulus,
+            )
+        )
+        validation = build_replay_from_positions(
+            mentions,
+            api,
+            history_positions=history_positions,
+            test_positions=selection_positions,
+            calibrated_candidate_threshold=args.calibrated_candidate_threshold,
+            include_proxy=False,
+        )
+        certification = build_replay_from_positions(
+            mentions,
+            api,
+            history_positions=history_positions,
+            test_positions=certification_positions,
+            calibrated_candidate_threshold=args.calibrated_candidate_threshold,
+            include_proxy=False,
+        )
+    else:
+        validation = build_replay(
+            mentions,
+            api,
+            cutoff_year=args.evaluation_history_cutoff,
+            test_from_year=args.validation_year,
+            test_through_year=args.validation_year,
+            calibrated_candidate_threshold=args.calibrated_candidate_threshold,
+        )
     validation_topic = (
         TopicProfileIndex.from_history(
             validation["history_mentions_raw"], metadata_by_paper
@@ -682,6 +833,38 @@ def main() -> int:
     )
     threshold = float(candidates[selected_group]["threshold"])
 
+    risk_certificate = None
+    if certification is not None:
+        certification_topic = (
+            TopicProfileIndex.from_history(
+                certification["history_mentions_raw"], metadata_by_paper
+            ) if metadata_by_paper is not None else None
+        )
+        certification_examples = proposal_examples(
+            certification,
+            topic_index=certification_topic,
+            metadata_by_paper=metadata_by_paper,
+            gate_after_native_threshold=args.preserve_native_threshold,
+        )
+        certification_scores = score_examples(
+            certification_examples,
+            groups[selected_group],
+            fitted[selected_group],
+        )
+        certification_predictions = combined_predictions(
+            certification,
+            certification_scores,
+            threshold,
+            preserve_native_threshold=args.preserve_native_threshold,
+        )
+        risk_certificate = fixed_decision_risk_certificate(
+            certification,
+            certification_predictions,
+            confidence=args.risk_confidence,
+            max_unseen_false_rate=args.certificate_max_unseen_false_rate,
+            max_wrong_known_rate=args.certificate_max_wrong_known_rate,
+        )
+
     # The confirmatory partition is not constructed until model family and
     # threshold have been selected from the validation year.
     test = build_replay(
@@ -738,6 +921,13 @@ def main() -> int:
                 "query_year": args.validation_year,
                 "history_mentions": validation["history_mentions"],
                 "query_mentions": validation["test_mentions"],
+                "selection_query_mentions": validation["test_mentions"],
+                "certification_query_mentions": (
+                    certification["test_mentions"] if certification is not None else 0
+                ),
+                "certification_paper_hash_modulus": (
+                    args.validation_certification_modulus or None
+                ),
             },
             "test": {
                 "history_through": args.evaluation_history_cutoff,
@@ -774,6 +964,7 @@ def main() -> int:
                 fitted[selected_group],
             ),
         },
+        "independent_risk_certificate": risk_certificate,
         "test": {
             "istina_hypergraph_proxy": aggregate_method(test, proxy),
             "project2_base": aggregate_method(test, base),
@@ -797,7 +988,13 @@ def main() -> int:
             "ORCID labels are known to be a demographically and temporally biased sample.",
             "Independent ISTINA person-ID labels are still required for an ISTINA superiority claim.",
             "The gate is a lightweight logistic reproduction of listwise risk features, not S2AND's released LightGBM model.",
+            "The finite-sample certificate assumes the held-out paper-group decisions are representative Bernoulli risk observations; ISTINA transfer still requires an independent certificate.",
         ],
+    }
+    report["runtime"] = {
+        "wall_seconds": time.perf_counter() - wall_started,
+        "cpu_seconds": time.process_time() - cpu_started,
+        "peak_memory_not_measured": True,
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(

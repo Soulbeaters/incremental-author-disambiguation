@@ -63,6 +63,7 @@ Thumbs.db
 *.tmp
 *.temp
 *.log
+tmp/
 
 # ============================================
 # Project specific exclusions (not for GitHub)
@@ -81,6 +82,8 @@ docs/research/*
 !docs/research/core_algorithm_result_20260720.md
 !docs/research/reproduce_core_comparison.md
 !docs/research/ablation_result_20260720.md
+!docs/research/research_quality_guide.md
+!docs/research/risk_calibration_result_20260722.md
 *.pdf
 *.tex
 *.aux

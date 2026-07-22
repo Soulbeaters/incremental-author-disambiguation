@@ -30,6 +30,12 @@ Latest selective-risk algorithm experiment and complexity audit:
 docs\research\selective_risk_gate_result_20260722.md
 ```
 
+Latest model-level grouped-ranker experiment:
+
+```text
+docs\research\grouped_ranker_result_20260722.md
+```
+
 GitHub research branch:
 
 ```text

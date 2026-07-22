@@ -177,3 +177,10 @@ runtime from 511.8 to 324.4 seconds yet lowered known recall to 74.77%, below
 the 75.20% base.  The logistic coefficient/threshold line is exhausted as the
 main research direction; the next controlled experiment is the two-stage
 ranker plus explicit NIL gate above.
+
+That two-stage experiment has now been run.  LambdaMART reaches 94.37% overall
+Top-1 accuracy on known 2023+ queries under the frozen candidate set, but the
+risk-bounded NIL gate lowers final known recall to 71.87%.  This confirms that
+the model-level ranking change is useful while cross-time open-set calibration
+remains the limiting scientific problem.  The model is not promoted; see
+[grouped_ranker_result_20260722.md](grouped_ranker_result_20260722.md).

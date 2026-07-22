@@ -85,6 +85,7 @@ docs/research/*
 !docs/research/research_quality_guide.md
 !docs/research/risk_calibration_result_20260722.md
 !docs/research/selective_risk_gate_result_20260722.md
+!docs/research/grouped_ranker_result_20260722.md
 *.pdf
 *.tex
 *.aux

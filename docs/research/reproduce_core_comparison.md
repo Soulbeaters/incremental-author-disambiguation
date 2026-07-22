@@ -56,6 +56,7 @@ reserve one deterministic paper bucket for a fixed-decision risk certificate:
   --max-unseen-false-rate 0 `
   --max-wrong-known 0 `
   --validation-certification-modulus 5 `
+  --certification-status independent_frozen `
   --risk-confidence 0.95 `
   --certificate-max-unseen-false-rate 0.005 `
   --certificate-max-wrong-known-rate 0.01 `
@@ -66,6 +67,22 @@ The selected threshold sees only four of the five paper-hash buckets.  The
 fifth bucket reports a conservative one-sided binary-KL upper bound for the
 final combined system.  This certificate assumes representative Bernoulli
 risk observations and does not replace an independent ISTINA-domain test.
+Use `independent_frozen` only if that bucket has never been opened for the
+exact code, features, model and threshold being evaluated.  The safe default
+is `opened_development`, which cannot authorize promotion.
+
+To study selective rejection of unsafe base merges under a finite-sample
+validation risk bound, add:
+
+```powershell
+  --gate-base-merges `
+  --selection-risk-confidence 0.95 `
+  --max-unseen-false-rate 0.005 `
+  --selection-max-wrong-known-rate 0.01
+```
+
+This is a development protocol.  Once a certification bucket has been opened,
+it cannot certify a subsequently changed feature set or threshold.
 
 Run the focused tests with:
 

@@ -56,6 +56,19 @@ from experiments.train_calibrated_candidate_model import (  # noqa: E402
 from integrations.istina_pipeline import IstinaDisambiguationPipeline  # noqa: E402
 
 
+def peak_working_set_bytes() -> int | None:
+    """Return the OS process peak without enabling high-overhead tracing."""
+
+    try:
+        import psutil
+
+        memory = psutil.Process().memory_info()
+        value = getattr(memory, "peak_wset", None)
+        return int(value) if value is not None else None
+    except (ImportError, OSError):
+        return None
+
+
 def load_crossref_work_metadata(path: Path) -> dict[str, dict[str, Any]]:
     """Load real Crossref work fields keyed by DOI; never copy author names."""
 
@@ -82,7 +95,8 @@ def experiment_feature_groups(with_topic: bool) -> dict[str, tuple[int, ...]]:
     groups = {
         "graph_only": BASE_FEATURE_GROUPS["graph_only"],
         "pointwise": BASE_FEATURE_GROUPS["pointwise"],
-        "listwise_no_topic": BASE_FEATURE_GROUPS["listwise"],
+        "listwise_no_cross_profile": BASE_FEATURE_GROUPS["listwise_no_cross_profile"],
+        "listwise_cross_profile": BASE_FEATURE_GROUPS["listwise"],
     }
     if not with_topic:
         return groups
@@ -90,7 +104,10 @@ def experiment_feature_groups(with_topic: bool) -> dict[str, tuple[int, ...]]:
     groups.update({
         "graph_topic": groups["graph_only"] + topic,
         "pointwise_topic": groups["pointwise"] + topic,
-        "listwise_topic": groups["listwise_no_topic"] + topic,
+        "listwise_no_cross_profile_topic": (
+            groups["listwise_no_cross_profile"] + topic
+        ),
+        "listwise_cross_profile_topic": groups["listwise_cross_profile"] + topic,
     })
     return groups
 
@@ -330,6 +347,7 @@ def proposal_examples(
     topic_index: TopicProfileIndex | None = None,
     metadata_by_paper: Mapping[str, Mapping[str, Any]] | None = None,
     gate_after_native_threshold: float | None = None,
+    gate_base_merges: bool = False,
 ) -> list[dict[str, Any]]:
     records = list(replay["project2"]["records"])
     native = list(replay["native"])
@@ -342,26 +360,59 @@ def proposal_examples(
         for position, record in enumerate(records)
         if record.get("decision") == "merge"
     )
+    profile_years: dict[str, list[int]] = defaultdict(list)
+    profile_coauthors: dict[str, set[str]] = defaultdict(set)
+    for mention in replay.get("history_mentions_raw") or ():
+        author_id = str(mention.get("gold_author_id") or mention.get("author_id") or "")
+        if not author_id:
+            continue
+        try:
+            year = int(mention.get("year") or 0)
+        except (TypeError, ValueError):
+            year = 0
+        if year:
+            profile_years[author_id].append(year)
+        profile_coauthors[author_id].update(
+            str(name) for name in mention.get("coauthors") or () if str(name).strip()
+        )
+    query_mentions = list(replay.get("test_mentions_raw") or ())
     output = []
     for position, (record, proposal) in enumerate(zip(records, native)):
-        if record.get("decision") not in {"new", "unknown"}:
+        base_merge = record.get("decision") == "merge"
+        if base_merge and not gate_base_merges:
             continue
-        proposal_id = str(proposal.get("prediction") or "")
+        if not base_merge and record.get("decision") not in {"new", "unknown"}:
+            continue
+        effective_proposal = (
+            {
+                "prediction": record.get("author_id"),
+                "graph_support": 0.0,
+                "candidate_count": record.get("candidate_count"),
+            }
+            if base_merge else proposal
+        )
+        proposal_id = str(effective_proposal.get("prediction") or "")
         if not proposal_id:
             continue
         if (
-            gate_after_native_threshold is not None
-            and float(proposal.get("graph_support") or 0.0)
+            not base_merge
+            and gate_after_native_threshold is not None
+            and float(effective_proposal.get("graph_support") or 0.0)
             >= gate_after_native_threshold
         ):
             continue
         paper_key = str(record.get("article_id") or position)
+        query_mention = query_mentions[position] if position < len(query_mentions) else {}
         base_features = graph_proposal_features(
             record,
-            proposal,
+            effective_proposal,
             profile_size=int(replay["profile_sizes"].get(proposal_id, 0)),
             paper_size=paper_sizes[paper_key],
             fixed_merge_count=fixed_by_paper[paper_key],
+            query_year=query_mention.get("year"),
+            profile_years=profile_years.get(proposal_id, ()),
+            query_coauthors=query_mention.get("coauthors") or (),
+            profile_coauthors=profile_coauthors.get(proposal_id, ()),
         )
         topic_features: tuple[float, ...] = ()
         if topic_index is not None and metadata_by_paper is not None:
@@ -376,6 +427,7 @@ def proposal_examples(
                 record.get("gold_seen_in_history")
                 and proposal_id == str(record.get("gold_author_id") or "")
             ),
+            "source": "base_merge" if base_merge else "graph_proposal",
             "features": base_features + topic_features,
         })
     return output
@@ -426,14 +478,24 @@ def combined_predictions(
     scores: Mapping[int, float],
     threshold: float,
     preserve_native_threshold: float | None = None,
+    gate_base_merges: bool = False,
 ) -> list[str | None]:
     output: list[str | None] = []
     for position, (record, proposal) in enumerate(zip(
         replay["project2"]["records"], replay["native"]
     )):
-        prediction = (
+        base_prediction = (
             str(record.get("author_id") or "")
             if record.get("decision") == "merge"
+            else ""
+        )
+        prediction = (
+            base_prediction
+            if base_prediction
+            and (
+                not gate_base_merges
+                or float(scores.get(position, -1.0)) >= threshold
+            )
             else ""
         )
         if (
@@ -497,35 +559,73 @@ def choose_threshold(
     max_unseen_false_rate: float,
     max_wrong_known: int,
     preserve_native_threshold: float | None = None,
+    gate_base_merges: bool = False,
+    risk_confidence: float | None = None,
+    max_wrong_known_rate: float | None = None,
 ) -> dict[str, Any]:
     records = replay["project2"]["records"]
     new_mentions = sum(not bool(record.get("gold_seen_in_history")) for record in records)
+    known_mentions = len(records) - new_mentions
+    if risk_confidence is not None and not gate_base_merges:
+        raise ValueError("finite-sample selection must gate the full combined system")
+    if risk_confidence is not None and max_wrong_known_rate is None:
+        raise ValueError("max_wrong_known_rate is required for risk-bounded selection")
     max_unseen_false = math.floor(new_mentions * max_unseen_false_rate)
-    max_score = max(scores.values(), default=0.0)
-    thresholds = [math.nextafter(max_score, math.inf), *sorted(set(scores.values()), reverse=True)]
-    best: tuple[int, int, int, float, list[str | None]] | None = None
-    for threshold in thresholds:
-        accepted = [
-            example
-            for example in examples
-            if scores[int(example["position"])] >= threshold
-        ]
-        correct = sum(bool(example["correct"]) for example in accepted)
-        wrong_known = sum(
-            bool(example["known"] and not example["correct"])
-            for example in accepted
+    ordered = sorted(
+        examples,
+        key=lambda example: scores[int(example["position"])],
+        reverse=True,
+    )
+    max_score = scores[int(ordered[0]["position"])] if ordered else 0.0
+    operating_points: list[tuple[float, int, int, int, int]] = [
+        (math.nextafter(max_score, math.inf), 0, 0, 0, 0)
+    ]
+    accepted_count = correct = wrong_known = unseen_false = 0
+    cursor = 0
+    while cursor < len(ordered):
+        threshold = scores[int(ordered[cursor]["position"])]
+        while (
+            cursor < len(ordered)
+            and scores[int(ordered[cursor]["position"])] == threshold
+        ):
+            example = ordered[cursor]
+            accepted_count += 1
+            correct += int(bool(example["correct"]))
+            wrong_known += int(bool(example["known"] and not example["correct"]))
+            unseen_false += int(not bool(example["known"]))
+            cursor += 1
+        operating_points.append(
+            (threshold, accepted_count, correct, wrong_known, unseen_false)
         )
-        unseen_false = sum(not bool(example["known"]) for example in accepted)
-        if unseen_false > max_unseen_false or wrong_known > max_wrong_known:
+
+    pointwise_confidence = (
+        1.0 - (1.0 - risk_confidence) / len(operating_points)
+        if risk_confidence is not None else None
+    )
+
+    best: tuple[int, int, int, float] | None = None
+    for threshold, accepted_count, correct, wrong_known, unseen_false in operating_points:
+        if risk_confidence is not None:
+            unseen_upper = chernoff_kl_upper_bound(
+                unseen_false, new_mentions, confidence=pointwise_confidence
+            )
+            wrong_known_upper = chernoff_kl_upper_bound(
+                wrong_known, known_mentions, confidence=pointwise_confidence
+            )
+            if (
+                unseen_upper > max_unseen_false_rate
+                or wrong_known_upper > float(max_wrong_known_rate)
+            ):
+                continue
+        elif unseen_false > max_unseen_false or wrong_known > max_wrong_known:
             continue
-        predictions = combined_predictions(
-            replay,
-            scores,
+        candidate = (
+            correct,
+            -(wrong_known + unseen_false),
+            -accepted_count,
             threshold,
-            preserve_native_threshold=preserve_native_threshold,
         )
-        candidate = (correct, -(wrong_known + unseen_false), -len(accepted), threshold, predictions)
-        if best is None or candidate[:4] > best[:4]:
+        if best is None or candidate > best:
             best = candidate
     if best is None:
         raise ValueError("no listwise threshold satisfies the validation risk budget")
@@ -534,6 +634,39 @@ def choose_threshold(
         for example in examples
         if scores[int(example["position"])] >= best[3]
     ]
+    predictions = combined_predictions(
+        replay,
+        scores,
+        best[3],
+        preserve_native_threshold=preserve_native_threshold,
+        gate_base_merges=gate_base_merges,
+    )
+    selected_wrong_known = sum(
+        bool(example["known"] and not example["correct"])
+        for example in accepted
+    )
+    selected_unseen_false = sum(not bool(example["known"]) for example in accepted)
+    selected_risk = (
+        {
+            "confidence": risk_confidence,
+            "familywise_method": "bonferroni_over_threshold_operating_points",
+            "operating_points": len(operating_points),
+            "pointwise_confidence": pointwise_confidence,
+            "unseen_false_link_upper_bound": chernoff_kl_upper_bound(
+                selected_unseen_false,
+                new_mentions,
+                confidence=pointwise_confidence,
+            ),
+            "unseen_false_link_target": max_unseen_false_rate,
+            "wrong_known_upper_bound": chernoff_kl_upper_bound(
+                selected_wrong_known,
+                known_mentions,
+                confidence=pointwise_confidence,
+            ),
+            "wrong_known_target": max_wrong_known_rate,
+        }
+        if risk_confidence is not None else None
+    )
     return {
         "threshold": best[3],
         "max_unseen_false_rate": max_unseen_false_rate,
@@ -541,12 +674,10 @@ def choose_threshold(
         "max_wrong_known": max_wrong_known,
         "accepted_proposals": len(accepted),
         "correct_rescues": sum(bool(example["correct"]) for example in accepted),
-        "wrong_known_rescues": sum(
-            bool(example["known"] and not example["correct"])
-            for example in accepted
-        ),
-        "unseen_false_links": sum(not bool(example["known"]) for example in accepted),
-        "combined": prediction_counts(records, best[4]),
+        "wrong_known_rescues": selected_wrong_known,
+        "unseen_false_links": selected_unseen_false,
+        "selection_risk_bound": selected_risk,
+        "combined": prediction_counts(records, predictions),
     }
 
 
@@ -665,8 +796,23 @@ def main() -> int:
         type=float,
         help="Keep graph proposals at or above this support, and gate only the residual.",
     )
+    parser.add_argument(
+        "--gate-base-merges",
+        action="store_true",
+        help="Apply the learned selective gate to base MERGE decisions too.",
+    )
     parser.add_argument("--max-unseen-false-rate", type=float, default=0.001)
     parser.add_argument("--max-wrong-known", type=int, default=1)
+    parser.add_argument(
+        "--selection-risk-confidence",
+        type=float,
+        help="Use a one-sided finite-sample risk bound during threshold selection.",
+    )
+    parser.add_argument(
+        "--selection-max-wrong-known-rate",
+        type=float,
+        default=0.01,
+    )
     parser.add_argument(
         "--validation-certification-modulus",
         type=int,
@@ -674,6 +820,15 @@ def main() -> int:
         help=(
             "Reserve one deterministic paper-hash bucket out of this many "
             "validation buckets for independent risk certification (0 disables)."
+        ),
+    )
+    parser.add_argument(
+        "--certification-status",
+        choices=("opened_development", "independent_frozen"),
+        default="opened_development",
+        help=(
+            "Mark whether certification labels were untouched for this exact "
+            "frozen method. The safe default cannot authorize promotion."
         ),
     )
     parser.add_argument("--risk-confidence", type=float, default=0.95)
@@ -757,6 +912,7 @@ def main() -> int:
                 topic_index=topic_index,
                 metadata_by_paper=metadata_by_paper,
                 gate_after_native_threshold=args.preserve_native_threshold,
+                gate_base_merges=args.gate_base_merges,
             ))
         train_protocol = {
             "strategy": "deterministic_paper_group_folds",
@@ -788,6 +944,7 @@ def main() -> int:
             topic_index=train_topic,
             metadata_by_paper=metadata_by_paper,
             gate_after_native_threshold=args.preserve_native_threshold,
+            gate_base_merges=args.gate_base_merges,
         )
         train_protocol = {
             "strategy": "temporal",
@@ -801,6 +958,7 @@ def main() -> int:
         topic_index=validation_topic,
         metadata_by_paper=metadata_by_paper,
         gate_after_native_threshold=args.preserve_native_threshold,
+        gate_base_merges=args.gate_base_merges,
     )
 
     candidates: dict[str, Any] = {}
@@ -816,6 +974,9 @@ def main() -> int:
             max_unseen_false_rate=args.max_unseen_false_rate,
             max_wrong_known=args.max_wrong_known,
             preserve_native_threshold=args.preserve_native_threshold,
+            gate_base_merges=args.gate_base_merges,
+            risk_confidence=args.selection_risk_confidence,
+            max_wrong_known_rate=args.selection_max_wrong_known_rate,
         )
         candidates[group] = {
             **selection,
@@ -845,6 +1006,7 @@ def main() -> int:
             topic_index=certification_topic,
             metadata_by_paper=metadata_by_paper,
             gate_after_native_threshold=args.preserve_native_threshold,
+            gate_base_merges=args.gate_base_merges,
         )
         certification_scores = score_examples(
             certification_examples,
@@ -856,6 +1018,7 @@ def main() -> int:
             certification_scores,
             threshold,
             preserve_native_threshold=args.preserve_native_threshold,
+            gate_base_merges=args.gate_base_merges,
         )
         risk_certificate = fixed_decision_risk_certificate(
             certification,
@@ -864,9 +1027,34 @@ def main() -> int:
             max_unseen_false_rate=args.certificate_max_unseen_false_rate,
             max_wrong_known_rate=args.certificate_max_wrong_known_rate,
         )
+        risk_certificate["statistical_risk_passed"] = risk_certificate[
+            "eligible_for_promotion"
+        ]
+        risk_certificate["label_status"] = args.certification_status
+        risk_certificate["eligible_for_promotion"] = bool(
+            risk_certificate["statistical_risk_passed"]
+            and args.certification_status == "independent_frozen"
+        )
+        risk_certificate["comparators"] = {
+            "project2_base": fixed_decision_risk_certificate(
+                certification,
+                base_predictions(certification),
+                confidence=args.risk_confidence,
+                max_unseen_false_rate=args.certificate_max_unseen_false_rate,
+                max_wrong_known_rate=args.certificate_max_wrong_known_rate,
+            ),
+            "native_graph_threshold_0_5": fixed_decision_risk_certificate(
+                certification,
+                native_predictions(certification),
+                confidence=args.risk_confidence,
+                max_unseen_false_rate=args.certificate_max_unseen_false_rate,
+                max_wrong_known_rate=args.certificate_max_wrong_known_rate,
+            ),
+        }
 
     # The confirmatory partition is not constructed until model family and
     # threshold have been selected from the validation year.
+    test_phase_started = time.perf_counter()
     test = build_replay(
         mentions,
         api,
@@ -884,6 +1072,7 @@ def main() -> int:
         topic_index=test_topic,
         metadata_by_paper=metadata_by_paper,
         gate_after_native_threshold=args.preserve_native_threshold,
+        gate_base_merges=args.gate_base_merges,
     )
     test_scores = score_examples(
         test_examples,
@@ -895,7 +1084,9 @@ def main() -> int:
         test_scores,
         threshold,
         preserve_native_threshold=args.preserve_native_threshold,
+        gate_base_merges=args.gate_base_merges,
     )
+    test_phase_wall_seconds = time.perf_counter() - test_phase_started
     base = base_predictions(test)
     native = native_predictions(test)
     proxy = proxy_predictions(test)
@@ -910,6 +1101,7 @@ def main() -> int:
             "affiliation_ablated": True,
             "frozen_calibrated_candidate_threshold": args.calibrated_candidate_threshold,
             "preserved_native_graph_threshold": args.preserve_native_threshold,
+            "selective_veto_of_base_merges": args.gate_base_merges,
             "crossref_title_abstract_venue_features": metadata_by_paper is not None,
             "crossref_raw_sha256": (
                 sha256_file(args.crossref_raw) if args.crossref_raw else None
@@ -928,8 +1120,11 @@ def main() -> int:
                 "certification_paper_hash_modulus": (
                     args.validation_certification_modulus or None
                 ),
+                "certification_label_status": args.certification_status,
             },
             "test": {
+                "role": "development_transfer_benchmark",
+                "final_claim_eligible": False,
                 "history_through": args.evaluation_history_cutoff,
                 "query_from_year": args.test_from_year,
                 "history_mentions": test["history_mentions"],
@@ -940,10 +1135,37 @@ def main() -> int:
                 "unseen_false_link": 1.0,
                 "wrong_candidate_link": 1.5,
             },
+            "validation_risk_bound": {
+                "confidence": args.selection_risk_confidence,
+                "max_unseen_false_rate": args.max_unseen_false_rate,
+                "max_wrong_known_rate": args.selection_max_wrong_known_rate,
+            },
             "selection_rule": (
                 "maximize correct validation rescues under unseen/wrong-link budgets; "
                 "then prefer fewer errors and fewer features"
             ),
+            "complexity_contract": {
+                "notation": {
+                    "H": "history mentions",
+                    "C": "retrieved candidates per query (capped)",
+                    "K": "retained top candidates",
+                    "A": "authors on one incoming paper",
+                    "B": "paper-graph beam width",
+                    "D": "gate feature count",
+                },
+                "history_index_time": "O(H + sum_over_papers(authors_on_paper^2))",
+                "candidate_lookup_time": "O(sum_posting_lengths + C log C)",
+                "candidate_scoring_time_per_query": "O(C)",
+                "paper_graph_time_per_paper": "O(B * C * A^2)",
+                "cross_profile_gate_time_per_query": "O(K + profile_years + profile_coauthors)",
+                "gate_scoring_time_per_query": "O(D)",
+                "online_space": "O(H + graph_edges + B*A + C)",
+                "hard_caps": {
+                    "candidate_pool": 100,
+                    "topk": 20,
+                    "paper_graph_beam": 256,
+                },
+            },
         },
         "training": {
             "proposal_examples": len(train_examples),
@@ -994,14 +1216,29 @@ def main() -> int:
     report["runtime"] = {
         "wall_seconds": time.perf_counter() - wall_started,
         "cpu_seconds": time.process_time() - cpu_started,
-        "peak_memory_not_measured": True,
+        "peak_working_set_bytes": peak_working_set_bytes(),
+        "development_transfer_phase_wall_seconds": test_phase_wall_seconds,
+        "development_transfer_queries": test["test_mentions"],
+        "development_transfer_queries_per_second": (
+            test["test_mentions"] / test_phase_wall_seconds
+            if test_phase_wall_seconds else None
+        ),
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(
         json.dumps(report, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
-    print(json.dumps(report, ensure_ascii=False, separators=(",", ":")))
+    print(json.dumps({
+        "report": str(args.output),
+        "selected_feature_group": selected_group,
+        "feature_count": len(groups[selected_group]),
+        "risk_certificate_passed": (
+            risk_certificate.get("eligible_for_promotion")
+            if risk_certificate is not None else None
+        ),
+        "development_transfer_queries": test["test_mentions"],
+    }, ensure_ascii=False, separators=(",", ":")))
     return 0
 
 

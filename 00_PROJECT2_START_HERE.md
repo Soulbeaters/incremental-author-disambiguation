@@ -24,6 +24,12 @@ The machine-readable split contract starts from:
 config\research_data_split.template.json
 ```
 
+Latest selective-risk algorithm experiment and complexity audit:
+
+```text
+docs\research\selective_risk_gate_result_20260722.md
+```
+
 GitHub research branch:
 
 ```text
@@ -94,5 +100,11 @@ The research framework and integration boundary are usable. The current
 machine research gate reports `framework_ready: true` (9/9 checks) and
 `superiority_claim_ready: false` (0/9 checks). The missing item is independent,
 adequately powered ISTINA identity evidence—not a new standalone service.
+
+The current selective gate is a promising development result but is not
+promoted: it dominates the Project Two base on the public 2023+ development
+benchmark, while its independent new-author risk certificate still fails.
+An official public strong baseline and the final verified ISTINA blind test
+remain outstanding.
 
 No current artifact authorizes writes to ISTINA.

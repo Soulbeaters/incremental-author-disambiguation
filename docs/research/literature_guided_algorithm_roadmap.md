@@ -29,6 +29,38 @@ high-value signal and rule out premature GNN work.
 | [LAND, Scientometrics 2022](https://link.springer.com/article/10.1007/s11192-022-04426-2) and [code](https://github.com/sntcristian/and-kge) | Multimodal knowledge-graph embeddings over structure and literals, followed by blocking and HAC. | Text, venue, institution, and graph relations should be distinct ablations before any heterogeneous embedding claim. |
 | [ORCID-labelled data audit, Scientometrics](https://link.springer.com/article/10.1007/s11192-020-03826-6) | ORCID-linked ground truth is large but biased toward newer researchers and smaller/easier blocks. | Crossref+ORCID is a useful transfer benchmark, not sufficient evidence of superiority inside ISTINA. |
 
+## There is no universally optimal AND algorithm
+
+The literature separates at least three different problems.  From-scratch
+name disambiguation (SND) clusters all papers in one ambiguous name block;
+real-time name disambiguation (RND) links a new paper to an existing profile or
+to a genuine `NIL`; incorrect-assignment detection (IND) finds papers already
+placed in the wrong profile.  A method optimized for transductive SND is not
+automatically valid for incremental open-set RND.  The optimum also changes
+with available title/abstract/organization fields, block density, graph edge
+quality, language and the true NIL prevalence.
+
+Project Two is RND.  Its next model experiment is therefore a compact
+two-stage model, not a larger end-to-end service:
+
+1. freeze blocking and the candidate cap, then train a group-aware
+   LightGBM/LambdaMART ranker on candidates from the same query and name block;
+2. train a separate cost-sensitive `MERGE`-versus-`NIL/UNKNOWN` gate on the
+   top score, top--second margin, entropy, block density, temporal/profile
+   compatibility and proposal source;
+3. calibrate that final decision by time and name-block density, and certify
+   the frozen operating point on independent labels; and
+4. compare logistic, tree ranker and tree-ranker-plus-NIL variants under the
+   same candidates, labels and complexity budget.
+
+This changes the hypothesis class and learning objective: candidate relevance
+is learned listwise inside a query group, while false-link risk is optimized
+separately.  It remains small enough for ISTINA: with bounded candidate count
+`C`, `T` shallow trees and depth `d`, ranking is `O(C*T*d)` and rejection is
+constant-size scoring.  A DeepSets/Set-Transformer candidate model is a later
+alternative only if verified target-domain training volume is sufficient.
+Vanilla GNN or language-model fine-tuning is not the next default.
+
 The local directory described as the old ISTINA “GNN” was also audited.  Its
 graph-similarity service constructs a keyword co-occurrence graph and combines
 Node2Vec/Word2Vec-derived features with CatBoost.  It is useful prior art for a
@@ -136,3 +168,12 @@ negative/Pareto ablation.  Do not enable it in the runtime, do not claim that
 Project Two already outperforms ISTINA, and do not begin a large GNN training
 run until the ISTINA data gate or an equivalently strong independent labelled
 benchmark is satisfied.
+
+The 2026-07-22 selective-veto experiments further show why threshold-only
+iteration must stop.  An uncorrected 26-feature logistic gate dominated the
+Project Two base on the already-open public transfer benchmark, but failed its
+independent new-author certificate.  Familywise-corrected selection reduced
+runtime from 511.8 to 324.4 seconds yet lowered known recall to 74.77%, below
+the 75.20% base.  The logistic coefficient/threshold line is exhausted as the
+main research direction; the next controlled experiment is the two-stage
+ranker plus explicit NIL gate above.

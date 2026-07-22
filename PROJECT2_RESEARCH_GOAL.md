@@ -65,5 +65,11 @@ surnames and dense same-name blocks are preregistered challenge strata.
    new-author false-link rates, UNKNOWN, B3/Pairwise, calibration, risk bounds,
    paired inference, complexity, scalability, learning curves and ablations.
 
+Every promoted method must also state asymptotic time and space cost, peak
+working memory, end-to-end and per-query runtime, and a scaling curve over
+history size and candidate-block density.  Online inference must remain
+bounded by the retrieved candidate set; a full-author-catalog pairwise scan is
+not an acceptable accuracy trade-off for ISTINA integration.
+
 No superiority wording is allowed until the machine research gate validates a
 frozen split manifest and the independent ISTINA comparison passes.

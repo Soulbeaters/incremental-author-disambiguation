@@ -132,3 +132,12 @@ streaming enrichment on the public development split with bounded logs.  Do
 not score the baseline until SPECTER2 and DOI-join coverage are recorded and
 all invariants pass.  The final comparison still waits for the independently
 verified ISTINA split from the advisor.
+
+`experiments/audit_crossref_s2and_coverage.py` now provides an aggregate-only,
+standard-library scanner for the two local Crossref arrays.  It never emits
+record values and keeps only counters plus DOI keys.  The first implementation
+reparsed incomplete large array items and hit the 192-second unattended limit;
+it produced no artifact and no coverage claim.  The parser was replaced by a
+linear boundary scanner and now passes chunk-boundary and large-item tests.
+The real full scan was deliberately not repeated in this unattended session,
+so DOI-join and field-coverage counts remain pending.

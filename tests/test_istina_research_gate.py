@@ -65,6 +65,41 @@ def passing_analysis():
     }
 
 
+def passing_split_manifest():
+    return {
+        "status": "evaluated",
+        "public_development": {
+            "role": "development_transfer_benchmark",
+            "final_claim_eligible": False,
+        },
+        "istina": {
+            "blind_test": {
+                "labels_withheld_until_model_freeze": True,
+                "opened_after_model_freeze": True,
+                "known_author_queries": 1_000,
+                "unseen_or_hard_negative_queries": 5_000,
+                "frozen_artifacts": {
+                    "code_sha256": "b" * 64,
+                    "model_sha256": "c" * 64,
+                    "protocol_sha256": "d" * 64,
+                },
+            }
+        },
+        "leakage_controls": {
+            "overlap_counts": {
+                "records": 0,
+                "papers": 0,
+                "name_blocks": 0,
+            },
+            "future_information_violations": 0,
+        },
+        "advisor_services": {
+            "outputs_are_predictions": True,
+            "allowed_as_gold_labels": False,
+        },
+    }
+
+
 class IstinaResearchGateTests(unittest.TestCase):
     def test_current_kind_of_evidence_can_be_framework_ready_without_claim(self):
         result = assess_research_readiness(*framework_inputs())
@@ -92,6 +127,7 @@ class IstinaResearchGateTests(unittest.TestCase):
             performance,
             paper,
             passing_analysis(),
+            data_split_manifest=passing_split_manifest(),
         )
 
         self.assertTrue(result["framework_ready"])
@@ -100,6 +136,22 @@ class IstinaResearchGateTests(unittest.TestCase):
             result["superiority_claim"]["failures"],
         )
         self.assertFalse(result["writes_authorized"])
+
+    def test_verified_analysis_without_frozen_split_cannot_support_claim(self):
+        temporal, gold, live, performance, paper = framework_inputs()
+        gold["provenance"]["verified"] = True
+        gold["adjudication"]["unresolved"] = 0
+
+        result = assess_research_readiness(
+            temporal, gold, live, performance, paper, passing_analysis()
+        )
+
+        self.assertFalse(result["superiority_claim_ready"])
+        failed = {
+            item["name"] for item in result["superiority_claim"]["failures"]
+        }
+        self.assertIn("preregistered_data_split", failed)
+        self.assertIn("blind_test_opened_after_freeze", failed)
 
     def test_registered_plan_can_raise_the_required_sample(self):
         temporal, gold, live, performance, paper = framework_inputs()

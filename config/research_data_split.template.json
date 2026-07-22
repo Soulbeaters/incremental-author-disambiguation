@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "status": "draft",
+  "public_development": {
+    "sources": [
+      "crossref_orcid",
+      "openalex_orcid"
+    ],
+    "role": "development_transfer_benchmark",
+    "final_claim_eligible": false
+  },
+  "istina": {
+    "split_strategy": "paper_and_name_block_grouped_temporal",
+    "development": {
+      "partitions": [
+        "train",
+        "validation",
+        "certification"
+      ]
+    },
+    "blind_test": {
+      "label_custodian": "advisor",
+      "labels_withheld_until_model_freeze": true,
+      "opened_after_model_freeze": false,
+      "known_author_queries": 0,
+      "unseen_or_hard_negative_queries": 0,
+      "frozen_artifacts": {
+        "code_sha256": null,
+        "model_sha256": null,
+        "protocol_sha256": null
+      }
+    }
+  },
+  "leakage_controls": {
+    "overlap_counts": {
+      "records": null,
+      "papers": null,
+      "name_blocks": null
+    },
+    "future_information_violations": null
+  },
+  "advisor_services": {
+    "outputs_are_predictions": true,
+    "allowed_as_gold_labels": false,
+    "allowed_uses": [
+      "paired_baseline",
+      "candidate_source",
+      "disagreement_sampling"
+    ]
+  }
+}

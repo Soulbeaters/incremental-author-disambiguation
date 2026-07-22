@@ -12,6 +12,18 @@ This is the complete local project home. It contains the synchronized Git
 repository plus private, Git-ignored research inputs and generated results that
 do not exist in the Codex development copy.
 
+Current scientific objective and irreversible data-split rules:
+
+```text
+PROJECT2_RESEARCH_GOAL.md
+```
+
+The machine-readable split contract starts from:
+
+```text
+config\research_data_split.template.json
+```
+
 GitHub research branch:
 
 ```text

@@ -27,6 +27,8 @@ class ResearchCriteria:
     min_unique_papers: int = 100
     min_absolute_gain: float = 0.02
     max_p_value: float = 0.05
+    min_blind_known_mentions: int = 1_000
+    min_blind_unseen_mentions: int = 5_000
 
 
 def _object(value: Any) -> Dict[str, Any]:
@@ -102,6 +104,7 @@ def assess_research_readiness(
     paper_package: Mapping[str, Any],
     paired_analysis: Optional[Mapping[str, Any]] = None,
     criteria: Optional[ResearchCriteria] = None,
+    data_split_manifest: Optional[Mapping[str, Any]] = None,
 ) -> Dict[str, Any]:
     criteria = criteria or ResearchCriteria()
     temporal_protocol = _object(temporal_replay.get("protocol"))
@@ -256,8 +259,128 @@ def assess_research_readiness(
     mcnemar_p = analysis.get("mcnemar_exact_two_sided_p")
     cluster_p = randomization.get("p_value")
     interval_lower = interval.get("lower")
+    split_manifest = _object(data_split_manifest)
+    public_development = _object(split_manifest.get("public_development"))
+    istina_split = _object(split_manifest.get("istina"))
+    blind_test = _object(istina_split.get("blind_test"))
+    frozen_artifacts = _object(blind_test.get("frozen_artifacts"))
+    leakage_controls = _object(split_manifest.get("leakage_controls"))
+    overlap_counts = _object(leakage_controls.get("overlap_counts"))
+    advisor_services = _object(split_manifest.get("advisor_services"))
+
+    def frozen_sha256(name: str) -> bool:
+        value = frozen_artifacts.get(name)
+        return (
+            isinstance(value, str)
+            and len(value) == 64
+            and all(character in "0123456789abcdefABCDEF" for character in value)
+        )
 
     claim_checks = [
+        _check(
+            "preregistered_data_split",
+            split_manifest.get("status"),
+            "frozen or evaluated",
+            split_manifest.get("status") in {"frozen", "evaluated"},
+            "design",
+        ),
+        _check(
+            "public_data_development_only",
+            {
+                "role": public_development.get("role"),
+                "final_claim_eligible": public_development.get(
+                    "final_claim_eligible"
+                ),
+            },
+            {
+                "role": "development_transfer_benchmark",
+                "final_claim_eligible": False,
+            },
+            public_development.get("role")
+            == "development_transfer_benchmark"
+            and public_development.get("final_claim_eligible") is False,
+            "design",
+        ),
+        _check(
+            "zero_split_leakage",
+            {
+                "overlap_counts": overlap_counts,
+                "future_information_violations": leakage_controls.get(
+                    "future_information_violations"
+                ),
+            },
+            {
+                "records": 0,
+                "papers": 0,
+                "name_blocks": 0,
+                "future_information_violations": 0,
+            },
+            overlap_counts.get("records") == 0
+            and overlap_counts.get("papers") == 0
+            and overlap_counts.get("name_blocks") == 0
+            and leakage_controls.get("future_information_violations") == 0,
+            "leakage",
+        ),
+        _check(
+            "service_predictions_not_gold",
+            {
+                "outputs_are_predictions": advisor_services.get(
+                    "outputs_are_predictions"
+                ),
+                "allowed_as_gold_labels": advisor_services.get(
+                    "allowed_as_gold_labels"
+                ),
+            },
+            {
+                "outputs_are_predictions": True,
+                "allowed_as_gold_labels": False,
+            },
+            advisor_services.get("outputs_are_predictions") is True
+            and advisor_services.get("allowed_as_gold_labels") is False,
+            "labels",
+        ),
+        _check(
+            "blind_test_opened_after_freeze",
+            {
+                "labels_withheld_until_model_freeze": blind_test.get(
+                    "labels_withheld_until_model_freeze"
+                ),
+                "opened_after_model_freeze": blind_test.get(
+                    "opened_after_model_freeze"
+                ),
+                "frozen_artifacts": frozen_artifacts,
+            },
+            "labels withheld until all three artifact hashes were frozen",
+            blind_test.get("labels_withheld_until_model_freeze") is True
+            and blind_test.get("opened_after_model_freeze") is True
+            and all(
+                frozen_sha256(name)
+                for name in ("code_sha256", "model_sha256", "protocol_sha256")
+            ),
+            "design",
+        ),
+        _check(
+            "powered_blind_test_strata",
+            {
+                "known_author_queries": blind_test.get("known_author_queries"),
+                "unseen_or_hard_negative_queries": blind_test.get(
+                    "unseen_or_hard_negative_queries"
+                ),
+            },
+            {
+                "known_author_queries": (
+                    f">={criteria.min_blind_known_mentions}"
+                ),
+                "unseen_or_hard_negative_queries": (
+                    f">={criteria.min_blind_unseen_mentions}"
+                ),
+            },
+            int(blind_test.get("known_author_queries") or 0)
+            >= criteria.min_blind_known_mentions
+            and int(blind_test.get("unseen_or_hard_negative_queries") or 0)
+            >= criteria.min_blind_unseen_mentions,
+            "power",
+        ),
         _check(
             "independently_verified_provenance",
             provenance.get("verified"),
@@ -334,7 +457,7 @@ def assess_research_readiness(
     framework_failures = [item for item in framework_checks if not item["passed"]]
     claim_failures = [item for item in claim_checks if not item["passed"]]
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "framework_ready": not framework_failures,
         "superiority_claim_ready": not claim_failures,
         "writes_authorized": False,
@@ -388,6 +511,7 @@ def main() -> None:
     parser.add_argument("--performance", type=Path, required=True)
     parser.add_argument("--paper-package", type=Path, required=True)
     parser.add_argument("--paired-analysis", type=Path)
+    parser.add_argument("--data-split-manifest", type=Path)
     parser.add_argument("--criteria", type=Path)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
@@ -401,6 +525,7 @@ def main() -> None:
         _load(args.paper_package),
         _load(args.paired_analysis) if args.paired_analysis else None,
         criteria,
+        _load(args.data_split_manifest) if args.data_split_manifest else None,
     )
     source_paths = {
         "temporal_replay": args.temporal_replay,
@@ -411,6 +536,8 @@ def main() -> None:
     }
     if args.paired_analysis:
         source_paths["paired_analysis"] = args.paired_analysis
+    if args.data_split_manifest:
+        source_paths["data_split_manifest"] = args.data_split_manifest
     result["inputs"] = {
         name: {"name": path.name, "sha256": _sha256_file(path)}
         for name, path in source_paths.items()

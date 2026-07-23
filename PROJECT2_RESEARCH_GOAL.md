@@ -46,11 +46,15 @@ pairwise and clustering parameters on 2023, run a frozen development test on
 2024, then compare the frozen pipeline on 2025--2026.  The next
 domain-specific claim still requires verified ISTINA development labels.
 
-The registered public training subset contains 46,545 train, 13,698
-validation and 16,083 development-test authorships after the same strict
-structured-name, complete-coauthor and real-SPECTER2 join.  These labels are
-sufficient for the stock retraining control, but the public data's near-total
-Latin-script coverage is not sufficient for a Russian--Chinese subgroup claim.
+The registered public pool contains 46,545 train, 13,698 validation and 16,083
+development-test authorships after the same strict structured-name,
+complete-coauthor and real-SPECTER2 join.  The memory-bounded official Python
+control materializes a label-independent SHA-256 sample of 30% of complete
+name blocks: 14,334/4,272/4,935 authorships and
+155,104/12,620/19,888 unique within-block pair opportunities.  It still draws
+the registered 100,000/10,000/10,000 pairs.  The public data's near-total
+Latin-script coverage remains insufficient for a Russian--Chinese subgroup
+claim.
 
 ## Irreversible data roles
 

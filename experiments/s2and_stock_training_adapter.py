@@ -34,9 +34,43 @@ class StockS2ANDTrainingData:
     audit: dict[str, Any]
 
 
+BLOCK_SAMPLE_NAMESPACE = "stock-s2and-block-v1"
+
+
 def _hash_token(namespace: str, value: str) -> str:
     digest = hashlib.sha256(f"{namespace}\0{value}".encode("utf-8")).hexdigest()
     return f"{namespace}:{digest[:24]}"
+
+
+def select_mentions_by_block_fraction(
+    mentions: Sequence[ReplayMention],
+    fraction: float,
+) -> tuple[list[ReplayMention], dict[str, Any]]:
+    """Select complete name blocks using a label-independent stable hash."""
+
+    if not (0.0 < float(fraction) <= 1.0):
+        raise ValueError("block fraction must be in (0, 1]")
+    blocks = sorted(
+        {mention.block for mention in mentions},
+        key=lambda block: (
+            hashlib.sha256(
+                f"{BLOCK_SAMPLE_NAMESPACE}\0{block}".encode("utf-8")
+            ).digest(),
+            block,
+        ),
+    )
+    selected_count = max(1, round(len(blocks) * float(fraction)))
+    selected_blocks = set(blocks[:selected_count])
+    selected = [
+        mention for mention in mentions if mention.block in selected_blocks
+    ]
+    return selected, {
+        "method": "label-independent SHA-256 name-block sample",
+        "namespace": BLOCK_SAMPLE_NAMESPACE,
+        "fraction": float(fraction),
+        "eligible_blocks": len(blocks),
+        "selected_blocks": len(selected_blocks),
+    }
 
 
 def _role(

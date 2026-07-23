@@ -37,6 +37,7 @@ from experiments.s2and_public_replay import load_replay_corpus  # noqa: E402
 from experiments.s2and_stock_training_adapter import (  # noqa: E402
     build_stock_s2and_training_data,
     exact_time_split_ratios,
+    select_mentions_by_block_fraction,
     verify_official_time_split,
 )
 
@@ -150,6 +151,7 @@ def _input_manifest(
         },
         "random_seed": int(args.random_seed),
         "n_jobs": int(args.n_jobs),
+        "block_fraction": float(args.block_fraction),
     }
 
 
@@ -221,7 +223,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         mention
         for history, query in corpus.blocks.values()
         for mention in (*history, *query)
+        if mention.year <= args.test_year
     ]
+    mentions, block_sample_audit = select_mentions_by_block_fraction(
+        mentions,
+        args.block_fraction,
+    )
     training_data = build_stock_s2and_training_data(
         mentions,
         train_through_year=args.train_through_year,
@@ -232,6 +239,19 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     gc.collect()
     stages["load_and_adapt_seconds"] = time.perf_counter() - stage_started
     peak_rss = max(peak_rss, _observed_rss_bytes())
+    for role, requested in (
+        ("train", args.train_pairs),
+        ("validation", args.validation_pairs),
+        ("test", args.test_pairs),
+    ):
+        available = training_data.audit["pair_opportunities"][role][
+            "within_block_possible_pairs"
+        ]
+        if available < requested:
+            raise ValueError(
+                f"registered {role} block sample has {available} pairs; "
+                f"{requested} requested"
+            )
     print(
         "stock_s2and_training_data "
         f"train={len(training_data.train_signature_ids)} "
@@ -354,6 +374,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "contains_record_values": False,
         "complete": True,
         "audit": training_audit,
+        "block_sample": block_sample_audit,
         "official_split_counts": split_counts,
         "pairwise_metrics": pairwise_metrics,
         "model": {
@@ -406,6 +427,7 @@ def main() -> int:
     parser.add_argument("--cluster-iterations", type=int, default=25)
     parser.add_argument("--random-seed", type=int, default=1111)
     parser.add_argument("--n-jobs", type=int, default=1)
+    parser.add_argument("--block-fraction", type=float, default=0.30)
     args = parser.parse_args()
     run(args)
     return 0

@@ -10,6 +10,7 @@ from experiments.s2and_public_replay import (
 from experiments.s2and_stock_training_adapter import (
     build_stock_s2and_training_data,
     exact_time_split_ratios,
+    select_mentions_by_block_fraction,
     verify_official_time_split,
 )
 
@@ -87,6 +88,35 @@ def test_rejects_same_paper_on_two_temporal_sides():
     ]
     with pytest.raises(ValueError, match="paper leakage"):
         build_stock_s2and_training_data(mentions)
+
+
+def test_block_sampling_is_label_independent_and_keeps_complete_blocks():
+    mentions = [
+        _mention("10.1/a", "identity-a", 2022, first="A", last="One"),
+        _mention("10.1/b", "identity-b", 2023, first="A", last="One"),
+        _mention("10.1/c", "identity-c", 2024, first="B", last="Two"),
+        _mention("10.1/d", "identity-d", 2022, first="C", last="Three"),
+    ]
+    selected, audit = select_mentions_by_block_fraction(mentions, 0.5)
+    selected_blocks = {mention.block for mention in selected}
+    assert audit["selected_blocks"] == 2
+    assert all(
+        (mention in selected) == (mention.block in selected_blocks)
+        for mention in mentions
+    )
+
+    relabelled = [
+        _mention(
+            mention.doi,
+            f"changed-{index}",
+            mention.year,
+            first=mention.first,
+            last=mention.last,
+        )
+        for index, mention in enumerate(mentions)
+    ]
+    selected_relabelled, _ = select_mentions_by_block_fraction(relabelled, 0.5)
+    assert {mention.block for mention in selected_relabelled} == selected_blocks
 
 
 class _SplitDataset:

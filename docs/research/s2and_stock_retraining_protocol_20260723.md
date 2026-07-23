@@ -35,6 +35,9 @@ membership labels.  It is absent from every feature row, as is the synthetic
 - official S2AND `ANDData`, `FeaturizationInfo`, `PairwiseModeler` and
   `Clusterer`;
 - unchanged official feature set;
+- a label-independent SHA-256 sample of 30% of complete name blocks, used to
+  bound official Python preprocessing memory while retaining 155,104/12,620/
+  19,888 unique train/validation/test pair opportunities;
 - within-block pair sampling;
 - 100,000 train, 10,000 validation and 10,000 development-test pairs;
 - 25 official Hyperopt trials for the pairwise model;
@@ -52,7 +55,8 @@ output goes to a run-local log instead of stdout:
   --enrichment-dir 'runs\semantic_scholar_specter' `
   --s2and-repo 'C:\tmp\s2and-reference' `
   --s2and-cache 'tmp\s2and_stock_cache' `
-  --run-dir 'runs\s2and_stock_public_2022_2023_2024'
+  --run-dir 'runs\s2and_stock_public_2022_2023_2024' `
+  --block-fraction 0.30
 ```
 
 The saved `clusterer.pkl`, its SHA-256, the exact input hashes, split audit,

@@ -6,7 +6,11 @@ import pytest
 from experiments.grouped_candidate_ranker import (
     CandidateExample,
     CandidateGroup,
+    FROZEN_MODEL_BUNDLE_SCHEMA,
     GATE_FEATURE_NAMES,
+    LEGACY_FROZEN_MODEL_BUNDLE_SCHEMA,
+    LEGACY_GATE_FEATURE_NAMES,
+    LEGACY_RANKER_FEATURE_NAMES,
     RANKER_FEATURE_GROUPS,
     RANKER_FEATURE_NAMES,
     RankedDecision,
@@ -83,6 +87,59 @@ def test_candidate_groups_keep_labels_out_of_features():
     )
 
 
+def test_candidate_groups_add_palladius_features_only_in_new_ablation():
+    replay = {
+        "project2": {"records": [{
+            "article_id": "query-paper",
+            "decision": "unknown",
+            "author_id": None,
+            "gold_seen_in_history": True,
+            "gold_author_id": "A",
+            "topk": [{"author_id": "A", "score": 1.0}],
+        }]},
+        "native": [{
+            "prediction": "A",
+            "graph_support": 0.0,
+            "candidate_count": 1,
+        }],
+        "profile_sizes": {"A": 1},
+        "history_mentions_raw": [{
+            "article_id": "history-paper",
+            "gold_author_id": "A",
+            "firstname": "Jiaxing",
+            "middlename": "",
+            "lastname": "Ma",
+            "year": 2020,
+            "coauthors": [],
+        }],
+        "test_mentions_raw": [{
+            "article_id": "query-paper",
+            "firstname": "Цзясин",
+            "middlename": "",
+            "lastname": "Ма",
+            "year": 2022,
+            "coauthors": [],
+        }],
+    }
+
+    group = build_candidate_groups(replay)[0]
+    features = group.candidates[0].features
+
+    assert features[
+        RANKER_FEATURE_NAMES.index("family_palladius_similarity")
+    ] == 1.0
+    assert features[
+        RANKER_FEATURE_NAMES.index("given_palladius_similarity")
+    ] == 1.0
+    semantic_names = {
+        RANKER_FEATURE_NAMES[index]
+        for index in RANKER_FEATURE_GROUPS[
+            "listwise_semantic_cross_profile"
+        ]
+    }
+    assert "given_palladius_similarity" not in semantic_names
+
+
 def test_gate_indices_keep_old_ablation_free_of_semantic_features():
     old_ranker = RANKER_FEATURE_GROUPS["listwise_cross_profile"]
     selected = gate_feature_indices(old_ranker)
@@ -91,6 +148,19 @@ def test_gate_indices_keep_old_ablation_free_of_semantic_features():
     assert "paper_to_profile_cosine" not in selected_names
     assert "paper_to_profile_available" not in selected_names
     assert "ranker_top_score" in selected_names
+
+
+def test_multilingual_ablation_extends_but_does_not_change_old_group():
+    semantic = RANKER_FEATURE_GROUPS["listwise_semantic_cross_profile"]
+    multilingual = RANKER_FEATURE_GROUPS[
+        "listwise_multilingual_cross_profile"
+    ]
+
+    assert tuple(
+        RANKER_FEATURE_NAMES[index] for index in semantic
+    ) == LEGACY_RANKER_FEATURE_NAMES
+    assert multilingual[: len(semantic)] == semantic
+    assert len(multilingual) > len(semantic)
 
 
 def test_training_fixed_sequence_stops_at_first_unsafe_threshold():
@@ -243,3 +313,69 @@ def test_frozen_bundle_rejects_model_tampering():
 
     with pytest.raises(ValueError, match="model hash mismatch"):
         load_frozen_model_bundle(payload)
+
+
+def test_legacy_gate_summary_indices_are_remapped_by_name(monkeypatch):
+    class FakeBooster:
+        def __init__(self, *, model_str):
+            self.model_str = model_str
+
+        def num_feature(self):
+            return 1
+
+    class FakeLibrary:
+        Booster = FakeBooster
+
+    monkeypatch.setattr(
+        "experiments.grouped_candidate_ranker._require_lightgbm",
+        lambda: FakeLibrary,
+    )
+    import hashlib
+    import json
+
+    ranker_name = LEGACY_RANKER_FEATURE_NAMES[0]
+    gate_name = "ranker_top_score"
+    ranker_model = "legacy-ranker"
+    gate_model = "legacy-gate"
+    protocol = {"project_revision": "legacy"}
+    encoded_protocol = json.dumps(
+        protocol,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    payload = {
+        "schema_version": LEGACY_FROZEN_MODEL_BUNDLE_SCHEMA,
+        "contains_identity_values": False,
+        "decision_threshold": 0.5,
+        "protocol_sha256": hashlib.sha256(encoded_protocol).hexdigest(),
+        "ranker": {
+            "feature_indices": [0],
+            "feature_names": [ranker_name],
+            "model_sha256": hashlib.sha256(
+                ranker_model.encode("utf-8")
+            ).hexdigest(),
+            "lightgbm_model": ranker_model,
+        },
+        "nil_gate": {
+            "feature_indices": [
+                LEGACY_GATE_FEATURE_NAMES.index(gate_name)
+            ],
+            "feature_names": [gate_name],
+            "model_sha256": hashlib.sha256(
+                gate_model.encode("utf-8")
+            ).hexdigest(),
+            "lightgbm_model": gate_model,
+        },
+        "protocol": protocol,
+    }
+
+    loaded = load_frozen_model_bundle(payload)
+
+    assert loaded.ranker_feature_indices == (
+        RANKER_FEATURE_NAMES.index(ranker_name),
+    )
+    assert loaded.nil_gate_feature_indices == (
+        GATE_FEATURE_NAMES.index(gate_name),
+    )
+    assert FROZEN_MODEL_BUNDLE_SCHEMA != LEGACY_FROZEN_MODEL_BUNDLE_SCHEMA

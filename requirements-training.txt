@@ -1,3 +1,4 @@
 # Offline calibration only; production runtime does not import NumPy.
 numpy>=1.23
 lightgbm>=4.0
+pypinyin>=0.55,<0.56

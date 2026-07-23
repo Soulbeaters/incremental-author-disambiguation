@@ -22,6 +22,11 @@ from disambiguation_engine.listwise_open_set_gate import (
     FEATURE_NAMES,
     graph_proposal_features,
 )
+from disambiguation_engine.multilingual_name_features import (
+    FEATURE_NAMES as MULTILINGUAL_FEATURE_NAMES,
+    StructuredName,
+    best_profile_name_features,
+)
 from evaluation.risk_bounds import chernoff_kl_upper_bound
 
 BASE_RANKER_FEATURE_NAMES = FEATURE_NAMES + (
@@ -32,7 +37,10 @@ SEMANTIC_FEATURE_NAMES = (
     "paper_to_profile_cosine",
     "paper_to_profile_available",
 )
-RANKER_FEATURE_NAMES = BASE_RANKER_FEATURE_NAMES + SEMANTIC_FEATURE_NAMES
+LEGACY_RANKER_FEATURE_NAMES = BASE_RANKER_FEATURE_NAMES + SEMANTIC_FEATURE_NAMES
+RANKER_FEATURE_NAMES = (
+    LEGACY_RANKER_FEATURE_NAMES + MULTILINGUAL_FEATURE_NAMES
+)
 
 RANKER_FEATURE_GROUPS = {
     "graph_only": FEATURE_GROUPS["graph_only"] + (len(FEATURE_NAMES), len(FEATURE_NAMES) + 1),
@@ -42,7 +50,12 @@ RANKER_FEATURE_GROUPS = {
         len(FEATURE_NAMES) + 1,
     ),
     "listwise_cross_profile": tuple(range(len(BASE_RANKER_FEATURE_NAMES))),
-    "listwise_semantic_cross_profile": tuple(range(len(RANKER_FEATURE_NAMES))),
+    "listwise_semantic_cross_profile": tuple(
+        range(len(LEGACY_RANKER_FEATURE_NAMES))
+    ),
+    "listwise_multilingual_cross_profile": tuple(
+        range(len(RANKER_FEATURE_NAMES))
+    ),
 }
 
 GATE_SUMMARY_FEATURE_NAMES = (
@@ -53,7 +66,11 @@ GATE_SUMMARY_FEATURE_NAMES = (
     "log_ranked_candidate_count",
 )
 GATE_FEATURE_NAMES = RANKER_FEATURE_NAMES + GATE_SUMMARY_FEATURE_NAMES
-FROZEN_MODEL_BUNDLE_SCHEMA = "project2_lightgbm_bundle_v1"
+LEGACY_GATE_FEATURE_NAMES = (
+    LEGACY_RANKER_FEATURE_NAMES + GATE_SUMMARY_FEATURE_NAMES
+)
+FROZEN_MODEL_BUNDLE_SCHEMA = "project2_lightgbm_bundle_v2"
+LEGACY_FROZEN_MODEL_BUNDLE_SCHEMA = "project2_lightgbm_bundle_v1"
 
 
 @dataclass(frozen=True)
@@ -194,6 +211,7 @@ def build_candidate_groups(replay: Mapping[str, Any]) -> list[CandidateGroup]:
     )
     profile_years: dict[str, list[int]] = defaultdict(list)
     profile_coauthors: dict[str, set[str]] = defaultdict(set)
+    profile_names: dict[str, list[StructuredName]] = defaultdict(list)
     history_mentions = list(replay.get("history_mentions_raw") or ())
     semantic_centroids = _semantic_profile_centroids(history_mentions)
     for mention in history_mentions:
@@ -211,6 +229,15 @@ def build_candidate_groups(replay: Mapping[str, Any]) -> list[CandidateGroup]:
             for name in mention.get("coauthors") or ()
             if str(name).strip()
         )
+        try:
+            profile_names[author_id].append(
+                StructuredName.from_mapping(mention)
+            )
+        except ValueError:
+            # Missing structured fields disable only this optional family.
+            # The forbidden synthetic field remains a fail-closed boundary.
+            if "original_name" in mention:
+                raise
     query_embeddings: dict[str, np.ndarray | None] = {}
     query_embedding_by_position: list[np.ndarray | None] = []
     for position, query in enumerate(query_mentions):
@@ -225,6 +252,12 @@ def build_candidate_groups(replay: Mapping[str, Any]) -> list[CandidateGroup]:
     for position, (record, graph_proposal) in enumerate(zip(records, graph_proposals)):
         paper_key = str(record.get("article_id") or position)
         query = query_mentions[position] if position < len(query_mentions) else {}
+        try:
+            query_name = StructuredName.from_mapping(query)
+        except ValueError:
+            if "original_name" in query:
+                raise
+            query_name = None
         query_embedding = (
             query_embedding_by_position[position]
             if position < len(query_embedding_by_position)
@@ -274,6 +307,14 @@ def build_candidate_groups(replay: Mapping[str, Any]) -> list[CandidateGroup]:
                 float(np.clip(np.dot(query_embedding, centroid), -1.0, 1.0))
                 if semantic_available else 0.0
             )
+            multilingual_features = (
+                best_profile_name_features(
+                    query_name,
+                    profile_names.get(candidate_id, ()),
+                )
+                if query_name is not None
+                else (0.0,) * len(MULTILINGUAL_FEATURE_NAMES)
+            )
             candidates.append(CandidateExample(
                 author_id=candidate_id,
                 features=base_features + (
@@ -281,7 +322,7 @@ def build_candidate_groups(replay: Mapping[str, Any]) -> list[CandidateGroup]:
                     float(candidate_id == graph_author_id),
                     semantic_cosine,
                     float(semantic_available),
-                ),
+                ) + multilingual_features,
                 relevant=bool(
                     record.get("gold_seen_in_history") and candidate_id == truth
                 ),
@@ -811,7 +852,11 @@ def freeze_model_bundle(
 def load_frozen_model_bundle(payload: Mapping[str, Any]) -> FrozenModelBundle:
     """Validate and load a bundle without executing pickle content."""
 
-    if payload.get("schema_version") != FROZEN_MODEL_BUNDLE_SCHEMA:
+    schema_version = payload.get("schema_version")
+    if schema_version not in {
+        FROZEN_MODEL_BUNDLE_SCHEMA,
+        LEGACY_FROZEN_MODEL_BUNDLE_SCHEMA,
+    }:
         raise ValueError("unsupported frozen model bundle schema")
     if payload.get("contains_identity_values") is not False:
         raise ValueError("frozen model bundle identity-safety marker is missing")
@@ -819,19 +864,31 @@ def load_frozen_model_bundle(payload: Mapping[str, Any]) -> FrozenModelBundle:
 
     def load_component(
         role: str,
-        all_names: Sequence[str],
+        runtime_names: Sequence[str],
+        stored_names: Sequence[str],
     ) -> tuple[Any, tuple[int, ...]]:
         component = payload.get(role)
         if not isinstance(component, Mapping):
             raise ValueError(f"missing frozen {role} component")
-        indices = _validated_feature_indices(
+        stored_indices = _validated_feature_indices(
             component.get("feature_indices") or (),
-            all_names,
+            stored_names,
             role=role,
         )
-        expected_names = [all_names[index] for index in indices]
+        expected_names = [
+            stored_names[index] for index in stored_indices
+        ]
         if component.get("feature_names") != expected_names:
             raise ValueError(f"frozen {role} feature names do not match runtime")
+        runtime_index = {
+            name: index for index, name in enumerate(runtime_names)
+        }
+        try:
+            indices = tuple(runtime_index[name] for name in expected_names)
+        except KeyError as exc:
+            raise ValueError(
+                f"frozen {role} feature is unavailable in runtime"
+            ) from exc
         model_string = component.get("lightgbm_model")
         if not isinstance(model_string, str) or not model_string.strip():
             raise ValueError(f"missing frozen {role} LightGBM model")
@@ -846,8 +903,21 @@ def load_frozen_model_bundle(payload: Mapping[str, Any]) -> FrozenModelBundle:
     threshold = float(payload.get("decision_threshold"))
     if not math.isfinite(threshold) or threshold < 0.0:
         raise ValueError("invalid frozen decision threshold")
-    ranker, ranker_indices = load_component("ranker", RANKER_FEATURE_NAMES)
-    nil_gate, nil_gate_indices = load_component("nil_gate", GATE_FEATURE_NAMES)
+    legacy = schema_version == LEGACY_FROZEN_MODEL_BUNDLE_SCHEMA
+    ranker, ranker_indices = load_component(
+        "ranker",
+        RANKER_FEATURE_NAMES,
+        (
+            LEGACY_RANKER_FEATURE_NAMES
+            if legacy
+            else RANKER_FEATURE_NAMES
+        ),
+    )
+    nil_gate, nil_gate_indices = load_component(
+        "nil_gate",
+        GATE_FEATURE_NAMES,
+        LEGACY_GATE_FEATURE_NAMES if legacy else GATE_FEATURE_NAMES,
+    )
     protocol = payload.get("protocol")
     if not isinstance(protocol, Mapping):
         raise ValueError("frozen model protocol is missing")
@@ -877,6 +947,9 @@ __all__ = [
     "FROZEN_MODEL_BUNDLE_SCHEMA",
     "FrozenModelBundle",
     "GATE_FEATURE_NAMES",
+    "LEGACY_FROZEN_MODEL_BUNDLE_SCHEMA",
+    "LEGACY_GATE_FEATURE_NAMES",
+    "LEGACY_RANKER_FEATURE_NAMES",
     "RANKER_FEATURE_GROUPS",
     "RANKER_FEATURE_NAMES",
     "RankedDecision",

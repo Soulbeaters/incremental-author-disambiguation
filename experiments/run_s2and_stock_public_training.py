@@ -314,9 +314,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             )
             stages["featurize_seconds"] = time.perf_counter() - stage_started
 
-            X_train, y_train = train
-            X_validation, y_validation = validation
-            X_test, y_test = test
+            X_train, y_train, _train_nameless = train
+            X_validation, y_validation, _validation_nameless = validation
+            X_test, y_test, _test_nameless = test
             stage_started = time.perf_counter()
             pairwise_model = PairwiseModeler(
                 n_iter=args.pairwise_iterations,

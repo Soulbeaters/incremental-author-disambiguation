@@ -35,6 +35,10 @@ membership labels.  It is absent from every feature row, as is the synthetic
 - official S2AND `ANDData`, `FeaturizationInfo`, `PairwiseModeler` and
   `Clusterer`;
 - unchanged official feature set;
+- the official reference-feature path remains enabled even though the public
+  replay has no source-complete citation lists, so this signal is missing
+  equally for every compared method rather than silently dropping a stock
+  feature;
 - a label-independent SHA-256 sample of 30% of complete name blocks, used to
   bound official Python preprocessing memory while retaining 155,104/12,620/
   19,888 unique train/validation/test pair opportunities;

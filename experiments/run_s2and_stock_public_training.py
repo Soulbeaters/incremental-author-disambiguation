@@ -296,7 +296,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 preprocess=True,
                 use_orcid_id=False,
                 use_sinonym_overwrite=False,
-                compute_reference_features=False,
+                compute_reference_features=True,
             )
             split_counts = verify_official_time_split(dataset, training_data)
             training_audit = training_data.audit

@@ -77,6 +77,15 @@ frozen as a non-promoted ablation, not a breakthrough.  The next registered
 method uses official S2AND as the exact default and learns only a temporally
 separated RuZh residual correction policy.
 
+That residual policy has now completed its first frozen public comparison at
+revision `715476a`.  On 5,574 target queries it increased correct known links
+from 3,250 to 3,269, reduced wrong-known links from 112 to 109, left
+new-author false links unchanged at 239, and changed none of 9,848 non-target
+outputs.  Overall known recall rose from 0.962943 to 0.965014.  This passes the
+public three-outcome gate and is retained as the first positive Project Two
+candidate.  It remains a public-development result, not SOTA or an ISTINA
+blind-test claim.
+
 ## Frozen S2AND research ladder
 
 Project Two now uses official S2AND `0.51.1` / production bundle `v1.21` as a
@@ -192,7 +201,9 @@ surnames and dense same-name blocks are preregistered challenge strata.
    support/conflict aggregation plus collision-aware negative weighting; its
    first ablation did not pass the joint promotion gate.  The active follow-up
    is a residual mixture-of-experts policy that preserves official S2AND by
-   default and may change only prespecified target decisions.
+   default and may change only prespecified target decisions.  Its first frozen
+   public comparison passed; the next obligation is independent replication,
+   not another threshold sweep on the opened Crossref–ORCID comparison.
 4. Keep candidate retrieval separate from the MERGE/NEW/UNKNOWN decision and
    certify the final combined system, not only the added rescue gate.
 5. Admit a GNN only when verified repeated identities and relations are large

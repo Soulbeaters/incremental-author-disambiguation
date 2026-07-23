@@ -710,6 +710,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "comparison": {
             "queries": len(comparison_rows),
             "target_queries": sum(row.target for row in comparison_rows),
+            "clustering_metric_status": (
+                "link-projection diagnostic only: the anonymous official "
+                "outcome checkpoint does not retain new-query cluster tokens"
+            ),
             "action_counts": dict(action_counts),
             "official_target": _outcome_dict(target_official),
             "candidate_target": _outcome_dict(target_candidate),

@@ -1,0 +1,124 @@
+{
+  "schema_version": "project2_ruzh_s2and_residual_evidence_v1",
+  "development_only": true,
+  "contains_record_values": false,
+  "decision": "public_candidate_passed",
+  "claim_limit": "public temporal transfer improvement; not SOTA and not an ISTINA blind-test result",
+  "project_revision": "715476a83b6e49bbe69403fa7784be13425f1c7d",
+  "protocol": {
+    "train": {
+      "history_through": 2022,
+      "query_year": 2023,
+      "queries": 13698,
+      "target_queries": 4301
+    },
+    "validation": {
+      "history_through": 2023,
+      "query_year": 2024,
+      "queries": 16083,
+      "target_queries": 5448
+    },
+    "comparison": {
+      "history_through": 2024,
+      "query_from": 2025,
+      "queries": 15422,
+      "target_queries": 5574
+    },
+    "artifact_frozen_before_comparison_outcomes": true,
+    "non_target_exact_official_fallback": true
+  },
+  "validation_target": {
+    "official": {
+      "known": 3387,
+      "new": 2061,
+      "correct_known": 3229,
+      "wrong_known": 75,
+      "false_links_new": 153
+    },
+    "candidate": {
+      "known": 3387,
+      "new": 2061,
+      "correct_known": 3244,
+      "wrong_known": 74,
+      "false_links_new": 153
+    },
+    "deltas": {
+      "correct_known": 15,
+      "wrong_known": -1,
+      "false_links_new": 0,
+      "non_target_disagreements": 0
+    }
+  },
+  "comparison_target": {
+    "official": {
+      "known": 3441,
+      "new": 2133,
+      "correct_known": 3250,
+      "wrong_known": 112,
+      "false_links_new": 239,
+      "known_recall": 0.9444928799767509,
+      "known_prediction_precision": 0.966686496133254,
+      "new_author_false_link_rate": 0.11204875761837788
+    },
+    "candidate": {
+      "known": 3441,
+      "new": 2133,
+      "correct_known": 3269,
+      "wrong_known": 109,
+      "false_links_new": 239,
+      "known_recall": 0.950014530659692,
+      "known_prediction_precision": 0.967732386027235,
+      "new_author_false_link_rate": 0.11204875761837788
+    },
+    "deltas": {
+      "correct_known": 19,
+      "wrong_known": -3,
+      "false_links_new": 0,
+      "non_target_disagreements": 0
+    },
+    "mcnemar_exact_two_sided_p": 0.000003814697265625
+  },
+  "comparison_overall_linking": {
+    "official": {
+      "known": 9175,
+      "new": 6247,
+      "correct_known": 8835,
+      "wrong_known": 157,
+      "false_links_new": 265,
+      "known_recall": 0.9629427792915531,
+      "known_prediction_precision": 0.9825400355871886,
+      "accepted_link_precision": 0.954412876741925,
+      "new_author_false_link_rate": 0.042420361773651355
+    },
+    "candidate": {
+      "known": 9175,
+      "new": 6247,
+      "correct_known": 8854,
+      "wrong_known": 154,
+      "false_links_new": 265,
+      "known_recall": 0.9650136239782017,
+      "known_prediction_precision": 0.9829040852575488,
+      "accepted_link_precision": 0.9548150544591826,
+      "new_author_false_link_rate": 0.042420361773651355
+    },
+    "actions": {
+      "official_fallback": 15403,
+      "expert_replacement": 19,
+      "veto": 0
+    }
+  },
+  "limitations": {
+    "public_comparison_previously_influenced_project_development": true,
+    "genuine_cyrillic_and_palladius_support_is_sparse": true,
+    "exact_s2and_new_query_cluster_tokens_were_not_retained": true,
+    "clustering_projection_is_not_used_for_the_superiority_claim": true,
+    "advisor_istina_blind_test_accessed": false
+  },
+  "artifacts": {
+    "aggregate_sha256": "C87CF212BADEF0375D47FF3FFD957EFC26792F85110DE570A8F63B49D591BEBD",
+    "residual_model_sha256": "FC29EA7A8A5123D5D491CFC0CE0A7999EE3A76BD807F71D5FBA7A1ABE3F4E541",
+    "official_train_checkpoint_sha256": "87DD7ED8ABD9856E4D80FD173AFFA75FA18C42A21FCD8BE7C5719184A7A0BF5F",
+    "official_validation_checkpoint_sha256": "2FC04D9F2567DD17785DDECF1D1CCA0BFA79E6A82623B29A7A625E3B56CBE336",
+    "official_comparison_checkpoint_sha256": "96885676BE1C0FD45841E78E0CFA82A7088F22705347C75784FAA1FFD3D14C6C"
+  }
+}

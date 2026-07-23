@@ -61,6 +61,13 @@ docs\research\ruzh_profile_hard_negative_result_20260723.md
 evidence\ruzh_profile_hard_negative_20260723.json
 ```
 
+First positive official-S2AND residual comparison:
+
+```text
+docs\research\ruzh_s2and_residual_result_20260723.md
+evidence\ruzh_s2and_residual_20260723.json
+```
+
 Paper-grade public S2AND dataset audit and temporal split sizes:
 
 ```text
@@ -153,6 +160,12 @@ Project Two selective model but increased two error counts and remained far
 below official S2AND recall, so it was not promoted.  The active experiment is
 now a residual expert: official S2AND remains the exact default and the RuZh
 layer is allowed to correct only errors learned from earlier temporal splits.
+
+The frozen residual comparison has now passed on the public 2025+ transfer
+split: `+19` correct known links, `-3` wrong-known links, no change in
+new-author false links and zero non-target disagreements.  Treat this as a
+replication candidate, not as SOTA; the next valid evidence is WhoIsWho or
+labelled ISTINA development data followed by the separately sealed blind test.
 
 Project One's Chinese surname/Pinyin/Palladius resources and an attributed
 OpenCorpora Russian name-role lexicon are integrated as feature evidence, not

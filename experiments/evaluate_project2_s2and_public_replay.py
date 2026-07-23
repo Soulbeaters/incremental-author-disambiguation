@@ -51,6 +51,7 @@ from experiments.grouped_candidate_ranker import (  # noqa: E402
     freeze_model_bundle,
     gate_feature_indices,
     gate_scores,
+    load_frozen_model_bundle,
     model_summary,
     out_of_fold_ranked_decisions,
     rank_groups,
@@ -727,6 +728,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     frozen_model = {
         "exported": False,
         "exported_before_certification": False,
+        "reloaded_before_certification": False,
         "schema_version": FROZEN_MODEL_BUNDLE_SCHEMA,
         "sha256": None,
     }
@@ -764,9 +766,18 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             },
         )
         _atomic_json(args.model_artifact, bundle)
+        loaded_bundle = load_frozen_model_bundle(
+            json.loads(args.model_artifact.read_text(encoding="utf-8"))
+        )
+        ranker = loaded_bundle.ranker
+        nil_gate = loaded_bundle.nil_gate
+        feature_indices = loaded_bundle.ranker_feature_indices
+        nil_gate_indices = loaded_bundle.nil_gate_feature_indices
+        threshold = loaded_bundle.decision_threshold
         frozen_model = {
             "exported": True,
             "exported_before_certification": True,
+            "reloaded_before_certification": True,
             "schema_version": FROZEN_MODEL_BUNDLE_SCHEMA,
             "sha256": sha256_file(args.model_artifact),
         }

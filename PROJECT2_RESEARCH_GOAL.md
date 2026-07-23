@@ -41,8 +41,16 @@ That ablation completed at Project Two revision `9fa59e8`.  It supports the
 multilingual name-view family as a public-development improvement to the
 selective gate, but it does not validate the Cyrillic/Palladius/Han subgroup
 features and does not establish overall superiority over official S2AND.  The
-next control is stock-S2AND retraining on development data; the next
-domain-specific claim requires verified ISTINA development labels.
+stock-S2AND retraining control is now fixed as: train through 2022, select
+pairwise and clustering parameters on 2023, run a frozen development test on
+2024, then compare the frozen pipeline on 2025--2026.  The next
+domain-specific claim still requires verified ISTINA development labels.
+
+The registered public training subset contains 46,545 train, 13,698
+validation and 16,083 development-test authorships after the same strict
+structured-name, complete-coauthor and real-SPECTER2 join.  These labels are
+sufficient for the stock retraining control, but the public data's near-total
+Latin-script coverage is not sufficient for a Russian--Chinese subgroup claim.
 
 ## Irreversible data roles
 

@@ -19,6 +19,7 @@ import logging
 import math
 import os
 from pathlib import Path
+import pickle
 import sqlite3
 import subprocess
 import sys
@@ -341,7 +342,8 @@ def _run_manifest(
     authors_path: Path,
     article_authors_path: Path,
     enrichment_dir: Path,
-    model_dir: Path,
+    model_dir: Path | None,
+    model_pickle: Path | None,
     s2and_repo: Path,
     cutoff_year: int,
     batch_blocks: int,
@@ -353,7 +355,22 @@ def _run_manifest(
     if dirty:
         raise RuntimeError("formal S2AND run requires a clean tracked worktree")
     enrichment_manifest = enrichment_dir / "aggregate_manifest.json"
-    model_manifest = model_dir / "manifest.json"
+    if (model_dir is None) == (model_pickle is None):
+        raise ValueError("set exactly one of model_dir and model_pickle")
+    if model_dir is not None:
+        model_artifact = {
+            "type": "official_production_bundle",
+            "sha256": sha256_file(model_dir / "manifest.json"),
+        }
+    else:
+        assert model_pickle is not None
+        model_artifact = {
+            "type": "stock_s2and_retrained_pickle",
+            "sha256": sha256_file(model_pickle),
+        }
+        training_result = model_pickle.parent / "training_result.json"
+        if training_result.is_file():
+            model_artifact["training_result_sha256"] = sha256_file(training_result)
     manifest = {
         "checkpoint_schema_version": CHECKPOINT_SCHEMA_VERSION,
         "development_only": True,
@@ -361,7 +378,7 @@ def _run_manifest(
         "project_revision": _git_output(["rev-parse", "HEAD"], PROJECT_ROOT),
         "s2and_revision": _git_output(["rev-parse", "HEAD"], s2and_repo),
         "s2and_version": importlib.metadata.version("s2and"),
-        "model_manifest_sha256": sha256_file(model_manifest),
+        "model_artifact": model_artifact,
         "authors_sha256": sha256_file(authors_path),
         "article_authors_sha256": sha256_file(article_authors_path),
         "enrichment_manifest_sha256": sha256_file(enrichment_manifest),
@@ -432,6 +449,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         article_authors_path=args.article_authors,
         enrichment_dir=args.enrichment_dir,
         model_dir=args.model_dir,
+        model_pickle=args.model_pickle,
         s2and_repo=args.s2and_repo,
         cutoff_year=args.cutoff_year,
         batch_blocks=args.batch_blocks,
@@ -452,7 +470,6 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     from s2and.data import ANDData
-    from s2and.production_model import load_production_model
     from scripts.convert_to_arrow import _cluster_seeds_payload
 
     logging.getLogger("s2and").setLevel(logging.ERROR)
@@ -461,10 +478,16 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     peak_rss = _observed_rss_bytes()
     try:
         with redirect_stdout(sink), redirect_stderr(sink):
-            clusterer = load_production_model(
-                args.model_dir,
-                require_incremental_linker=False,
-            )
+            if args.model_pickle is not None:
+                with args.model_pickle.open("rb") as handle:
+                    clusterer = pickle.load(handle)
+            else:
+                from s2and.production_model import load_production_model
+
+                clusterer = load_production_model(
+                    args.model_dir,
+                    require_incremental_linker=False,
+                )
         block_to_ordinal = {block: ordinal for ordinal, block in enumerate(query_blocks)}
         for batch in _chunks(pending, args.batch_blocks):
             history_rows, query_rows, query_mentions, embeddings = adapter_inputs(
@@ -590,7 +613,9 @@ def main() -> int:
     parser.add_argument("--article-authors", type=Path, required=True)
     parser.add_argument("--enrichment-dir", type=Path, required=True)
     parser.add_argument("--s2and-repo", type=Path, required=True)
-    parser.add_argument("--model-dir", type=Path, required=True)
+    model_group = parser.add_mutually_exclusive_group(required=True)
+    model_group.add_argument("--model-dir", type=Path)
+    model_group.add_argument("--model-pickle", type=Path)
     parser.add_argument("--s2and-cache", type=Path, required=True)
     parser.add_argument("--run-dir", type=Path, required=True)
     parser.add_argument("--cutoff-year", type=int, default=2021)

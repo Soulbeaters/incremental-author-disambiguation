@@ -3,10 +3,13 @@ import pytest
 from experiments.grouped_candidate_ranker import (
     CandidateExample,
     CandidateGroup,
+    GATE_FEATURE_NAMES,
+    RANKER_FEATURE_GROUPS,
     RANKER_FEATURE_NAMES,
     build_candidate_groups,
     fit_nil_gate,
     fit_ranker,
+    gate_feature_indices,
     gate_scores,
     rank_groups,
     ranking_metrics,
@@ -32,10 +35,24 @@ def test_candidate_groups_keep_labels_out_of_features():
         "native": [{"prediction": "A", "graph_support": 0.7, "candidate_count": 2}],
         "profile_sizes": {"A": 3, "B": 2},
         "history_mentions_raw": [
-            {"gold_author_id": "A", "year": 2020, "coauthors": ["Colleague"]},
-            {"gold_author_id": "B", "year": 2019, "coauthors": []},
+            {
+                "gold_author_id": "A",
+                "year": 2020,
+                "coauthors": ["Colleague"],
+                "paper_embedding": [1.0, 0.0],
+            },
+            {
+                "gold_author_id": "B",
+                "year": 2019,
+                "coauthors": [],
+                "paper_embedding": [0.0, 1.0],
+            },
         ],
-        "test_mentions_raw": [{"year": 2022, "coauthors": ["Colleague"]}],
+        "test_mentions_raw": [{
+            "year": 2022,
+            "coauthors": ["Colleague"],
+            "paper_embedding": [1.0, 0.0],
+        }],
     }
     groups = build_candidate_groups(replay)
     assert len(groups) == 1
@@ -43,6 +60,30 @@ def test_candidate_groups_keep_labels_out_of_features():
     assert sum(row.relevant for row in groups[0].candidates) == 1
     assert all(len(row.features) == len(RANKER_FEATURE_NAMES) for row in groups[0].candidates)
     assert all("A" not in {str(value) for value in row.features} for row in groups[0].candidates)
+    cosine_index = RANKER_FEATURE_NAMES.index("paper_to_profile_cosine")
+    available_index = RANKER_FEATURE_NAMES.index("paper_to_profile_available")
+    by_author = {row.author_id: row for row in groups[0].candidates}
+    assert by_author["A"].features[cosine_index] == pytest.approx(1.0)
+    assert by_author["B"].features[cosine_index] == pytest.approx(0.0)
+    assert by_author["A"].features[available_index] == 1.0
+    assert (
+        cosine_index
+        not in RANKER_FEATURE_GROUPS["listwise_cross_profile"]
+    )
+    assert (
+        cosine_index
+        in RANKER_FEATURE_GROUPS["listwise_semantic_cross_profile"]
+    )
+
+
+def test_gate_indices_keep_old_ablation_free_of_semantic_features():
+    old_ranker = RANKER_FEATURE_GROUPS["listwise_cross_profile"]
+    selected = gate_feature_indices(old_ranker)
+    selected_names = {GATE_FEATURE_NAMES[index] for index in selected}
+
+    assert "paper_to_profile_cosine" not in selected_names
+    assert "paper_to_profile_available" not in selected_names
+    assert "ranker_top_score" in selected_names
 
 
 def test_small_two_stage_model_ranks_then_rejects_nil_queries():

@@ -44,6 +44,7 @@ from experiments.grouped_candidate_ranker import (  # noqa: E402
     build_candidate_groups,
     fit_nil_gate,
     fit_ranker,
+    gate_feature_indices,
     gate_scores,
     model_summary,
     out_of_fold_ranked_decisions,
@@ -154,6 +155,10 @@ def main() -> int:
 
     feature_indices = RANKER_FEATURE_GROUPS[args.ranker_feature_group]
     ranker_feature_names = [RANKER_FEATURE_NAMES[index] for index in feature_indices]
+    nil_gate_indices = gate_feature_indices(feature_indices)
+    nil_gate_feature_names = [
+        GATE_FEATURE_NAMES[index] for index in nil_gate_indices
+    ]
     train_groups = build_candidate_groups(train)
     train_known, train_new = _trial_counts(train)
     oof_decisions = out_of_fold_ranked_decisions(
@@ -161,12 +166,16 @@ def main() -> int:
         feature_indices,
         folds=args.oof_folds,
     )
-    nil_gate = fit_nil_gate(oof_decisions)
+    nil_gate = fit_nil_gate(oof_decisions, nil_gate_indices)
     ranker = fit_ranker(train_groups, feature_indices)
 
     validation_groups = build_candidate_groups(validation)
     validation_decisions = rank_groups(ranker, validation_groups, feature_indices)
-    validation_scores = gate_scores(nil_gate, validation_decisions)
+    validation_scores = gate_scores(
+        nil_gate,
+        validation_decisions,
+        nil_gate_indices,
+    )
     validation_known, validation_new = _trial_counts(validation)
     selection = select_risk_bounded_threshold(
         validation_decisions,
@@ -181,7 +190,11 @@ def main() -> int:
 
     certification_groups = build_candidate_groups(certification)
     certification_decisions = rank_groups(ranker, certification_groups, feature_indices)
-    certification_scores = gate_scores(nil_gate, certification_decisions)
+    certification_scores = gate_scores(
+        nil_gate,
+        certification_decisions,
+        nil_gate_indices,
+    )
     certification_predictions = threshold_predictions(
         certification["test_mentions"],
         certification_decisions,
@@ -261,7 +274,11 @@ def main() -> int:
     )
     transfer_groups = build_candidate_groups(transfer)
     transfer_decisions = rank_groups(ranker, transfer_groups, feature_indices)
-    transfer_scores = gate_scores(nil_gate, transfer_decisions)
+    transfer_scores = gate_scores(
+        nil_gate,
+        transfer_decisions,
+        nil_gate_indices,
+    )
     selected_predictions = threshold_predictions(
         transfer["test_mentions"],
         transfer_decisions,
@@ -304,7 +321,7 @@ def main() -> int:
             "architecture": "grouped_lambdarank_then_binary_nil_gate",
             "ranker_feature_group": args.ranker_feature_group,
             "ranker": model_summary(ranker, ranker_feature_names),
-            "nil_gate": model_summary(nil_gate, GATE_FEATURE_NAMES),
+            "nil_gate": model_summary(nil_gate, nil_gate_feature_names),
             "complexity": {
                 "ranker_online_time": "O(C*T_rank*d_rank)",
                 "nil_gate_online_time": "O(T_gate*d_gate)",

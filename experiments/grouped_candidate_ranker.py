@@ -23,10 +23,15 @@ from disambiguation_engine.listwise_open_set_gate import (
 )
 from evaluation.risk_bounds import chernoff_kl_upper_bound
 
-RANKER_FEATURE_NAMES = FEATURE_NAMES + (
+BASE_RANKER_FEATURE_NAMES = FEATURE_NAMES + (
     "candidate_is_base_merge",
     "candidate_is_graph_proposal",
 )
+SEMANTIC_FEATURE_NAMES = (
+    "paper_to_profile_cosine",
+    "paper_to_profile_available",
+)
+RANKER_FEATURE_NAMES = BASE_RANKER_FEATURE_NAMES + SEMANTIC_FEATURE_NAMES
 
 RANKER_FEATURE_GROUPS = {
     "graph_only": FEATURE_GROUPS["graph_only"] + (len(FEATURE_NAMES), len(FEATURE_NAMES) + 1),
@@ -35,7 +40,8 @@ RANKER_FEATURE_GROUPS = {
         len(FEATURE_NAMES),
         len(FEATURE_NAMES) + 1,
     ),
-    "listwise_cross_profile": tuple(range(len(RANKER_FEATURE_NAMES))),
+    "listwise_cross_profile": tuple(range(len(BASE_RANKER_FEATURE_NAMES))),
+    "listwise_semantic_cross_profile": tuple(range(len(RANKER_FEATURE_NAMES))),
 }
 
 GATE_SUMMARY_FEATURE_NAMES = (
@@ -103,6 +109,62 @@ def _softmax_summary(scores: Sequence[float]) -> tuple[float, float]:
     return entropy, max(probabilities)
 
 
+def _unit_embedding(value: Any) -> np.ndarray | None:
+    if value is None:
+        return None
+    vector = np.asarray(value, dtype=np.float32)
+    if vector.ndim != 1 or vector.size == 0 or not np.isfinite(vector).all():
+        return None
+    norm = float(np.linalg.norm(vector))
+    if norm <= 0.0:
+        return None
+    return vector / norm
+
+
+def _semantic_profile_centroids(
+    history_mentions: Sequence[Mapping[str, Any]],
+) -> dict[str, np.ndarray]:
+    sums: dict[str, np.ndarray] = {}
+    paper_vectors: dict[str, np.ndarray | None] = {}
+    for position, mention in enumerate(history_mentions):
+        author_id = str(
+            mention.get("gold_author_id")
+            or mention.get("author_id")
+            or ""
+        )
+        paper_key = str(
+            mention.get("article_id")
+            or mention.get("doi")
+            or f"history-{position}"
+        )
+        if paper_key not in paper_vectors:
+            paper_vectors[paper_key] = _unit_embedding(
+                mention.get("paper_embedding")
+            )
+        vector = paper_vectors[paper_key]
+        if not author_id or vector is None:
+            continue
+        if author_id in sums:
+            sums[author_id] += vector
+        else:
+            sums[author_id] = vector.copy()
+    centroids = {}
+    for author_id, vector_sum in sums.items():
+        norm = float(np.linalg.norm(vector_sum))
+        if norm > 0.0:
+            centroids[author_id] = vector_sum / norm
+    return centroids
+
+
+def gate_feature_indices(
+    ranker_indices: Sequence[int],
+) -> tuple[int, ...]:
+    summary_start = len(RANKER_FEATURE_NAMES)
+    return tuple(ranker_indices) + tuple(
+        range(summary_start, len(GATE_FEATURE_NAMES))
+    )
+
+
 def build_candidate_groups(replay: Mapping[str, Any]) -> list[CandidateGroup]:
     """Build candidate groups without reading query labels into features."""
 
@@ -120,7 +182,9 @@ def build_candidate_groups(replay: Mapping[str, Any]) -> list[CandidateGroup]:
     )
     profile_years: dict[str, list[int]] = defaultdict(list)
     profile_coauthors: dict[str, set[str]] = defaultdict(set)
-    for mention in replay.get("history_mentions_raw") or ():
+    history_mentions = list(replay.get("history_mentions_raw") or ())
+    semantic_centroids = _semantic_profile_centroids(history_mentions)
+    for mention in history_mentions:
         author_id = str(mention.get("gold_author_id") or mention.get("author_id") or "")
         if not author_id:
             continue
@@ -135,11 +199,25 @@ def build_candidate_groups(replay: Mapping[str, Any]) -> list[CandidateGroup]:
             for name in mention.get("coauthors") or ()
             if str(name).strip()
         )
+    query_embeddings: dict[str, np.ndarray | None] = {}
+    query_embedding_by_position: list[np.ndarray | None] = []
+    for position, query in enumerate(query_mentions):
+        paper_key = str(query.get("article_id") or f"query-{position}")
+        if paper_key not in query_embeddings:
+            query_embeddings[paper_key] = _unit_embedding(
+                query.get("paper_embedding")
+            )
+        query_embedding_by_position.append(query_embeddings[paper_key])
 
     groups = []
     for position, (record, graph_proposal) in enumerate(zip(records, graph_proposals)):
         paper_key = str(record.get("article_id") or position)
         query = query_mentions[position] if position < len(query_mentions) else {}
+        query_embedding = (
+            query_embedding_by_position[position]
+            if position < len(query_embedding_by_position)
+            else None
+        )
         base_author_id = (
             str(record.get("author_id") or "")
             if record.get("decision") == "merge" else ""
@@ -178,11 +256,19 @@ def build_candidate_groups(replay: Mapping[str, Any]) -> list[CandidateGroup]:
                 query_coauthors=query.get("coauthors") or (),
                 profile_coauthors=profile_coauthors.get(candidate_id, ()),
             )
+            centroid = semantic_centroids.get(candidate_id)
+            semantic_available = query_embedding is not None and centroid is not None
+            semantic_cosine = (
+                float(np.clip(np.dot(query_embedding, centroid), -1.0, 1.0))
+                if semantic_available else 0.0
+            )
             candidates.append(CandidateExample(
                 author_id=candidate_id,
                 features=base_features + (
                     float(candidate_id == base_author_id),
                     float(candidate_id == graph_author_id),
+                    semantic_cosine,
+                    float(semantic_available),
                 ),
                 relevant=bool(
                     record.get("gold_seen_in_history") and candidate_id == truth
@@ -307,11 +393,18 @@ def out_of_fold_ranked_decisions(
 
 def fit_nil_gate(
     decisions: Sequence[RankedDecision],
+    indices: Sequence[int] | None = None,
     *,
     seed: int = 20260722,
 ) -> Any:
     library = _require_lightgbm()
-    features = np.asarray([decision.features for decision in decisions], dtype=float)
+    selected = tuple(indices) if indices is not None else tuple(
+        range(len(GATE_FEATURE_NAMES))
+    )
+    features = np.asarray([
+        [decision.features[index] for index in selected]
+        for decision in decisions
+    ], dtype=float)
     labels = np.asarray([int(decision.correct) for decision in decisions], dtype=int)
     if not labels.any() or labels.all():
         raise ValueError("NIL gate training needs safe links and rejection examples")
@@ -337,8 +430,18 @@ def fit_nil_gate(
     return model
 
 
-def gate_scores(model: Any, decisions: Sequence[RankedDecision]) -> dict[int, float]:
-    features = np.asarray([decision.features for decision in decisions], dtype=float)
+def gate_scores(
+    model: Any,
+    decisions: Sequence[RankedDecision],
+    indices: Sequence[int] | None = None,
+) -> dict[int, float]:
+    selected = tuple(indices) if indices is not None else tuple(
+        range(len(GATE_FEATURE_NAMES))
+    )
+    features = np.asarray([
+        [decision.features[index] for index in selected]
+        for decision in decisions
+    ], dtype=float)
     probabilities = model.predict_proba(features)[:, 1]
     return {
         decision.position: float(probability)
@@ -496,6 +599,7 @@ __all__ = [
     "build_candidate_groups",
     "fit_nil_gate",
     "fit_ranker",
+    "gate_feature_indices",
     "gate_scores",
     "model_summary",
     "out_of_fold_ranked_decisions",

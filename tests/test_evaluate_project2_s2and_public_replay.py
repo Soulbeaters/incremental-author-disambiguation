@@ -39,12 +39,14 @@ def _mention(identity, doi, year, position=0):
 
 
 def test_project2_adapter_uses_real_structured_context_only():
-    row = _project2_mention(_mention("label-only", "10.test/one", 2022), 1)
+    mention = _mention("label-only", "10.test/one", 2022)
+    row = _project2_mention(mention, 1)
 
     assert row["gold_author_id"] == "label-only"
     assert row["name"] == "Author A"
     assert row["coauthors"] == ["B Coauthor"]
     assert row["journal"] == "Observed journal"
+    assert row["paper_embedding"] is mention.paper.embedding
     assert "original_name" not in row
     assert "orcid" not in row
 

@@ -47,6 +47,7 @@ from experiments.grouped_candidate_ranker import (  # noqa: E402
     build_candidate_groups,
     fit_nil_gate,
     fit_ranker,
+    gate_feature_indices,
     gate_scores,
     model_summary,
     out_of_fold_ranked_decisions,
@@ -108,6 +109,7 @@ def _project2_mention(mention: ReplayMention, article_index: int) -> dict[str, A
         "affiliation": mention.affiliation,
         "title": mention.paper.title,
         "abstract": mention.paper.abstract,
+        "paper_embedding": mention.paper.embedding,
     }
 
 
@@ -584,6 +586,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
     feature_indices = RANKER_FEATURE_GROUPS[args.ranker_feature_group]
     feature_names = [RANKER_FEATURE_NAMES[index] for index in feature_indices]
+    nil_gate_indices = gate_feature_indices(feature_indices)
+    nil_gate_feature_names = [
+        GATE_FEATURE_NAMES[index] for index in nil_gate_indices
+    ]
     checkpoint.mark_started("train.candidate_groups")
     train_groups = build_candidate_groups(train)
     checkpoint.mark_completed(
@@ -602,7 +608,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         {"decisions": len(oof_decisions)},
     )
     checkpoint.mark_started("train.nil_gate")
-    nil_gate = fit_nil_gate(oof_decisions)
+    nil_gate = fit_nil_gate(oof_decisions, nil_gate_indices)
     checkpoint.mark_completed("train.nil_gate")
     checkpoint.mark_started("train.final_ranker")
     ranker = fit_ranker(train_groups, feature_indices)
@@ -632,7 +638,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     checkpoint.mark_started("validation_selection.rank")
     selection_groups = build_candidate_groups(selection_replay)
     selection_decisions = rank_groups(ranker, selection_groups, feature_indices)
-    selection_scores = gate_scores(nil_gate, selection_decisions)
+    selection_scores = gate_scores(
+        nil_gate,
+        selection_decisions,
+        nil_gate_indices,
+    )
     checkpoint.mark_completed(
         "validation_selection.rank",
         {"groups": len(selection_groups)},
@@ -666,7 +676,14 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     certification_decisions = rank_groups(
         ranker, certification_groups, feature_indices
     )
-    certification_scores = gate_scores(nil_gate, certification_decisions)
+    certification_scores = gate_scores(
+        nil_gate,
+        certification_decisions,
+        nil_gate_indices,
+    )
+    certification_known, certification_new = _trial_counts(
+        certification_replay
+    )
     certification_predictions = threshold_predictions(
         certification_replay["test_mentions"],
         certification_decisions,
@@ -699,7 +716,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     checkpoint.mark_started("comparison.rank")
     evaluation_groups = build_candidate_groups(evaluation)
     evaluation_decisions = rank_groups(ranker, evaluation_groups, feature_indices)
-    evaluation_scores = gate_scores(nil_gate, evaluation_decisions)
+    evaluation_scores = gate_scores(
+        nil_gate,
+        evaluation_decisions,
+        nil_gate_indices,
+    )
     grouped_predictions = threshold_predictions(
         evaluation["test_mentions"],
         evaluation_decisions,
@@ -713,6 +734,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         {"groups": len(evaluation_groups)},
     )
     records = evaluation["project2"]["records"]
+    evaluation_known, evaluation_new = _trial_counts(evaluation)
     official_result = json.loads(args.s2and_result.read_text(encoding="utf-8"))
     if not official_result.get("complete"):
         raise ValueError("official S2AND comparator is incomplete")
@@ -747,7 +769,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "architecture": "grouped_lambdarank_then_binary_nil_gate",
             "ranker_feature_group": args.ranker_feature_group,
             "ranker": model_summary(ranker, feature_names),
-            "nil_gate": model_summary(nil_gate, GATE_FEATURE_NAMES),
+            "nil_gate": model_summary(nil_gate, nil_gate_feature_names),
             "selected_threshold": threshold,
         },
         "training": {
@@ -766,11 +788,29 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "validation": {
             "selection_replay": _compact_replay(selection_replay),
             "certification_replay": _compact_replay(certification_replay),
+            "selection_ranking": ranking_metrics(
+                selection_groups,
+                selection_decisions,
+                known_trials=selection_known,
+                new_trials=selection_new,
+            ),
+            "certification_ranking": ranking_metrics(
+                certification_groups,
+                certification_decisions,
+                known_trials=certification_known,
+                new_trials=certification_new,
+            ),
             "threshold_selection": threshold_selection,
             "certification_risk": certification_risk,
         },
         "comparison": {
             "replay": _compact_replay(evaluation),
+            "project2_grouped_ranking": ranking_metrics(
+                evaluation_groups,
+                evaluation_decisions,
+                known_trials=evaluation_known,
+                new_trials=evaluation_new,
+            ),
             "project2_base": aggregate_method(evaluation, base),
             "project2_native_graph": aggregate_method(evaluation, native),
             "project2_grouped_selective": aggregate_method(

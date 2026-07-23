@@ -11,6 +11,7 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 import hashlib
+import json
 import math
 from typing import Any, Mapping, Sequence
 
@@ -52,6 +53,7 @@ GATE_SUMMARY_FEATURE_NAMES = (
     "log_ranked_candidate_count",
 )
 GATE_FEATURE_NAMES = RANKER_FEATURE_NAMES + GATE_SUMMARY_FEATURE_NAMES
+FROZEN_MODEL_BUNDLE_SCHEMA = "project2_lightgbm_bundle_v1"
 
 
 @dataclass(frozen=True)
@@ -82,6 +84,16 @@ class RankedDecision:
     @property
     def correct(self) -> bool:
         return bool(self.known and self.prediction == self.truth)
+
+
+@dataclass(frozen=True)
+class FrozenModelBundle:
+    ranker: Any
+    nil_gate: Any
+    ranker_feature_indices: tuple[int, ...]
+    nil_gate_feature_indices: tuple[int, ...]
+    decision_threshold: float
+    protocol: Mapping[str, Any]
 
 
 def _require_lightgbm() -> Any:
@@ -442,7 +454,12 @@ def gate_scores(
         [decision.features[index] for index in selected]
         for decision in decisions
     ], dtype=float)
-    probabilities = model.predict_proba(features)[:, 1]
+    if hasattr(model, "predict_proba"):
+        probabilities = np.asarray(model.predict_proba(features), dtype=float)[:, 1]
+    else:
+        probabilities = np.asarray(model.predict(features), dtype=float)
+        if probabilities.ndim != 1:
+            raise ValueError("frozen NIL gate must return one probability per row")
     return {
         decision.position: float(probability)
         for decision, probability in zip(decisions, probabilities)
@@ -656,14 +673,21 @@ def ranking_metrics(
 
 
 def model_summary(model: Any, feature_names: Sequence[str]) -> dict[str, Any]:
-    importances = [int(value) for value in model.feature_importances_]
+    if hasattr(model, "feature_importances_"):
+        importances = [int(value) for value in model.feature_importances_]
+        trees = int(getattr(model, "n_estimators", 0))
+    else:
+        importances = [
+            int(value) for value in model.feature_importance(importance_type="split")
+        ]
+        trees = int(model.num_trees())
     ranked = sorted(
         zip(feature_names, importances),
         key=lambda item: (-item[1], item[0]),
     )
     return {
         "model_class": type(model).__name__,
-        "trees": int(getattr(model, "n_estimators", 0)),
+        "trees": trees,
         "feature_count": len(feature_names),
         "feature_importance_split": [
             {"feature": name, "importance": importance}
@@ -672,9 +696,186 @@ def model_summary(model: Any, feature_names: Sequence[str]) -> dict[str, Any]:
     }
 
 
+def _validated_feature_indices(
+    values: Sequence[int],
+    names: Sequence[str],
+    *,
+    role: str,
+) -> tuple[int, ...]:
+    indices = tuple(int(value) for value in values)
+    if (
+        not indices
+        or len(indices) != len(set(indices))
+        or any(index < 0 or index >= len(names) for index in indices)
+    ):
+        raise ValueError(f"invalid {role} feature indices")
+    return indices
+
+
+def _booster_model_string(model: Any, *, role: str) -> str:
+    booster = getattr(model, "booster_", model)
+    if not hasattr(booster, "model_to_string"):
+        raise ValueError(f"{role} is not a fitted LightGBM model")
+    value = str(booster.model_to_string())
+    if not value.strip():
+        raise ValueError(f"{role} produced an empty LightGBM model")
+    return value
+
+
+def freeze_model_bundle(
+    ranker: Any,
+    nil_gate: Any,
+    ranker_feature_indices: Sequence[int],
+    nil_gate_feature_indices: Sequence[int],
+    decision_threshold: float,
+    *,
+    protocol: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Create a portable, label-free LightGBM model bundle."""
+
+    ranker_indices = _validated_feature_indices(
+        ranker_feature_indices,
+        RANKER_FEATURE_NAMES,
+        role="ranker",
+    )
+    gate_indices = _validated_feature_indices(
+        nil_gate_feature_indices,
+        GATE_FEATURE_NAMES,
+        role="NIL gate",
+    )
+    threshold = float(decision_threshold)
+    if not math.isfinite(threshold) or threshold < 0.0:
+        raise ValueError("decision threshold must be finite and non-negative")
+    protocol_payload = dict(protocol)
+    forbidden_protocol_keys = {
+        "gold_author_id",
+        "person_id",
+        "identity",
+        "labels",
+        "record_values",
+    }
+
+    def reject_identity_keys(value: Any) -> None:
+        if isinstance(value, Mapping):
+            for key, nested in value.items():
+                if str(key).casefold() in forbidden_protocol_keys:
+                    raise ValueError("frozen model protocol contains identity fields")
+                reject_identity_keys(nested)
+        elif isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+            for nested in value:
+                reject_identity_keys(nested)
+
+    reject_identity_keys(protocol_payload)
+    encoded_protocol = json.dumps(
+        protocol_payload,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    ranker_model = _booster_model_string(ranker, role="ranker")
+    gate_model = _booster_model_string(nil_gate, role="NIL gate")
+
+    def component(
+        model_string: str,
+        indices: tuple[int, ...],
+        names: Sequence[str],
+    ) -> dict[str, Any]:
+        return {
+            "feature_indices": list(indices),
+            "feature_names": [names[index] for index in indices],
+            "model_sha256": hashlib.sha256(
+                model_string.encode("utf-8")
+            ).hexdigest(),
+            "lightgbm_model": model_string,
+        }
+
+    return {
+        "schema_version": FROZEN_MODEL_BUNDLE_SCHEMA,
+        "contains_identity_values": False,
+        "decision_threshold": threshold,
+        "protocol_sha256": hashlib.sha256(encoded_protocol).hexdigest(),
+        "ranker": component(
+            ranker_model,
+            ranker_indices,
+            RANKER_FEATURE_NAMES,
+        ),
+        "nil_gate": component(
+            gate_model,
+            gate_indices,
+            GATE_FEATURE_NAMES,
+        ),
+        "protocol": protocol_payload,
+    }
+
+
+def load_frozen_model_bundle(payload: Mapping[str, Any]) -> FrozenModelBundle:
+    """Validate and load a bundle without executing pickle content."""
+
+    if payload.get("schema_version") != FROZEN_MODEL_BUNDLE_SCHEMA:
+        raise ValueError("unsupported frozen model bundle schema")
+    if payload.get("contains_identity_values") is not False:
+        raise ValueError("frozen model bundle identity-safety marker is missing")
+    library = _require_lightgbm()
+
+    def load_component(
+        role: str,
+        all_names: Sequence[str],
+    ) -> tuple[Any, tuple[int, ...]]:
+        component = payload.get(role)
+        if not isinstance(component, Mapping):
+            raise ValueError(f"missing frozen {role} component")
+        indices = _validated_feature_indices(
+            component.get("feature_indices") or (),
+            all_names,
+            role=role,
+        )
+        expected_names = [all_names[index] for index in indices]
+        if component.get("feature_names") != expected_names:
+            raise ValueError(f"frozen {role} feature names do not match runtime")
+        model_string = component.get("lightgbm_model")
+        if not isinstance(model_string, str) or not model_string.strip():
+            raise ValueError(f"missing frozen {role} LightGBM model")
+        expected_hash = hashlib.sha256(model_string.encode("utf-8")).hexdigest()
+        if component.get("model_sha256") != expected_hash:
+            raise ValueError(f"frozen {role} model hash mismatch")
+        booster = library.Booster(model_str=model_string)
+        if booster.num_feature() != len(indices):
+            raise ValueError(f"frozen {role} feature count mismatch")
+        return booster, indices
+
+    threshold = float(payload.get("decision_threshold"))
+    if not math.isfinite(threshold) or threshold < 0.0:
+        raise ValueError("invalid frozen decision threshold")
+    ranker, ranker_indices = load_component("ranker", RANKER_FEATURE_NAMES)
+    nil_gate, nil_gate_indices = load_component("nil_gate", GATE_FEATURE_NAMES)
+    protocol = payload.get("protocol")
+    if not isinstance(protocol, Mapping):
+        raise ValueError("frozen model protocol is missing")
+    encoded_protocol = json.dumps(
+        protocol,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    if payload.get("protocol_sha256") != hashlib.sha256(
+        encoded_protocol
+    ).hexdigest():
+        raise ValueError("frozen model protocol hash mismatch")
+    return FrozenModelBundle(
+        ranker=ranker,
+        nil_gate=nil_gate,
+        ranker_feature_indices=ranker_indices,
+        nil_gate_feature_indices=nil_gate_indices,
+        decision_threshold=threshold,
+        protocol=dict(protocol),
+    )
+
+
 __all__ = [
     "CandidateExample",
     "CandidateGroup",
+    "FROZEN_MODEL_BUNDLE_SCHEMA",
+    "FrozenModelBundle",
     "GATE_FEATURE_NAMES",
     "RANKER_FEATURE_GROUPS",
     "RANKER_FEATURE_NAMES",
@@ -682,12 +883,14 @@ __all__ = [
     "build_candidate_groups",
     "fit_nil_gate",
     "fit_ranker",
+    "freeze_model_bundle",
     "gate_feature_indices",
     "gate_scores",
     "model_summary",
     "out_of_fold_ranked_decisions",
     "rank_groups",
     "ranking_metrics",
+    "load_frozen_model_bundle",
     "select_risk_bounded_threshold",
     "threshold_predictions",
     "training_score_thresholds",

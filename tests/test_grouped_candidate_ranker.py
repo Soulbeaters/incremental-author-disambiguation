@@ -1,3 +1,4 @@
+import copy
 import math
 
 import pytest
@@ -12,8 +13,10 @@ from experiments.grouped_candidate_ranker import (
     build_candidate_groups,
     fit_nil_gate,
     fit_ranker,
+    freeze_model_bundle,
     gate_feature_indices,
     gate_scores,
+    load_frozen_model_bundle,
     rank_groups,
     ranking_metrics,
     select_risk_bounded_threshold,
@@ -185,3 +188,58 @@ def test_small_two_stage_model_ranks_then_rejects_nil_queries():
     )
     assert selection["correct_known"] >= 36
     assert selection["new_false_links"] == 0
+
+    gate_indices = gate_feature_indices(indices)
+    bundle = freeze_model_bundle(
+        ranker,
+        gate,
+        indices,
+        gate_indices,
+        selection["threshold"],
+        protocol={"project_revision": "test"},
+    )
+    assert bundle["contains_identity_values"] is False
+    assert "truth-0" not in str(bundle)
+
+    loaded = load_frozen_model_bundle(bundle)
+    loaded_decisions = rank_groups(
+        loaded.ranker,
+        groups,
+        loaded.ranker_feature_indices,
+    )
+    loaded_scores = gate_scores(
+        loaded.nil_gate,
+        loaded_decisions,
+        loaded.nil_gate_feature_indices,
+    )
+
+    assert [row.prediction for row in loaded_decisions] == [
+        row.prediction for row in decisions
+    ]
+    assert loaded_scores == scores
+    assert loaded.decision_threshold == selection["threshold"]
+
+    tampered_protocol = copy.deepcopy(bundle)
+    tampered_protocol["protocol"]["project_revision"] = "changed"
+    with pytest.raises(ValueError, match="protocol hash mismatch"):
+        load_frozen_model_bundle(tampered_protocol)
+
+
+def test_frozen_bundle_rejects_model_tampering():
+    payload = {
+        "schema_version": "project2_lightgbm_bundle_v1",
+        "contains_identity_values": False,
+        "decision_threshold": 0.5,
+        "protocol_sha256": "0" * 64,
+        "ranker": {
+            "feature_indices": [0],
+            "feature_names": [RANKER_FEATURE_NAMES[0]],
+            "model_sha256": "0" * 64,
+            "lightgbm_model": "tampered",
+        },
+        "nil_gate": {},
+        "protocol": {},
+    }
+
+    with pytest.raises(ValueError, match="model hash mismatch"):
+        load_frozen_model_bundle(payload)

@@ -41,12 +41,14 @@ from experiments.evaluate_listwise_graph_gate import (  # noqa: E402
     peak_working_set_bytes,
 )
 from experiments.grouped_candidate_ranker import (  # noqa: E402
+    FROZEN_MODEL_BUNDLE_SCHEMA,
     GATE_FEATURE_NAMES,
     RANKER_FEATURE_GROUPS,
     RANKER_FEATURE_NAMES,
     build_candidate_groups,
     fit_nil_gate,
     fit_ranker,
+    freeze_model_bundle,
     gate_feature_indices,
     gate_scores,
     model_summary,
@@ -69,7 +71,7 @@ from experiments.s2and_public_replay import (  # noqa: E402
 from integrations.istina_pipeline import IstinaDisambiguationPipeline  # noqa: E402
 
 
-SCHEMA_VERSION = "project2_same_s2and_public_replay_v2"
+SCHEMA_VERSION = "project2_same_s2and_public_replay_v3"
 CHECKPOINT_SCHEMA_VERSION = "project2_replay_checkpoint_v1"
 
 
@@ -569,6 +571,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "calibrated_candidate_threshold": args.calibrated_candidate_threshold,
         "risk_threshold_procedure": args.risk_threshold_procedure,
         "risk_threshold_grid_size": args.risk_threshold_grid_size,
+        "frozen_model_bundle_schema": FROZEN_MODEL_BUNDLE_SCHEMA,
     }
     checkpoint_signature = hashlib.sha256(
         json.dumps(
@@ -721,6 +724,56 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "validation_selection.threshold",
         {"selected_threshold": threshold},
     )
+    frozen_model = {
+        "exported": False,
+        "exported_before_certification": False,
+        "schema_version": FROZEN_MODEL_BUNDLE_SCHEMA,
+        "sha256": None,
+    }
+    if args.model_artifact is not None:
+        checkpoint.mark_started("validation_selection.model_freeze")
+        bundle = freeze_model_bundle(
+            ranker,
+            nil_gate,
+            feature_indices,
+            nil_gate_indices,
+            threshold,
+            protocol={
+                "project_revision": project_revision,
+                **input_hashes,
+                "train": {
+                    "history_through": args.train_history_through,
+                    "query_year": args.train_query_year,
+                },
+                "validation": {
+                    "history_through": args.validation_history_through,
+                    "query_year": args.validation_query_year,
+                    "paper_bucket_modulus": args.validation_modulus,
+                },
+                "comparison": {
+                    "history_through": args.comparison_history_through,
+                    "query_from": args.comparison_query_from,
+                },
+                "ranker_feature_group": args.ranker_feature_group,
+                "risk_threshold_procedure": args.risk_threshold_procedure,
+                "risk_threshold_grid_size": args.risk_threshold_grid_size,
+                "confidence": args.confidence,
+                "max_new_false_rate": args.max_new_false_rate,
+                "max_wrong_known_rate": args.max_wrong_known_rate,
+                "selected_before_certification": True,
+            },
+        )
+        _atomic_json(args.model_artifact, bundle)
+        frozen_model = {
+            "exported": True,
+            "exported_before_certification": True,
+            "schema_version": FROZEN_MODEL_BUNDLE_SCHEMA,
+            "sha256": sha256_file(args.model_artifact),
+        }
+        checkpoint.mark_completed(
+            "validation_selection.model_freeze",
+            {"artifact_sha256": frozen_model["sha256"]},
+        )
 
     certification_replay = build_project2_replay(
         validation_history,
@@ -858,6 +911,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                     if candidate_thresholds is not None else None
                 ),
             },
+            "frozen_artifact": frozen_model,
         },
         "training": {
             "replay": _compact_replay(train),
@@ -962,6 +1016,7 @@ def main() -> int:
     parser.add_argument("--enrichment-dir", type=Path, required=True)
     parser.add_argument("--s2and-result", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--model-artifact", type=Path)
     parser.add_argument("--checkpoint-dir", type=Path)
     parser.add_argument("--checkpoint-batch-size", type=int, default=5000)
     parser.add_argument("--train-history-through", type=int, default=2019)

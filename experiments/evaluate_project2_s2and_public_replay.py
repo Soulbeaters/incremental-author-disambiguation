@@ -1,10 +1,10 @@
 """Evaluate Project Two on the exact public replay used by official S2AND.
 
-Temporal roles are moved strictly before the comparison window: history
-through 2019 plus 2020 queries fit the ranker/NIL gate; 2021 papers select and
-check the fixed threshold; history through 2021 plus all 2022+ queries form the
-development comparison.  Query labels are evaluator-only and never enter
-candidate features or the pipeline's whitelisted mention payload.
+Temporal roles are moved strictly before the comparison window.  Their years
+are explicit command-line protocol parameters so the same implementation can
+run both the original 2020/2021/2022+ replay and later cross-year robustness
+checks.  Query labels are evaluator-only and never enter candidate features or
+the pipeline's whitelisted mention payload.
 """
 
 from __future__ import annotations
@@ -71,6 +71,26 @@ from integrations.istina_pipeline import IstinaDisambiguationPipeline  # noqa: E
 
 SCHEMA_VERSION = "project2_same_s2and_public_replay_v2"
 CHECKPOINT_SCHEMA_VERSION = "project2_replay_checkpoint_v1"
+
+
+def _validate_temporal_protocol(args: argparse.Namespace) -> None:
+    boundaries = (
+        args.train_history_through,
+        args.train_query_year,
+        args.validation_history_through,
+        args.validation_query_year,
+        args.comparison_history_through,
+        args.comparison_query_from,
+    )
+    if not (
+        boundaries[0] < boundaries[1] <= boundaries[2]
+        < boundaries[3] <= boundaries[4] < boundaries[5]
+    ):
+        raise ValueError(
+            "temporal protocol must satisfy "
+            "train_history < train_query <= validation_history "
+            "< validation_query <= comparison_history < comparison_query"
+        )
 
 
 def _stable_key(mention: ReplayMention) -> tuple[int, bytes, int]:
@@ -516,6 +536,7 @@ def _compact_replay(replay: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
+    _validate_temporal_protocol(args)
     if _git_output(["status", "--porcelain", "--untracked-files=all"]):
         raise RuntimeError("formal Project Two comparison requires a clean worktree")
     wall_started = time.perf_counter()
@@ -533,7 +554,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "project_revision": project_revision,
         **input_hashes,
         "runtime_versions": _runtime_versions(),
-        "cutoff_year": 2021,
+        "train_history_through": args.train_history_through,
+        "train_query_year": args.train_query_year,
+        "validation_history_through": args.validation_history_through,
+        "validation_query_year": args.validation_query_year,
+        "comparison_history_through": args.comparison_history_through,
+        "comparison_query_from": args.comparison_query_from,
         "oof_folds": args.oof_folds,
         "validation_modulus": args.validation_modulus,
         "ranker_feature_group": args.ranker_feature_group,
@@ -565,7 +591,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         args.authors,
         args.article_authors,
         args.enrichment_dir,
-        cutoff_year=2021,
+        cutoff_year=args.comparison_history_through,
     )
     mentions = all_mentions(corpus)
     year_counts = Counter(mention.year for mention in mentions)
@@ -578,8 +604,14 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         },
     )
 
-    train_history = _filter_mentions(mentions, through_year=2019)
-    train_query = _filter_mentions(mentions, exact_year=2020)
+    train_history = _filter_mentions(
+        mentions,
+        through_year=args.train_history_through,
+    )
+    train_query = _filter_mentions(
+        mentions,
+        exact_year=args.train_query_year,
+    )
     train = build_project2_replay(
         train_history,
         train_query,
@@ -635,17 +667,20 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     ranker = fit_ranker(train_groups, feature_indices)
     checkpoint.mark_completed("train.final_ranker")
 
-    validation_history = _filter_mentions(mentions, through_year=2020)
+    validation_history = _filter_mentions(
+        mentions,
+        through_year=args.validation_history_through,
+    )
     validation_selection_query = _filter_mentions(
         mentions,
-        exact_year=2021,
+        exact_year=args.validation_query_year,
         paper_bucket_modulus=args.validation_modulus,
         paper_bucket=0,
         invert_bucket=True,
     )
     validation_certification_query = _filter_mentions(
         mentions,
-        exact_year=2021,
+        exact_year=args.validation_query_year,
         paper_bucket_modulus=args.validation_modulus,
         paper_bucket=0,
     )
@@ -727,8 +762,14 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
     checkpoint.mark_completed("validation_certification.risk")
 
-    evaluation_history = _filter_mentions(mentions, through_year=2021)
-    evaluation_query = _filter_mentions(mentions, from_year=2022)
+    evaluation_history = _filter_mentions(
+        mentions,
+        through_year=args.comparison_history_through,
+    )
+    evaluation_query = _filter_mentions(
+        mentions,
+        from_year=args.comparison_query_from,
+    )
     evaluation = build_project2_replay(
         evaluation_history,
         evaluation_query,
@@ -777,13 +818,19 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "runtime_versions": checkpoint_protocol["runtime_versions"],
             "query_labels_used_as_features": False,
             "original_name_used": False,
-            "train": {"history_through": 2019, "query_year": 2020},
+            "train": {
+                "history_through": args.train_history_through,
+                "query_year": args.train_query_year,
+            },
             "validation": {
-                "history_through": 2020,
-                "query_year": 2021,
+                "history_through": args.validation_history_through,
+                "query_year": args.validation_query_year,
                 "paper_bucket_modulus": args.validation_modulus,
             },
-            "comparison": {"history_through": 2021, "query_from": 2022},
+            "comparison": {
+                "history_through": args.comparison_history_through,
+                "query_from": args.comparison_query_from,
+            },
             "year_authorship_counts": {
                 str(year): count for year, count in sorted(year_counts.items())
             },
@@ -917,6 +964,12 @@ def main() -> int:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--checkpoint-dir", type=Path)
     parser.add_argument("--checkpoint-batch-size", type=int, default=5000)
+    parser.add_argument("--train-history-through", type=int, default=2019)
+    parser.add_argument("--train-query-year", type=int, default=2020)
+    parser.add_argument("--validation-history-through", type=int, default=2020)
+    parser.add_argument("--validation-query-year", type=int, default=2021)
+    parser.add_argument("--comparison-history-through", type=int, default=2021)
+    parser.add_argument("--comparison-query-from", type=int, default=2022)
     parser.add_argument("--oof-folds", type=int, default=5)
     parser.add_argument("--validation-modulus", type=int, default=5)
     parser.add_argument(

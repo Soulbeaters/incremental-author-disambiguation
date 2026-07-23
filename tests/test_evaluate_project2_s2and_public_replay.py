@@ -1,9 +1,13 @@
 from array import array
+from argparse import Namespace
+
+import pytest
 
 from experiments.evaluate_project2_s2and_public_replay import (
     ReplayCheckpoint,
     _filter_mentions,
     _project2_mention,
+    _validate_temporal_protocol,
 )
 from experiments.s2and_public_replay import (
     ObservedPaperAuthor,
@@ -67,6 +71,33 @@ def test_temporal_and_paper_bucket_filters_keep_roles_disjoint():
     assert [row.year for row in train] == [2020]
     assert [row.year for row in evaluation] == [2022]
     assert not ({row.doi for row in history} & {row.doi for row in evaluation})
+
+
+def test_late_temporal_protocol_is_valid():
+    args = Namespace(
+        train_history_through=2022,
+        train_query_year=2023,
+        validation_history_through=2023,
+        validation_query_year=2024,
+        comparison_history_through=2024,
+        comparison_query_from=2025,
+    )
+
+    _validate_temporal_protocol(args)
+
+
+def test_temporal_protocol_rejects_comparison_overlap():
+    args = Namespace(
+        train_history_through=2022,
+        train_query_year=2023,
+        validation_history_through=2023,
+        validation_query_year=2024,
+        comparison_history_through=2025,
+        comparison_query_from=2025,
+    )
+
+    with pytest.raises(ValueError, match="temporal protocol"):
+        _validate_temporal_protocol(args)
 
 
 def test_replay_checkpoint_resumes_validated_batches_without_raw_progress(

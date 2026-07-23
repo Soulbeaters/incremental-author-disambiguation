@@ -194,7 +194,11 @@ def gate_feature_indices(
     )
 
 
-def build_candidate_groups(replay: Mapping[str, Any]) -> list[CandidateGroup]:
+def build_candidate_groups(
+    replay: Mapping[str, Any],
+    *,
+    include_multilingual: bool = False,
+) -> list[CandidateGroup]:
     """Build candidate groups without reading query labels into features."""
 
     records = list(replay["project2"]["records"])
@@ -211,7 +215,7 @@ def build_candidate_groups(replay: Mapping[str, Any]) -> list[CandidateGroup]:
     )
     profile_years: dict[str, list[int]] = defaultdict(list)
     profile_coauthors: dict[str, set[str]] = defaultdict(set)
-    profile_names: dict[str, list[StructuredName]] = defaultdict(list)
+    profile_names: dict[str, set[StructuredName]] = defaultdict(set)
     history_mentions = list(replay.get("history_mentions_raw") or ())
     semantic_centroids = _semantic_profile_centroids(history_mentions)
     for mention in history_mentions:
@@ -229,15 +233,16 @@ def build_candidate_groups(replay: Mapping[str, Any]) -> list[CandidateGroup]:
             for name in mention.get("coauthors") or ()
             if str(name).strip()
         )
-        try:
-            profile_names[author_id].append(
-                StructuredName.from_mapping(mention)
-            )
-        except ValueError:
-            # Missing structured fields disable only this optional family.
-            # The forbidden synthetic field remains a fail-closed boundary.
-            if "original_name" in mention:
-                raise
+        if include_multilingual:
+            try:
+                profile_names[author_id].add(
+                    StructuredName.from_mapping(mention)
+                )
+            except ValueError:
+                # Missing structured fields disable only this optional family.
+                # The forbidden synthetic field remains fail-closed.
+                if "original_name" in mention:
+                    raise
     query_embeddings: dict[str, np.ndarray | None] = {}
     query_embedding_by_position: list[np.ndarray | None] = []
     for position, query in enumerate(query_mentions):
@@ -252,12 +257,13 @@ def build_candidate_groups(replay: Mapping[str, Any]) -> list[CandidateGroup]:
     for position, (record, graph_proposal) in enumerate(zip(records, graph_proposals)):
         paper_key = str(record.get("article_id") or position)
         query = query_mentions[position] if position < len(query_mentions) else {}
-        try:
-            query_name = StructuredName.from_mapping(query)
-        except ValueError:
-            if "original_name" in query:
-                raise
-            query_name = None
+        query_name = None
+        if include_multilingual:
+            try:
+                query_name = StructuredName.from_mapping(query)
+            except ValueError:
+                if "original_name" in query:
+                    raise
         query_embedding = (
             query_embedding_by_position[position]
             if position < len(query_embedding_by_position)
@@ -312,7 +318,7 @@ def build_candidate_groups(replay: Mapping[str, Any]) -> list[CandidateGroup]:
                     query_name,
                     profile_names.get(candidate_id, ()),
                 )
-                if query_name is not None
+                if include_multilingual and query_name is not None
                 else (0.0,) * len(MULTILINGUAL_FEATURE_NAMES)
             )
             candidates.append(CandidateExample(

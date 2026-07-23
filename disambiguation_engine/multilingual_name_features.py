@@ -112,11 +112,13 @@ def _field(record: Mapping[str, Any], *names: str) -> str:
     return ""
 
 
+@lru_cache(maxsize=262_144)
 def _native_tokens(value: str) -> tuple[str, ...]:
     normalized = unicodedata.normalize("NFKC", str(value or "")).casefold()
     return tuple(TOKEN_RE.findall(normalized))
 
 
+@lru_cache(maxsize=262_144)
 def _native_key(value: str) -> str:
     return "".join(_native_tokens(value))
 
@@ -134,6 +136,7 @@ def _is_han(character: str) -> bool:
     )
 
 
+@lru_cache(maxsize=262_144)
 def script_inventory(value: str) -> frozenset[str]:
     scripts: set[str] = set()
     for character in unicodedata.normalize("NFKC", str(value or "")):
@@ -150,6 +153,7 @@ def script_inventory(value: str) -> frozenset[str]:
     return frozenset(scripts)
 
 
+@lru_cache(maxsize=262_144)
 def _ascii_latin(value: str) -> str:
     folded = unicodedata.normalize("NFKD", value.casefold())
     return "".join(
@@ -159,6 +163,7 @@ def _ascii_latin(value: str) -> str:
     )
 
 
+@lru_cache(maxsize=262_144)
 def _generic_latin_key(value: str) -> str:
     output: list[str] = []
     for character in unicodedata.normalize("NFKC", str(value or "")).casefold():
@@ -200,6 +205,7 @@ def _pinyin_key(value: str) -> str:
     )
 
 
+@lru_cache(maxsize=65_536)
 def _han_pinyin_syllables(value: str) -> tuple[str, ...]:
     try:
         from pypinyin import Style, lazy_pinyin
@@ -247,6 +253,7 @@ def _segment_pinyin_token(token: str) -> tuple[tuple[str, ...], ...]:
     return visit(0)
 
 
+@lru_cache(maxsize=262_144)
 def _latin_views(value: str) -> frozenset[str]:
     scripts = script_inventory(value)
     views = {_generic_latin_key(value)}
@@ -255,6 +262,7 @@ def _latin_views(value: str) -> frozenset[str]:
     return frozenset(view for view in views if view)
 
 
+@lru_cache(maxsize=65_536)
 def _palladius_views(value: str) -> frozenset[str]:
     scripts = script_inventory(value)
     if "cyrillic" in scripts and "han" not in scripts:

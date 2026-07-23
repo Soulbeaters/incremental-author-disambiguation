@@ -122,7 +122,10 @@ def test_candidate_groups_add_palladius_features_only_in_new_ablation():
         }],
     }
 
-    group = build_candidate_groups(replay)[0]
+    group = build_candidate_groups(
+        replay,
+        include_multilingual=True,
+    )[0]
     features = group.candidates[0].features
 
     assert features[
@@ -138,6 +141,60 @@ def test_candidate_groups_add_palladius_features_only_in_new_ablation():
         ]
     }
     assert "given_palladius_similarity" not in semantic_names
+
+
+def test_multilingual_profiles_deduplicate_repeated_history_names(
+    monkeypatch,
+):
+    observed_profile_sizes = []
+
+    def fake_features(query, profiles):
+        observed_profile_sizes.append(len(profiles))
+        return (0.0,) * (
+            len(RANKER_FEATURE_NAMES) - len(LEGACY_RANKER_FEATURE_NAMES)
+        )
+
+    monkeypatch.setattr(
+        "experiments.grouped_candidate_ranker.best_profile_name_features",
+        fake_features,
+    )
+    history = [{
+        "article_id": f"history-{index}",
+        "gold_author_id": "A",
+        "firstname": "Jiaxing",
+        "middlename": "",
+        "lastname": "Ma",
+        "year": 2020,
+        "coauthors": [],
+    } for index in range(100)]
+    replay = {
+        "project2": {"records": [{
+            "article_id": "query",
+            "decision": "unknown",
+            "gold_seen_in_history": True,
+            "gold_author_id": "A",
+            "topk": [{"author_id": "A", "score": 1.0}],
+        }]},
+        "native": [{
+            "prediction": "A",
+            "graph_support": 0.0,
+            "candidate_count": 1,
+        }],
+        "profile_sizes": {"A": len(history)},
+        "history_mentions_raw": history,
+        "test_mentions_raw": [{
+            "article_id": "query",
+            "firstname": "Цзясин",
+            "middlename": "",
+            "lastname": "Ма",
+            "year": 2022,
+            "coauthors": [],
+        }],
+    }
+
+    build_candidate_groups(replay, include_multilingual=True)
+
+    assert observed_profile_sizes == [1]
 
 
 def test_gate_indices_keep_old_ablation_free_of_semantic_features():

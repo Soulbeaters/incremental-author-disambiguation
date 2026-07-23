@@ -61,6 +61,15 @@ New frozen bundles use `project2_lightgbm_bundle_v2`.  The loader maps legacy
 features whose absolute positions moved.  This preserves the previously
 frozen Project Two evidence rather than invalidating it.
 
+The first full ablation attempt reached the 20-minute process limit during
+`comparison.rank`.  All corpus, training, validation, certification and
+15,422-query comparison-evaluation phases had completed; the bottleneck was
+recomputing identical profile-name views once per historical paper.  The
+implementation now deduplicates a profile's structured names, caches only
+deterministic per-string views, and skips the optional feature family for old
+ablation groups.  This changes neither a feature value nor any statistical
+protocol and is covered by a regression test.
+
 ## Real public-data coverage audit
 
 The aggregate-only audit of the existing Crossref--ORCID source

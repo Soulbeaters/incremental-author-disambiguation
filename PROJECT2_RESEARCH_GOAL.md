@@ -11,6 +11,32 @@ The main question is whether candidate ranking, paper-to-profile evidence and
 selective open-set decisions can recover more known authors without exceeding
 a preregistered false-link risk for genuinely new authors.
 
+## Frozen S2AND research ladder
+
+Project Two now uses official S2AND `0.51.1` / production bundle `v1.21` as a
+frozen external reference.  It must not be replaced by a weaker local
+imitation.  Experiments keep four claims separate:
+
+1. official S2AND, unchanged;
+2. stock S2AND features retrained and tuned on development labels;
+3. `S2AND-RuZh`, adding only prespecified native-script, Cyrillic--Latin,
+   Han--Pinyin, Pinyin--Palladius, patronymic, name-order, initials and
+   short-surname-risk features; and
+4. `S2AND-RuZh-Open`, adding an independently calibrated selective LINK/NIL
+   decision with finite-sample risk bounds.
+
+Tree depth, leaf count, estimator count, learning rate and clustering-threshold
+tuning belong to the stock retraining control.  They are not a methodological
+contribution.  The multilingual views are probabilistic features, never hard
+identity merge rules.
+
+The immediate frozen public ablation compares
+`listwise_semantic_cross_profile` with
+`listwise_multilingual_cross_profile`.  Candidate retrieval, temporal
+train/validation/certification/comparison roles, risk-threshold procedure and
+all non-name features remain identical.  A variant is stopped if it has no
+stable held-out gain or imposes unreasonable runtime or memory cost.
+
 ## Irreversible data roles
 
 | Partition | Permitted use | Prohibited use |
@@ -23,11 +49,18 @@ a preregistered false-link risk for genuinely new authors.
 
 Crossref--ORCID 2023+ has already influenced development decisions.  It is a
 development/transfer benchmark from now on, not an untouched test set.
+Its available cross-script labels are too sparse to validate a Palladius
+claim.  That claim requires verified ISTINA development pairs or another
+provenance-preserving public gold set.
 
 The advisor's 9091/9092/9093 outputs are predictions.  They may be used as
 baselines, candidate sources and disagreement-sampling signals, but never as
 gold labels.  A disagreement becomes training data only after an independent
 human or database label has been attached.
+
+All model boundaries accept only source-observed structured name fields.
+Synthetic or fabricated `original_name` values are prohibited for features,
+blocking, training, calibration and evaluation.
 
 ## Blind-test contract
 
@@ -55,13 +88,15 @@ surnames and dense same-name blocks are preregistered challenge strata.
 
 1. Reproduce at least one official strong public baseline, preferably S2AND,
    S2APLER or WhoIsWho, under the same split and candidate contract.
-2. Improve hard-negative learning, paper-to-profile cross features, relation
+2. Compare stock S2AND retraining with the Russian--Chinese feature family so
+   that data/parameter adaptation cannot be mistaken for method novelty.
+3. Improve hard-negative learning, paper-to-profile cross features, relation
    quality and cross-year calibration before increasing model depth.
-3. Keep candidate retrieval separate from the MERGE/NEW/UNKNOWN decision and
+4. Keep candidate retrieval separate from the MERGE/NEW/UNKNOWN decision and
    certify the final combined system, not only the added rescue gate.
-4. Admit a GNN only when verified repeated identities and relations are large
+5. Admit a GNN only when verified repeated identities and relations are large
    enough and the method contributes more than applying a standard GNN.
-5. Report candidate Recall@K, Top-1, known recall/precision, wrong-known and
+6. Report candidate Recall@K, Top-1, known recall/precision, wrong-known and
    new-author false-link rates, UNKNOWN, B3/Pairwise, calibration, risk bounds,
    paired inference, complexity, scalability, learning curves and ablations.
 

@@ -20,6 +20,57 @@ from config import SIMILARITY_THRESHOLD
 
 
 class TestSimilarityScorer(unittest.TestCase):
+    @staticmethod
+    def _reference_levenshtein(left, right):
+        previous = list(range(len(right) + 1))
+        for row, left_char in enumerate(left, start=1):
+            current = [row]
+            for column, right_char in enumerate(right, start=1):
+                current.append(min(
+                    current[-1] + 1,
+                    previous[column] + 1,
+                    previous[column - 1] + (left_char != right_char),
+                ))
+            previous = current
+        return previous[-1]
+
+    def test_fast_levenshtein_is_exact_for_multilingual_cases(self):
+        scorer = SimilarityScorer()
+        cases = [
+            ("", ""),
+            ("a", ""),
+            ("kitten", "sitting"),
+            ("московский университет", "московский универстет"),
+            ("清华大学", "清华大學"),
+            ("Université de Paris", "Universite Paris"),
+        ]
+
+        for left, right in cases:
+            self.assertEqual(
+                scorer._levenshtein_distance(left, right),
+                self._reference_levenshtein(left, right),
+            )
+
+    def test_affiliation_max_matches_reference_pairwise_semantics(self):
+        scorer = SimilarityScorer()
+        left = ["University of Moscow", "Alpha Research Institute"]
+        right = ["Moscow University", "Alpha Research Inst"]
+        normalized_left = [scorer._normalize_affiliation(value) for value in left]
+        normalized_right = [scorer._normalize_affiliation(value) for value in right]
+        expected = max(
+            1.0 - (
+                self._reference_levenshtein(first, second)
+                / max(len(first), len(second))
+            )
+            for first in normalized_left
+            for second in normalized_right
+        )
+
+        self.assertEqual(
+            scorer._calculate_affiliation_similarity_max(left, right),
+            expected,
+        )
+
     def test_coauthor_similarity_normalizes_order_and_diacritics(self):
         scorer = SimilarityScorer()
 

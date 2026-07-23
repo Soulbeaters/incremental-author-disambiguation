@@ -19,6 +19,11 @@ from functools import lru_cache
 from typing import Dict, Set, Tuple, Any, Optional
 from models.author import Author
 
+try:
+    from Levenshtein import distance as _fast_levenshtein_distance
+except ImportError:
+    _fast_levenshtein_distance = None
+
 
 class SimilarityScorer:
     """
@@ -383,11 +388,13 @@ class SimilarityScorer:
         # 转换为小写并移除多余空格 / Преобразование в нижний регистр и удаление лишних пробелов
         return re.sub(r'\s+', ' ', text.lower().strip())
 
-    def _levenshtein_distance(self, s1: str, s2: str) -> int:
+    @staticmethod
+    @lru_cache(maxsize=131072)
+    def _levenshtein_distance(s1: str, s2: str) -> int:
         """
         计算莱文斯坦距离 / Расчёт расстояния Левенштейна
 
-        动态规划实现的编辑距离算法 / Алгоритм редакционного расстояния с использованием динамического программирования
+        优先使用精确C扩展，缺失时回退到等价动态规划实现
 
         Args:
             s1: 第一个字符串 / Первая строка
@@ -396,8 +403,11 @@ class SimilarityScorer:
         Returns:
             int: 莱文斯坦距离 / Расстояние Левенштейна
         """
+        if _fast_levenshtein_distance is not None:
+            return int(_fast_levenshtein_distance(s1, s2))
+
         if len(s1) < len(s2):
-            return self._levenshtein_distance(s2, s1)
+            s1, s2 = s2, s1
 
         if len(s2) == 0:
             return len(s1)
@@ -744,16 +754,20 @@ class SimilarityScorer:
         if not affiliations1 or not affiliations2:
             return 0.0
 
+        normalized1 = {
+            self._normalize_affiliation(affiliation)
+            for affiliation in affiliations1
+        }
+        normalized2 = {
+            self._normalize_affiliation(affiliation)
+            for affiliation in affiliations2
+        }
+        if normalized1.intersection(normalized2):
+            return 1.0
+
         max_sim = 0.0
-        for aff1 in affiliations1:
-            for aff2 in affiliations2:
-                # 使用Levenshtein相似度 / Использование сходства Левенштейна
-                norm_aff1 = self._normalize_affiliation(aff1)
-                norm_aff2 = self._normalize_affiliation(aff2)
-
-                if norm_aff1 == norm_aff2:
-                    return 1.0  # 完全匹配 / Точное совпадение
-
+        for norm_aff1 in normalized1:
+            for norm_aff2 in normalized2:
                 # 计算相似度 / Вычисление сходства
                 lev_dist = self._levenshtein_distance(norm_aff1, norm_aff2)
                 max_len = max(len(norm_aff1), len(norm_aff2))
@@ -763,7 +777,9 @@ class SimilarityScorer:
 
         return max_sim
 
-    def _normalize_affiliation(self, affiliation: str) -> str:
+    @staticmethod
+    @lru_cache(maxsize=65536)
+    def _normalize_affiliation(affiliation: str) -> str:
         """
         标准化机构名称 / Нормализация названия учреждения
 

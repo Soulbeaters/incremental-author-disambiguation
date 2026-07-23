@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 from collections import Counter
 import hashlib
+from importlib.metadata import PackageNotFoundError, version
 import json
 import os
 from pathlib import Path
@@ -151,6 +152,16 @@ def _mention_fingerprint(mentions: Sequence[ReplayMention]) -> str:
             ).encode("utf-8")
         )
     return digest.hexdigest()
+
+
+def _runtime_versions() -> dict[str, str]:
+    versions = {"python": sys.version.split()[0]}
+    for distribution in ("Levenshtein", "lightgbm", "numpy", "scikit-learn"):
+        try:
+            versions[distribution] = version(distribution)
+        except PackageNotFoundError:
+            versions[distribution] = "missing"
+    return versions
 
 
 class ReplayCheckpoint:
@@ -518,6 +529,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     checkpoint_protocol = {
         "project_revision": project_revision,
         **input_hashes,
+        "runtime_versions": _runtime_versions(),
         "cutoff_year": 2021,
         "oof_folds": args.oof_folds,
         "validation_modulus": args.validation_modulus,
@@ -717,6 +729,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "protocol": {
             "project_revision": project_revision,
             **input_hashes,
+            "runtime_versions": checkpoint_protocol["runtime_versions"],
             "query_labels_used_as_features": False,
             "original_name_used": False,
             "train": {"history_through": 2019, "query_year": 2020},

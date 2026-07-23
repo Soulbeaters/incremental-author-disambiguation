@@ -1,0 +1,85 @@
+{
+  "contains_record_values": false,
+  "cutoff_year": 2024,
+  "development_only": true,
+  "metrics": {
+    "clustering": {
+      "b3": {
+        "f1": 0.9805212509733733,
+        "precision": 0.9654084437842716,
+        "recall": 0.9961147442402375
+      },
+      "pairwise": {
+        "f1": 0.956609997462573,
+        "gold_pairs": 5700,
+        "precision": 0.9235668789808917,
+        "predicted_pairs": 6123,
+        "recall": 0.9921052631578947,
+        "true_positive_pairs": 5655
+      }
+    },
+    "counts": {
+      "candidate_covered_known": 3146,
+      "correct_known": 2984,
+      "false_links_new": 196,
+      "known": 3158,
+      "known_nil": 76,
+      "new": 1910,
+      "predicted_links": 3278,
+      "seed_conflict_queries": 0,
+      "total": 5068,
+      "wrong_known": 98
+    },
+    "execution": {
+      "block_inference_seconds": 131.25783819975914,
+      "completed_blocks": 1371,
+      "phase_b_modes": {
+        "exact": 1371
+      },
+      "theoretical_pair_comparisons": 309840
+    },
+    "linking": {
+      "accepted_link_precision": 0.9103111653447223,
+      "accepted_link_precision_ci95": [
+        0.9000432725418585,
+        0.9196185038580994
+      ],
+      "candidate_recall": 0.9962001266624446,
+      "known_prediction_precision": 0.9682024659312135,
+      "known_prediction_precision_ci95": [
+        0.9614015207664548,
+        0.9738377125229098
+      ],
+      "known_recall": 0.9449018366054465,
+      "known_recall_ci95": [
+        0.9363897944968058,
+        0.9523328174990771
+      ],
+      "new_author_false_link_rate": 0.10261780104712041,
+      "new_author_false_link_rate_ci95": [
+        0.08979654812183102,
+        0.11703430351235342
+      ],
+      "wrong_known_rate": 0.03103229892336922,
+      "wrong_known_rate_ci95": [
+        0.02553106063384443,
+        0.037673075760530986
+      ]
+    }
+  },
+  "official_run_signature": "e18fdb3d3101addc0124b0c02bf87226ba73b8474bbda70889d968faa98bb839",
+  "schema_version": "project2_public_ruzh_s2and_subgroup_v1",
+  "selection": {
+    "mixed_blocks_excluded": 50,
+    "mixed_queries_excluded": 598,
+    "non_target_blocks": 6606,
+    "non_target_queries": 9756,
+    "target_blocks": 1371,
+    "target_queries": 5068
+  },
+  "target_reasons": {
+    "chinese_family_and_given_shape": 4914,
+    "cyrillic_script": 12,
+    "russian_name_roles": 149
+  }
+}

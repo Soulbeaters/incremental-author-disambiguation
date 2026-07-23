@@ -50,6 +50,23 @@ new and zero are known.  It can diagnose target new-author false links but
 cannot measure target known-author recall or wrong-known links.  No target
 superiority claim may be drawn from it.
 
+Before using any advisor labels, the next frozen development method is
+`listwise_ruzh_profile_hard_negative`: aggregate support and explicit
+conflicts across all distinct structured name views in a candidate profile,
+then upweight identity-labelled hard negatives whose Chinese/Russian names
+remain deceptively compatible.  This is a model-objective change, not a
+threshold retune.  Its one registered control is the existing
+`listwise_multilingual_cross_profile`; model capacity, candidate universe,
+temporal roles and risk procedure remain fixed.
+
+The anonymous official-S2AND checkpoint yields a public target-stratum
+development reference without rerunning inference: 5,068 target queries,
+including 3,158 known and 1,910 new.  Official known recall is 0.944902,
+wrong-known rate 0.031032 and new-author false-link rate 0.102618.  This is a
+large enough public development diagnostic for the Pinyin/common-name
+collision problem, but it is not the final ISTINA test and contains very few
+genuine Cyrillic/Palladius cases.
+
 ## Frozen S2AND research ladder
 
 Project Two now uses official S2AND `0.51.1` / production bundle `v1.21` as a
@@ -161,6 +178,8 @@ surnames and dense same-name blocks are preregistered challenge strata.
    that data/parameter adaptation cannot be mistaken for method novelty.
 3. Improve hard-negative learning, paper-to-profile cross features, relation
    quality and cross-year calibration before increasing model depth.
+   The current registered instance is profile-wide multilingual
+   support/conflict aggregation plus collision-aware negative weighting.
 4. Keep candidate retrieval separate from the MERGE/NEW/UNKNOWN decision and
    certify the final combined system, not only the added rescue gate.
 5. Admit a GNN only when verified repeated identities and relations are large

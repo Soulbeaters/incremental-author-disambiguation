@@ -48,6 +48,12 @@ Current target algorithm and its no-regression contract:
 docs\research\s2and_ruzh_conditional_expert_20260723.md
 ```
 
+Current literature-guided model change and frozen public ablation:
+
+```text
+docs\research\ruzh_profile_hard_negative_method_20260723.md
+```
+
 Paper-grade public S2AND dataset audit and temporal split sizes:
 
 ```text
@@ -57,7 +63,7 @@ docs\research\public_s2and_dataset_result_20260723.md
 GitHub research branch:
 
 ```text
-https://github.com/Soulbeaters/incremental-author-disambiguation/tree/istina-risk-control-framework
+https://github.com/Soulbeaters/incremental-author-disambiguation/tree/codex/risk-bounded-gate-20260722
 ```
 
 Draft review PR:

@@ -31,6 +31,10 @@ from disambiguation_engine.ruzh_name_evidence import (
     FEATURE_NAMES as RUZH_LEXICON_FEATURE_NAMES,
     best_profile_ruzh_features,
 )
+from disambiguation_engine.ruzh_profile_consensus import (
+    FEATURE_NAMES as RUZH_PROFILE_FEATURE_NAMES,
+    profile_consensus_features,
+)
 from evaluation.risk_bounds import chernoff_kl_upper_bound
 
 BASE_RANKER_FEATURE_NAMES = FEATURE_NAMES + (
@@ -45,9 +49,10 @@ LEGACY_RANKER_FEATURE_NAMES = BASE_RANKER_FEATURE_NAMES + SEMANTIC_FEATURE_NAMES
 MULTILINGUAL_RANKER_FEATURE_NAMES = (
     LEGACY_RANKER_FEATURE_NAMES + MULTILINGUAL_FEATURE_NAMES
 )
-RANKER_FEATURE_NAMES = (
+RUZH_RANKER_FEATURE_NAMES = (
     MULTILINGUAL_RANKER_FEATURE_NAMES + RUZH_LEXICON_FEATURE_NAMES
 )
+RANKER_FEATURE_NAMES = RUZH_RANKER_FEATURE_NAMES + RUZH_PROFILE_FEATURE_NAMES
 
 RANKER_FEATURE_GROUPS = {
     "graph_only": FEATURE_GROUPS["graph_only"] + (len(FEATURE_NAMES), len(FEATURE_NAMES) + 1),
@@ -64,6 +69,9 @@ RANKER_FEATURE_GROUPS = {
         range(len(MULTILINGUAL_RANKER_FEATURE_NAMES))
     ),
     "listwise_ruzh_cross_profile": tuple(
+        range(len(RUZH_RANKER_FEATURE_NAMES))
+    ),
+    "listwise_ruzh_profile_hard_negative": tuple(
         range(len(RANKER_FEATURE_NAMES))
     ),
 }
@@ -82,7 +90,11 @@ LEGACY_GATE_FEATURE_NAMES = (
 MULTILINGUAL_GATE_FEATURE_NAMES = (
     MULTILINGUAL_RANKER_FEATURE_NAMES + GATE_SUMMARY_FEATURE_NAMES
 )
-FROZEN_MODEL_BUNDLE_SCHEMA = "project2_lightgbm_bundle_v3"
+RUZH_GATE_FEATURE_NAMES = (
+    RUZH_RANKER_FEATURE_NAMES + GATE_SUMMARY_FEATURE_NAMES
+)
+FROZEN_MODEL_BUNDLE_SCHEMA = "project2_lightgbm_bundle_v4"
+RUZH_FROZEN_MODEL_BUNDLE_SCHEMA = "project2_lightgbm_bundle_v3"
 MULTILINGUAL_FROZEN_MODEL_BUNDLE_SCHEMA = "project2_lightgbm_bundle_v2"
 LEGACY_FROZEN_MODEL_BUNDLE_SCHEMA = "project2_lightgbm_bundle_v1"
 
@@ -213,6 +225,7 @@ def build_candidate_groups(
     *,
     include_multilingual: bool = False,
     include_ruzh_lexicon: bool = False,
+    include_ruzh_profile: bool = False,
 ) -> list[CandidateGroup]:
     """Build candidate groups without reading query labels into features."""
 
@@ -248,7 +261,7 @@ def build_candidate_groups(
             for name in mention.get("coauthors") or ()
             if str(name).strip()
         )
-        if include_multilingual or include_ruzh_lexicon:
+        if include_multilingual or include_ruzh_lexicon or include_ruzh_profile:
             try:
                 profile_names[author_id].add(
                     StructuredName.from_mapping(mention)
@@ -273,7 +286,7 @@ def build_candidate_groups(
         paper_key = str(record.get("article_id") or position)
         query = query_mentions[position] if position < len(query_mentions) else {}
         query_name = None
-        if include_multilingual or include_ruzh_lexicon:
+        if include_multilingual or include_ruzh_lexicon or include_ruzh_profile:
             try:
                 query_name = StructuredName.from_mapping(query)
             except ValueError:
@@ -344,6 +357,14 @@ def build_candidate_groups(
                 if include_ruzh_lexicon and query_name is not None
                 else (0.0,) * len(RUZH_LEXICON_FEATURE_NAMES)
             )
+            ruzh_profile_features = (
+                profile_consensus_features(
+                    query_name,
+                    profile_names.get(candidate_id, ()),
+                )
+                if include_ruzh_profile and query_name is not None
+                else (0.0,) * len(RUZH_PROFILE_FEATURE_NAMES)
+            )
             candidates.append(CandidateExample(
                 author_id=candidate_id,
                 features=base_features + (
@@ -351,7 +372,8 @@ def build_candidate_groups(
                     float(candidate_id == graph_author_id),
                     semantic_cosine,
                     float(semantic_available),
-                ) + multilingual_features + ruzh_lexicon_features,
+                ) + multilingual_features + ruzh_lexicon_features
+                + ruzh_profile_features,
                 relevant=bool(
                     record.get("gold_seen_in_history") and candidate_id == truth
                 ),
@@ -369,7 +391,7 @@ def build_candidate_groups(
 def _ranker_training_arrays(
     groups: Sequence[CandidateGroup],
     indices: Sequence[int],
-) -> tuple[np.ndarray, np.ndarray, list[int]]:
+) -> tuple[np.ndarray, np.ndarray, list[int], np.ndarray | None]:
     eligible = [group for group in groups if any(row.relevant for row in group.candidates)]
     features = np.asarray([
         [row.features[index] for index in indices]
@@ -384,7 +406,56 @@ def _ranker_training_arrays(
     sizes = [len(group.candidates) for group in eligible]
     if not sizes or not labels.any() or labels.all():
         raise ValueError("ranker training requires query groups with positive and negative candidates")
-    return features, labels, sizes
+    selected_names = {RANKER_FEATURE_NAMES[index] for index in indices}
+    hard_negative_training = set(RUZH_PROFILE_FEATURE_NAMES).issubset(
+        selected_names
+    )
+    weights = None
+    if hard_negative_training:
+        query_target_index = RANKER_FEATURE_NAMES.index("query_ruzh_target")
+        family_indices = tuple(
+            RANKER_FEATURE_NAMES.index(name)
+            for name in (
+                "family_native_similarity",
+                "family_latin_similarity",
+                "family_palladius_similarity",
+            )
+        )
+        given_indices = tuple(
+            RANKER_FEATURE_NAMES.index(name)
+            for name in (
+                "given_native_similarity",
+                "given_latin_similarity",
+                "given_palladius_similarity",
+                "given_initial_compatibility",
+            )
+        )
+        support_index = RANKER_FEATURE_NAMES.index(
+            "profile_name_support_mean"
+        )
+        conflict_index = RANKER_FEATURE_NAMES.index(
+            "profile_name_conflict_rate"
+        )
+        weights = np.asarray([
+            (
+                1.0
+                if row.relevant
+                else 1.0 + 3.0 * (
+                    row.features[query_target_index]
+                    * max(
+                        min(
+                            max(row.features[index] for index in family_indices),
+                            max(row.features[index] for index in given_indices),
+                        ),
+                        row.features[support_index],
+                    )
+                    * (1.0 - row.features[conflict_index])
+                )
+            )
+            for group in eligible
+            for row in group.candidates
+        ], dtype=float)
+    return features, labels, sizes, weights
 
 
 def fit_ranker(
@@ -394,7 +465,7 @@ def fit_ranker(
     seed: int = 20260722,
 ) -> Any:
     library = _require_lightgbm()
-    features, labels, sizes = _ranker_training_arrays(groups, indices)
+    features, labels, sizes, weights = _ranker_training_arrays(groups, indices)
     model = library.LGBMRanker(
         objective="lambdarank",
         metric="ndcg",
@@ -410,7 +481,7 @@ def fit_ranker(
         n_jobs=1,
         verbosity=-1,
     )
-    model.fit(features, labels, group=sizes)
+    model.fit(features, labels, group=sizes, sample_weight=weights)
     return model
 
 
@@ -884,6 +955,7 @@ def load_frozen_model_bundle(payload: Mapping[str, Any]) -> FrozenModelBundle:
     schema_version = payload.get("schema_version")
     if schema_version not in {
         FROZEN_MODEL_BUNDLE_SCHEMA,
+        RUZH_FROZEN_MODEL_BUNDLE_SCHEMA,
         MULTILINGUAL_FROZEN_MODEL_BUNDLE_SCHEMA,
         LEGACY_FROZEN_MODEL_BUNDLE_SCHEMA,
     }:
@@ -937,6 +1009,7 @@ def load_frozen_model_bundle(payload: Mapping[str, Any]) -> FrozenModelBundle:
     multilingual = (
         schema_version == MULTILINGUAL_FROZEN_MODEL_BUNDLE_SCHEMA
     )
+    ruzh = schema_version == RUZH_FROZEN_MODEL_BUNDLE_SCHEMA
     ranker, ranker_indices = load_component(
         "ranker",
         RANKER_FEATURE_NAMES,
@@ -946,7 +1019,11 @@ def load_frozen_model_bundle(payload: Mapping[str, Any]) -> FrozenModelBundle:
             else (
                 MULTILINGUAL_RANKER_FEATURE_NAMES
                 if multilingual
-                else RANKER_FEATURE_NAMES
+                else (
+                    RUZH_RANKER_FEATURE_NAMES
+                    if ruzh
+                    else RANKER_FEATURE_NAMES
+                )
             )
         ),
     )
@@ -959,7 +1036,11 @@ def load_frozen_model_bundle(payload: Mapping[str, Any]) -> FrozenModelBundle:
             else (
                 MULTILINGUAL_GATE_FEATURE_NAMES
                 if multilingual
-                else GATE_FEATURE_NAMES
+                else (
+                    RUZH_GATE_FEATURE_NAMES
+                    if ruzh
+                    else GATE_FEATURE_NAMES
+                )
             )
         ),
     )
@@ -1000,6 +1081,9 @@ __all__ = [
     "MULTILINGUAL_RANKER_FEATURE_NAMES",
     "RANKER_FEATURE_GROUPS",
     "RANKER_FEATURE_NAMES",
+    "RUZH_FROZEN_MODEL_BUNDLE_SCHEMA",
+    "RUZH_GATE_FEATURE_NAMES",
+    "RUZH_RANKER_FEATURE_NAMES",
     "RankedDecision",
     "build_candidate_groups",
     "fit_nil_gate",

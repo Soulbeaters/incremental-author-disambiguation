@@ -7,6 +7,7 @@ from experiments.evaluate_project2_s2and_public_replay import (
     ReplayCheckpoint,
     _filter_mentions,
     _project2_mention,
+    _ruzh_subgroup,
     _validate_temporal_protocol,
 )
 from experiments.s2and_public_replay import (
@@ -98,6 +99,41 @@ def test_temporal_protocol_rejects_comparison_overlap():
 
     with pytest.raises(ValueError, match="temporal protocol"):
         _validate_temporal_protocol(args)
+
+
+def test_ruzh_subgroup_reports_only_target_queries():
+    replay = {
+        "project2": {
+            "records": [
+                {
+                    "gold_seen_in_history": True,
+                    "gold_author_id": "target-author",
+                },
+                {
+                    "gold_seen_in_history": False,
+                    "gold_author_id": "other-author",
+                },
+            ],
+        },
+        "test_mentions_raw": [
+            {
+                "firstname": "Jiaxing",
+                "middlename": "",
+                "lastname": "Ma",
+            },
+            {
+                "firstname": "Alice",
+                "middlename": "",
+                "lastname": "Smith",
+            },
+        ],
+    }
+
+    result = _ruzh_subgroup(replay, ["target-author", "wrong"])
+
+    assert result["target_queries"] == 1
+    assert result["metrics"]["known_recall"] == 1.0
+    assert result["counts"]["new"] == 0
 
 
 def test_replay_checkpoint_resumes_validated_batches_without_raw_progress(

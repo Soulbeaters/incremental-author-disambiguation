@@ -27,6 +27,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from disambiguation_engine.paper_graph_rescue import HistoricalCoauthorGraph  # noqa: E402
+from disambiguation_engine.ruzh_name_evidence import name_evidence  # noqa: E402
 from experiments.audit_crossref_s2and_coverage import sha256_file  # noqa: E402
 from experiments.compare_core_with_istina_proxy import (  # noqa: E402
     native_graph_records,
@@ -47,6 +48,7 @@ from experiments.grouped_candidate_ranker import (  # noqa: E402
     MULTILINGUAL_RANKER_FEATURE_NAMES,
     RANKER_FEATURE_GROUPS,
     RANKER_FEATURE_NAMES,
+    RUZH_RANKER_FEATURE_NAMES,
     build_candidate_groups,
     fit_nil_gate,
     fit_ranker,
@@ -74,8 +76,47 @@ from experiments.s2and_public_replay import (  # noqa: E402
 from integrations.istina_pipeline import IstinaDisambiguationPipeline  # noqa: E402
 
 
-SCHEMA_VERSION = "project2_same_s2and_public_replay_v3"
+SCHEMA_VERSION = "project2_same_s2and_public_replay_v4"
 CHECKPOINT_SCHEMA_VERSION = "project2_replay_checkpoint_v1"
+
+
+def _ruzh_subgroup(
+    replay: Mapping[str, Any],
+    predictions: Sequence[str | None],
+) -> dict[str, Any]:
+    """Aggregate target-stratum outcomes without exposing record values."""
+
+    records = list(replay["project2"]["records"])
+    queries = list(replay.get("test_mentions_raw") or ())
+    if len(records) != len(queries) or len(records) != len(predictions):
+        raise ValueError("RuZh subgroup inputs must align by query position")
+    positions = []
+    reasons: Counter[str] = Counter()
+    for position, query in enumerate(queries):
+        evidence = name_evidence(
+            str(query.get("firstname") or query.get("first_name") or ""),
+            str(query.get("middlename") or query.get("middle_name") or ""),
+            str(
+                query.get("lastname")
+                or query.get("last_name")
+                or query.get("surname")
+                or ""
+            ),
+        )
+        if not evidence.target:
+            continue
+        positions.append(position)
+        reasons.update(evidence.reasons)
+    subset_replay = {
+        "project2": {
+            "records": [records[position] for position in positions],
+        },
+    }
+    subset_predictions = [predictions[position] for position in positions]
+    result = aggregate_method(subset_replay, subset_predictions)
+    result["target_queries"] = len(positions)
+    result["target_reasons"] = dict(sorted(reasons.items()))
+    return result
 
 
 def _validate_temporal_protocol(args: argparse.Namespace) -> None:
@@ -568,6 +609,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "oof_folds": args.oof_folds,
         "validation_modulus": args.validation_modulus,
         "ranker_feature_group": args.ranker_feature_group,
+        "collision_hard_negative_weighting": (
+            args.ranker_feature_group
+            == "listwise_ruzh_profile_hard_negative"
+        ),
         "confidence": args.confidence,
         "max_new_false_rate": args.max_new_false_rate,
         "max_wrong_known_rate": args.max_wrong_known_rate,
@@ -634,6 +679,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         index >= len(MULTILINGUAL_RANKER_FEATURE_NAMES)
         for index in feature_indices
     )
+    include_ruzh_profile = any(
+        index >= len(RUZH_RANKER_FEATURE_NAMES)
+        for index in feature_indices
+    )
     feature_names = [RANKER_FEATURE_NAMES[index] for index in feature_indices]
     nil_gate_indices = gate_feature_indices(feature_indices)
     nil_gate_feature_names = [
@@ -644,6 +693,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         train,
         include_multilingual=include_multilingual,
         include_ruzh_lexicon=include_ruzh_lexicon,
+        include_ruzh_profile=include_ruzh_profile,
     )
     checkpoint.mark_completed(
         "train.candidate_groups",
@@ -714,6 +764,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         selection_replay,
         include_multilingual=include_multilingual,
         include_ruzh_lexicon=include_ruzh_lexicon,
+        include_ruzh_profile=include_ruzh_profile,
     )
     selection_decisions = rank_groups(ranker, selection_groups, feature_indices)
     selection_scores = gate_scores(
@@ -775,6 +826,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                     "query_from": args.comparison_query_from,
                 },
                 "ranker_feature_group": args.ranker_feature_group,
+                "collision_hard_negative_weighting": include_ruzh_profile,
                 "risk_threshold_procedure": args.risk_threshold_procedure,
                 "risk_threshold_grid_size": args.risk_threshold_grid_size,
                 "confidence": args.confidence,
@@ -816,6 +868,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         certification_replay,
         include_multilingual=include_multilingual,
         include_ruzh_lexicon=include_ruzh_lexicon,
+        include_ruzh_profile=include_ruzh_profile,
     )
     certification_decisions = rank_groups(
         ranker, certification_groups, feature_indices
@@ -868,6 +921,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         evaluation,
         include_multilingual=include_multilingual,
         include_ruzh_lexicon=include_ruzh_lexicon,
+        include_ruzh_profile=include_ruzh_profile,
     )
     evaluation_decisions = rank_groups(ranker, evaluation_groups, feature_indices)
     evaluation_scores = gate_scores(
@@ -994,6 +1048,23 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "project2_grouped_selective": aggregate_method(
                 evaluation, grouped_predictions
             ),
+            "ruzh_subgroup": {
+                "project2_base": _ruzh_subgroup(evaluation, base),
+                "project2_native_graph": _ruzh_subgroup(
+                    evaluation, native
+                ),
+                "project2_grouped_selective": _ruzh_subgroup(
+                    evaluation, grouped_predictions
+                ),
+                "official_s2and": {
+                    "available": False,
+                    "note": (
+                        "official checkpoint v1 stores anonymous block "
+                        "contingencies; target-stratum aggregation is audited "
+                        "separately without rerunning inference"
+                    ),
+                },
+            },
             "grouped_risk": _risk_certificate(
                 evaluation,
                 grouped_predictions,

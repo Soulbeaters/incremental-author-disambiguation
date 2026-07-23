@@ -15,6 +15,7 @@ from experiments.grouped_candidate_ranker import (
     RANKER_FEATURE_GROUPS,
     RANKER_FEATURE_NAMES,
     RankedDecision,
+    _ranker_training_arrays,
     build_candidate_groups,
     fit_nil_gate,
     fit_ranker,
@@ -286,6 +287,49 @@ def test_ruzh_lexicon_ablation_extends_without_changing_multilingual_group():
     ) == MULTILINGUAL_RANKER_FEATURE_NAMES
     assert ruzh[: len(multilingual)] == multilingual
     assert len(ruzh) > len(multilingual)
+
+
+def test_ruzh_profile_method_extends_without_changing_lexicon_ablation():
+    ruzh = RANKER_FEATURE_GROUPS["listwise_ruzh_cross_profile"]
+    profile = RANKER_FEATURE_GROUPS[
+        "listwise_ruzh_profile_hard_negative"
+    ]
+
+    assert profile[: len(ruzh)] == ruzh
+    assert len(profile) > len(ruzh)
+    assert "profile_name_consensus_margin" in {
+        RANKER_FEATURE_NAMES[index] for index in profile
+    }
+
+
+def test_ruzh_profile_method_upweights_only_collision_hard_negatives():
+    positive = [0.0] * len(RANKER_FEATURE_NAMES)
+    negative = [0.0] * len(RANKER_FEATURE_NAMES)
+    for name in (
+        "query_ruzh_target",
+        "family_latin_similarity",
+        "given_latin_similarity",
+        "profile_name_support_mean",
+    ):
+        negative[RANKER_FEATURE_NAMES.index(name)] = 1.0
+    group = CandidateGroup(
+        position=0,
+        paper_key="paper",
+        known=True,
+        truth="A",
+        candidates=(
+            CandidateExample("A", tuple(positive), True),
+            CandidateExample("B", tuple(negative), False),
+        ),
+    )
+
+    _features, _labels, _sizes, weights = _ranker_training_arrays(
+        [group],
+        RANKER_FEATURE_GROUPS["listwise_ruzh_profile_hard_negative"],
+    )
+
+    assert weights is not None
+    assert weights.tolist() == [1.0, 4.0]
 
 
 def test_training_fixed_sequence_stops_at_first_unsafe_threshold():

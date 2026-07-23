@@ -32,6 +32,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from experiments.audit_crossref_s2and_coverage import sha256_file  # noqa: E402
+from experiments.process_memory import observed_peak_rss_bytes  # noqa: E402
 from experiments.s2and_official_adapter import build_s2and_service_payload  # noqa: E402
 from experiments.s2and_public_replay import (  # noqa: E402
     ReplayCorpus,
@@ -408,15 +409,6 @@ def _atomic_json(path: Path, payload: Mapping[str, Any]) -> None:
     os.replace(temporary, path)
 
 
-def _observed_rss_bytes() -> int:
-    try:
-        import psutil
-
-        return int(psutil.Process().memory_info().rss)
-    except (ImportError, OSError):
-        return 0
-
-
 def _chunks(values: Sequence[str], size: int) -> Iterable[Sequence[str]]:
     for start in range(0, len(values), size):
         yield values[start:start + size]
@@ -475,7 +467,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     logging.getLogger("s2and").setLevel(logging.ERROR)
     sink = open(os.devnull, "w", encoding="utf-8")
     started = time.perf_counter()
-    peak_rss = _observed_rss_bytes()
+    peak_rss = observed_peak_rss_bytes()
     try:
         with redirect_stdout(sink), redirect_stderr(sink):
             if args.model_pickle is not None:
@@ -571,7 +563,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 )
                 checkpoint.put(block_to_ordinal[block], payload)
                 completed.add(block_to_ordinal[block])
-                peak_rss = max(peak_rss, _observed_rss_bytes())
+                peak_rss = max(peak_rss, observed_peak_rss_bytes())
                 if len(completed) % args.progress_every == 0:
                     print(
                         "formal_s2and_progress "

@@ -13,7 +13,7 @@ from experiments.s2and_stock_training_adapter import (
     select_mentions_by_block_fraction,
     verify_official_time_split,
 )
-from experiments.run_s2and_stock_public_training import _observed_rss_bytes
+from experiments.process_memory import observed_peak_rss_bytes
 
 
 def _mention(
@@ -82,7 +82,7 @@ def test_exact_ratios_match_official_integer_boundaries():
 
 
 def test_training_runner_observes_nonzero_process_memory():
-    assert _observed_rss_bytes() > 0
+    assert observed_peak_rss_bytes() > 0
 
 
 def test_rejects_same_paper_on_two_temporal_sides():

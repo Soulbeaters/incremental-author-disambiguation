@@ -33,6 +33,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from experiments.audit_crossref_s2and_coverage import sha256_file  # noqa: E402
+from experiments.process_memory import observed_peak_rss_bytes  # noqa: E402
 from experiments.s2and_public_replay import load_replay_corpus  # noqa: E402
 from experiments.s2and_stock_training_adapter import (  # noqa: E402
     build_stock_s2and_training_data,
@@ -73,58 +74,6 @@ def _atomic_pickle(path: Path, value: Any) -> None:
         handle.flush()
         os.fsync(handle.fileno())
     os.replace(temporary, path)
-
-
-def _observed_rss_bytes() -> int:
-    try:
-        import psutil
-
-        process = psutil.Process()
-        memory = process.memory_info()
-        return int(getattr(memory, "peak_wset", memory.rss))
-    except (ImportError, OSError):
-        pass
-
-    if os.name == "nt":
-        import ctypes
-        from ctypes import wintypes
-
-        class ProcessMemoryCountersEx(ctypes.Structure):
-            _fields_ = [
-                ("cb", wintypes.DWORD),
-                ("PageFaultCount", wintypes.DWORD),
-                ("PeakWorkingSetSize", ctypes.c_size_t),
-                ("WorkingSetSize", ctypes.c_size_t),
-                ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
-                ("QuotaPagedPoolUsage", ctypes.c_size_t),
-                ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
-                ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
-                ("PagefileUsage", ctypes.c_size_t),
-                ("PeakPagefileUsage", ctypes.c_size_t),
-                ("PrivateUsage", ctypes.c_size_t),
-            ]
-
-        counters = ProcessMemoryCountersEx()
-        counters.cb = ctypes.sizeof(counters)
-        get_current_process = ctypes.windll.kernel32.GetCurrentProcess
-        get_current_process.argtypes = []
-        get_current_process.restype = wintypes.HANDLE
-        get_process_memory_info = ctypes.windll.psapi.GetProcessMemoryInfo
-        get_process_memory_info.argtypes = [
-            wintypes.HANDLE,
-            ctypes.POINTER(ProcessMemoryCountersEx),
-            wintypes.DWORD,
-        ]
-        get_process_memory_info.restype = wintypes.BOOL
-        handle = get_current_process()
-        succeeded = get_process_memory_info(
-            handle,
-            ctypes.byref(counters),
-            counters.cb,
-        )
-        if succeeded:
-            return int(counters.PeakWorkingSetSize)
-    return 0
 
 
 def _json_safe(value: Any) -> Any:
@@ -248,7 +197,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
     started = time.perf_counter()
     stages: dict[str, float] = {}
-    peak_rss = _observed_rss_bytes()
+    peak_rss = observed_peak_rss_bytes()
     print(
         "stock_s2and_training_start "
         f"revision={project_revision[:12]} run={run_signature[:12]}",
@@ -281,7 +230,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     del corpus, mentions
     gc.collect()
     stages["load_and_adapt_seconds"] = time.perf_counter() - stage_started
-    peak_rss = max(peak_rss, _observed_rss_bytes())
+    peak_rss = max(peak_rss, observed_peak_rss_bytes())
     for role, requested in (
         ("train", args.train_pairs),
         ("validation", args.validation_pairs),
@@ -396,7 +345,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             clusterer.fit(dataset)
             stages["cluster_fit_seconds"] = time.perf_counter() - stage_started
 
-    peak_rss = max(peak_rss, _observed_rss_bytes())
+    peak_rss = max(peak_rss, observed_peak_rss_bytes())
     model_path = args.run_dir / "clusterer.pkl"
     _atomic_pickle(model_path, clusterer)
     model_sha256 = sha256_file(model_path)

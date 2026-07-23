@@ -488,6 +488,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                     args.model_dir,
                     require_incremental_linker=False,
                 )
+        requires_reference_features = (
+            "reference_features"
+            in getattr(clusterer.featurizer_info, "features_to_use", ())
+        )
         block_to_ordinal = {block: ordinal for ordinal, block in enumerate(query_blocks)}
         for batch in _chunks(pending, args.batch_blocks):
             history_rows, query_rows, query_mentions, embeddings = adapter_inputs(
@@ -513,7 +517,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                     preprocess=True,
                     use_orcid_id=True,
                     use_sinonym_overwrite=False,
-                    compute_reference_features=False,
+                    compute_reference_features=requires_reference_features,
                 )
             full_seed_map = dict(dataset.cluster_seeds_require)
             history_offset = 0

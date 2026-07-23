@@ -119,3 +119,7 @@ known-author recall, new-author false-link rate, wrong-known rate, B-cubed,
 pairwise F1, risk--coverage and runtime.  Do not promote the multilingual
 family unless it improves a prespecified endpoint outside training without
 violating either open-set risk bound.
+
+This ablation is complete.  The frozen result and its limitations are recorded
+in
+[s2and_multilingual_ablation_result_20260723.md](s2and_multilingual_ablation_result_20260723.md).

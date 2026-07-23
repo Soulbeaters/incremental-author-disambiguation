@@ -30,12 +30,19 @@ tuning belong to the stock retraining control.  They are not a methodological
 contribution.  The multilingual views are probabilistic features, never hard
 identity merge rules.
 
-The immediate frozen public ablation compares
+The frozen public ablation compares
 `listwise_semantic_cross_profile` with
 `listwise_multilingual_cross_profile`.  Candidate retrieval, temporal
 train/validation/certification/comparison roles, risk-threshold procedure and
 all non-name features remain identical.  A variant is stopped if it has no
 stable held-out gain or imposes unreasonable runtime or memory cost.
+
+That ablation completed at Project Two revision `9fa59e8`.  It supports the
+multilingual name-view family as a public-development improvement to the
+selective gate, but it does not validate the Cyrillic/Palladius/Han subgroup
+features and does not establish overall superiority over official S2AND.  The
+next control is stock-S2AND retraining on development data; the next
+domain-specific claim requires verified ISTINA development labels.
 
 ## Irreversible data roles
 

@@ -44,6 +44,7 @@ from experiments.grouped_candidate_ranker import (  # noqa: E402
     FROZEN_MODEL_BUNDLE_SCHEMA,
     GATE_FEATURE_NAMES,
     LEGACY_RANKER_FEATURE_NAMES,
+    MULTILINGUAL_RANKER_FEATURE_NAMES,
     RANKER_FEATURE_GROUPS,
     RANKER_FEATURE_NAMES,
     build_candidate_groups,
@@ -629,6 +630,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         index >= len(LEGACY_RANKER_FEATURE_NAMES)
         for index in feature_indices
     )
+    include_ruzh_lexicon = any(
+        index >= len(MULTILINGUAL_RANKER_FEATURE_NAMES)
+        for index in feature_indices
+    )
     feature_names = [RANKER_FEATURE_NAMES[index] for index in feature_indices]
     nil_gate_indices = gate_feature_indices(feature_indices)
     nil_gate_feature_names = [
@@ -638,6 +643,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     train_groups = build_candidate_groups(
         train,
         include_multilingual=include_multilingual,
+        include_ruzh_lexicon=include_ruzh_lexicon,
     )
     checkpoint.mark_completed(
         "train.candidate_groups",
@@ -707,6 +713,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     selection_groups = build_candidate_groups(
         selection_replay,
         include_multilingual=include_multilingual,
+        include_ruzh_lexicon=include_ruzh_lexicon,
     )
     selection_decisions = rank_groups(ranker, selection_groups, feature_indices)
     selection_scores = gate_scores(
@@ -808,6 +815,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     certification_groups = build_candidate_groups(
         certification_replay,
         include_multilingual=include_multilingual,
+        include_ruzh_lexicon=include_ruzh_lexicon,
     )
     certification_decisions = rank_groups(
         ranker, certification_groups, feature_indices
@@ -859,6 +867,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     evaluation_groups = build_candidate_groups(
         evaluation,
         include_multilingual=include_multilingual,
+        include_ruzh_lexicon=include_ruzh_lexicon,
     )
     evaluation_decisions = rank_groups(ranker, evaluation_groups, feature_indices)
     evaluation_scores = gate_scores(

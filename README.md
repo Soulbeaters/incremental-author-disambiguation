@@ -21,7 +21,7 @@ The production-oriented files remain versioned because they may be useful when
 ISTINA adopts the component. They are not requirements for demonstrating the
 research method and are not being expanded into a standalone service.
 
-## Current research status (20 July 2026)
+## Current research status (23 July 2026)
 
 - The framework, tests, deterministic replay, public-data validation and
   read-only ISTINA adapter are implemented.
@@ -35,6 +35,17 @@ research method and are not being expanded into a standalone service.
   known-author cases. Its provenance is not independently adjudicated and two
   possible identity conflicts remain unresolved.
 - ISTINA writes remain disabled. No current artifact authorizes writes.
+- Official S2AND has been reproduced on the public temporal protocol. Stock
+  retraining is not promoted because it lost known-author recall.
+- The active `S2AND-RuZh` design is a conditional expert: non-target decisions
+  remain exactly official S2AND, while target changes must jointly preserve
+  correct-known, wrong-known and new-author false-link outcomes.
+- Project One contributes 1,204 Chinese surname aliases and OpenCorpora
+  contributes 29,482 Russian surname/given/patronymic lemmas as type-level
+  features. They never force an identity merge.
+- The current ISTINA export has 279 target authorships but only four repeated
+  target identities and zero post-2023 target known-author queries. It is
+  insufficient for a target superiority claim.
 
 The framework is usable for research experiments and integration development.
 The missing item is sufficiently large, independently verified ISTINA evidence
@@ -44,7 +55,7 @@ transfer risks, but cannot replace ISTINA identity labels.
 
 See [research scope](docs/ISTINA_RESEARCH_SCOPE.md), the
 [current status report](ISTINA_AUTHOR_DISAMBIGUATION_STATUS_20260719.md), and
-the [empirical evidence package](paper/ISTINA_EMPIRICAL_EVIDENCE_20260719.md).
+the [RuZh conditional-expert contract](docs/research/s2and_ruzh_conditional_expert_20260723.md).
 
 ## Research questions
 

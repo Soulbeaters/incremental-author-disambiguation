@@ -42,6 +42,12 @@ Frozen official S2AND baseline and adapter contract:
 docs\research\s2and_official_baseline_adapter_audit_20260723.md
 ```
 
+Current target algorithm and its no-regression contract:
+
+```text
+docs\research\s2and_ruzh_conditional_expert_20260723.md
+```
+
 Paper-grade public S2AND dataset audit and temporal split sizes:
 
 ```text
@@ -112,20 +118,29 @@ Before and after each future change:
 4. confirm `git status --short` is clean after commit; and
 5. push the research branch and check the Python 3.10/3.11 GitHub jobs.
 
-## Current scientific interpretation
+## Current scientific interpretation (23 July 2026)
 
 The research framework and integration boundary are usable. The current
 machine research gate reports `framework_ready: true` (9/9 checks) and
 `superiority_claim_ready: false` (0/9 checks). The missing item is independent,
 adequately powered ISTINA identity evidence—not a new standalone service.
 
-The current selective gate is a promising development result but is not
-promoted: it dominates the Project Two base on the public 2023+ development
-benchmark, while its independent new-author risk certificate still fails.
-The official S2AND baseline is version-frozen and its fair input contract is
-specified.  Public metadata and SPECTER2 enrichment now provide a sufficiently
-large paper-grade development subset.  Building the final Arrow artifacts,
-scoring S2AND on the frozen paired protocol, and the verified ISTINA blind test
-remain outstanding.
+Official S2AND is version-frozen and has been run on the same public temporal
+protocol.  Stock retraining reduced new-author false links but lost 40 correct
+known links, so it is a negative control and is not promoted.
+
+The active method is now an official-S2AND fallback plus a conditional
+Russian/Chinese expert.  Non-target output must be exactly unchanged.  The
+expert can be promoted only if correct known links do not decrease,
+wrong-known links do not increase, new-author false links do not increase, and
+at least one outcome strictly improves.
+
+Project One's Chinese surname/Pinyin/Palladius resources and an attributed
+OpenCorpora Russian name-role lexicon are integrated as feature evidence, not
+hard merge rules.  The current advisor export contains 279 target authorships
+but only four repeated target identities; its post-2023 target test has zero
+known cases.  It cannot establish target recall superiority.  A sufficiently
+large verified target development set and the sealed ISTINA blind test remain
+outstanding.
 
 No current artifact authorizes writes to ISTINA.

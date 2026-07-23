@@ -1,0 +1,38 @@
+{
+  "schema_version": "project2_ruzh_istina_coverage_v1",
+  "contains_record_values": false,
+  "original_name_read": false,
+  "input": {
+    "sha256": "515c2d5881970f4de1a412d94018fa1aee99b5069956a1e139358bfc0de715fb",
+    "articles": 90,
+    "raw_authorships": 1735,
+    "exact_whitelisted_duplicates_removed": 52,
+    "effective_authorships": 1683
+  },
+  "coverage": {
+    "structured_authorships": 1637,
+    "target_authorships": 279,
+    "target_share": 0.1704337202199145,
+    "target_reasons": {
+      "chinese_family_and_given_shape": 228,
+      "cyrillic_script": 13,
+      "russian_name_roles": 38
+    },
+    "structured_script_signatures": {
+      "cyrillic": 12,
+      "cyrillic+latin": 1,
+      "latin": 1624
+    },
+    "target_labeled_authorships": 200,
+    "target_unique_labeled_identities": 196,
+    "target_repeated_labeled_identities": 4,
+    "target_mentions_from_repeated_identities": 8,
+    "target_cross_script_labeled_identities": 0
+  },
+  "temporal": {
+    "history_through_year": 2023,
+    "target_test": 101,
+    "target_known": 0,
+    "target_new": 101
+  }
+}

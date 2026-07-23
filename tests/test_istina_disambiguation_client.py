@@ -62,7 +62,7 @@ class TestIstinaDisambiguationClient(unittest.TestCase):
 
         self.assertEqual(record.record_id, "istina:820111800:2")
         self.assertEqual(record.name, "Qi Wentao")
-        self.assertEqual(record.coauthors, ["Zenchuk Alexander I."])
+        self.assertEqual(record.coauthors, ["Zenchuk Alexander I"])
         self.assertEqual(record.publication_title, article["title"])
         self.assertEqual(record.year, 2026)
         self.assertEqual(record.source, "istina_export")
@@ -76,11 +76,25 @@ class TestIstinaDisambiguationClient(unittest.TestCase):
         self.assertEqual(record.record_id, "istina:a1:1")
         self.assertEqual(record.name, "Ma Jiaxin")
 
+    def test_istina_export_ignores_fabricated_original_name(self):
+        article = {"id": "a1", "authors": []}
+        author = {
+            "lastname": "Ma",
+            "firstname": "Jiaxin",
+            "original_name": "Fabricated Identity",
+        }
+
+        record = istina_author_record_from_export(
+            article, author, fallback_position=1
+        )
+
+        self.assertEqual(record.name, "Ma Jiaxin")
+
     def test_iter_istina_author_records_skips_empty_names(self):
         articles = [{
             "id": "a1",
             "authors": [
-                {"original_name": "Wu Junde", "position": 1},
+                {"lastname": "Wu", "firstname": "Junde", "position": 1},
                 {"lastname": "", "firstname": "", "position": 2},
             ],
         }]
@@ -93,8 +107,8 @@ class TestIstinaDisambiguationClient(unittest.TestCase):
 
     def test_iter_istina_author_records_keeps_ids_unique_for_duplicate_article_ids(self):
         articles = [
-            {"id": "same", "authors": [{"original_name": "Wu Junde", "position": 1}]},
-            {"id": "same", "authors": [{"original_name": "Wu Junde", "position": 1}]},
+            {"id": "same", "authors": [{"lastname": "Wu", "firstname": "Junde", "position": 1}]},
+            {"id": "same", "authors": [{"lastname": "Wu", "firstname": "Junde", "position": 1}]},
         ]
 
         records = list(iter_istina_author_records(articles))
@@ -108,8 +122,8 @@ class TestIstinaDisambiguationClient(unittest.TestCase):
         articles = [{
             "id": "same",
             "authors": [
-                {"original_name": "Wu Junde", "position": 1},
-                {"original_name": "Wu Junde", "position": 1},
+                {"lastname": "Wu", "firstname": "Junde", "position": 1},
+                {"lastname": "Wu", "firstname": "Junde", "position": 1},
             ],
         }]
 

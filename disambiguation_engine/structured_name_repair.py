@@ -45,7 +45,10 @@ def structured_name_parts(record: Mapping[str, Any]) -> Tuple[str, Tuple[str, ..
     family = _field(record, "lastname", "last_name", "surname")
     first = _field(record, "firstname", "first_name")
     middle = _field(record, "middlename", "middle_name")
-    display_name = _field(record, "name", "original_name")
+    # ``original_name`` is an early fabricated export field and is never
+    # eligible for parsing or diagnostics.  ``name`` is retained only for
+    # source-observed citation strings in older adapters.
+    display_name = _field(record, "name")
 
     if not family and display_name:
         display_tokens = TOKEN_RE.findall(
@@ -282,7 +285,7 @@ def build_repair_profiles(history_mentions: Iterable[Mapping[str, Any]]) -> Repa
             coauthors=coauthor_keys(mention.get("coauthors") or []),
             affiliation_key=normalized_name_key(mention.get("affiliation") or ""),
             article_id=str(mention.get("article_id") or ""),
-            name=str(mention.get("name") or mention.get("original_name") or ""),
+            name=str(mention.get("name") or ""),
         ))
 
     quarantined = set()

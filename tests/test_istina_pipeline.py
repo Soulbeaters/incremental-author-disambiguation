@@ -9,6 +9,7 @@ from integrations.istina_disambiguation_client import IstinaDisambiguationClient
 from integrations.istina_pipeline import (
     IstinaDisambiguationPipeline,
     IstinaPipelineConfig,
+    article_mentions,
     build_istina_history_state,
 )
 
@@ -37,6 +38,23 @@ class FakeServiceClient:
 
 
 class IstinaPipelineTests(unittest.TestCase):
+    def test_article_adapter_drops_fabricated_original_name_recursively(self):
+        mentions = article_mentions({
+            "id": "P1",
+            "authors": [{
+                "lastname": "Ma",
+                "firstname": "Jiaxin",
+                "original_name": "Fabricated Identity",
+            }],
+        })
+
+        self.assertEqual(mentions[0]["name"], "Ma Jiaxin")
+        self.assertNotIn("original_name", mentions[0]["author"])
+        self.assertNotIn(
+            "original_name",
+            mentions[0]["article"]["authors"][0],
+        )
+
     def test_calibrated_rescue_is_disabled_by_default(self):
         self.assertFalse(IstinaPipelineConfig().enable_calibrated_candidate_rescue)
 

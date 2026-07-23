@@ -313,10 +313,7 @@ class IstinaPipelineDecision:
 
 
 def _exported_author_name(author: Mapping[str, Any]) -> str:
-    original = str(author.get("original_name") or author.get("name") or "").strip()
-    if original:
-        return original
-    return " ".join(
+    structured = " ".join(
         part for part in (
             str(author.get("lastname") or author.get("last_name") or "").strip(),
             str(author.get("firstname") or author.get("first_name") or "").strip(),
@@ -324,6 +321,25 @@ def _exported_author_name(author: Mapping[str, Any]) -> str:
         )
         if part
     )
+    if structured:
+        return structured
+    return str(author.get("name") or "").strip()
+
+
+def _without_synthetic_name(value: Any) -> Any:
+    """Recursively remove the fabricated original_name export field."""
+
+    if isinstance(value, Mapping):
+        return {
+            key: _without_synthetic_name(nested)
+            for key, nested in value.items()
+            if key != "original_name"
+        }
+    if isinstance(value, list):
+        return [_without_synthetic_name(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_without_synthetic_name(item) for item in value)
+    return value
 
 
 def article_mentions(
@@ -342,8 +358,8 @@ def article_mentions(
     mentions = []
     for fallback_position, (author, name) in enumerate(zip(authors, names), start=1):
         mentions.append({
-            "article": dict(article),
-            "author": dict(author),
+            "article": _without_synthetic_name(article),
+            "author": _without_synthetic_name(author),
             "article_index": article_index,
             "article_id": article_id,
             "position": author.get("position") or fallback_position,

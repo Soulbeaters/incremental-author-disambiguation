@@ -11,6 +11,7 @@ from experiments.grouped_candidate_ranker import (
     LEGACY_FROZEN_MODEL_BUNDLE_SCHEMA,
     LEGACY_GATE_FEATURE_NAMES,
     LEGACY_RANKER_FEATURE_NAMES,
+    MULTILINGUAL_RANKER_FEATURE_NAMES,
     RANKER_FEATURE_GROUPS,
     RANKER_FEATURE_NAMES,
     RankedDecision,
@@ -143,6 +144,59 @@ def test_candidate_groups_add_palladius_features_only_in_new_ablation():
     assert "given_palladius_similarity" not in semantic_names
 
 
+def test_candidate_groups_add_project1_lexicon_only_in_ruzh_ablation():
+    replay = {
+        "project2": {"records": [{
+            "article_id": "query-paper",
+            "decision": "unknown",
+            "gold_seen_in_history": True,
+            "gold_author_id": "A",
+            "topk": [{"author_id": "A", "score": 1.0}],
+        }]},
+        "native": [{
+            "prediction": "A",
+            "graph_support": 0.0,
+            "candidate_count": 1,
+        }],
+        "profile_sizes": {"A": 1},
+        "history_mentions_raw": [{
+            "article_id": "history-paper",
+            "gold_author_id": "A",
+            "firstname": "Jiaxing",
+            "middlename": "",
+            "lastname": "Ma",
+            "year": 2020,
+            "coauthors": [],
+        }],
+        "test_mentions_raw": [{
+            "article_id": "query-paper",
+            "firstname": "Цзясин",
+            "middlename": "",
+            "lastname": "Ма",
+            "year": 2022,
+            "coauthors": [],
+        }],
+    }
+
+    group = build_candidate_groups(
+        replay,
+        include_multilingual=True,
+        include_ruzh_lexicon=True,
+    )[0]
+    features = group.candidates[0].features
+
+    assert features[
+        RANKER_FEATURE_NAMES.index("chinese_family_lexicon_match")
+    ] == 1.0
+    multilingual_names = {
+        RANKER_FEATURE_NAMES[index]
+        for index in RANKER_FEATURE_GROUPS[
+            "listwise_multilingual_cross_profile"
+        ]
+    }
+    assert "chinese_family_lexicon_match" not in multilingual_names
+
+
 def test_multilingual_profiles_deduplicate_repeated_history_names(
     monkeypatch,
 ):
@@ -151,7 +205,8 @@ def test_multilingual_profiles_deduplicate_repeated_history_names(
     def fake_features(query, profiles):
         observed_profile_sizes.append(len(profiles))
         return (0.0,) * (
-            len(RANKER_FEATURE_NAMES) - len(LEGACY_RANKER_FEATURE_NAMES)
+            len(MULTILINGUAL_RANKER_FEATURE_NAMES)
+            - len(LEGACY_RANKER_FEATURE_NAMES)
         )
 
     monkeypatch.setattr(
@@ -218,6 +273,19 @@ def test_multilingual_ablation_extends_but_does_not_change_old_group():
     ) == LEGACY_RANKER_FEATURE_NAMES
     assert multilingual[: len(semantic)] == semantic
     assert len(multilingual) > len(semantic)
+
+
+def test_ruzh_lexicon_ablation_extends_without_changing_multilingual_group():
+    multilingual = RANKER_FEATURE_GROUPS[
+        "listwise_multilingual_cross_profile"
+    ]
+    ruzh = RANKER_FEATURE_GROUPS["listwise_ruzh_cross_profile"]
+
+    assert tuple(
+        RANKER_FEATURE_NAMES[index] for index in multilingual
+    ) == MULTILINGUAL_RANKER_FEATURE_NAMES
+    assert ruzh[: len(multilingual)] == multilingual
+    assert len(ruzh) > len(multilingual)
 
 
 def test_training_fixed_sequence_stops_at_first_unsafe_threshold():

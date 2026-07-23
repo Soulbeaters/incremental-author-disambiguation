@@ -33,16 +33,17 @@ def _has_cyrillic(value: str) -> bool:
 
 
 def _exported_author_name(author: Dict[str, Any]) -> str:
-    original_name = (author.get("original_name") or author.get("name") or "").strip()
-    if original_name:
-        return original_name
-
     parts = [
         (author.get("lastname") or author.get("last_name") or "").strip(),
         (author.get("firstname") or author.get("first_name") or "").strip(),
         (author.get("middlename") or author.get("middle_name") or "").strip(),
     ]
-    return " ".join(part for part in parts if part)
+    structured = " ".join(part for part in parts if part)
+    if structured:
+        return structured
+    # ``name`` may be a source-observed citation string in other adapters.
+    # The fabricated ISTINA-export ``original_name`` field is never read.
+    return str(author.get("name") or "").strip()
 
 
 def _article_identifier(article: Dict[str, Any]) -> str:

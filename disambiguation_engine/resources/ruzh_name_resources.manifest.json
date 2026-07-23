@@ -1,0 +1,79 @@
+{
+  "schema_version": "project2_ruzh_name_resources_v1",
+  "contains_person_records": false,
+  "contains_identity_labels": false,
+  "original_name_used": false,
+  "project1": {
+    "root_license": "MIT",
+    "source_sha256": {
+      "data/chinese_surnames.py": "19aa7117171ce2e7efd98ebb76720830d7ee06c54e6972f822ea675a1bbc7488",
+      "data/surname_frequency.py": "6bf70104a81e3959f90563fd02df431571565a156d15b897f1670a2d41bcb680",
+      "data/surname_pinyin_db.py": "aed357f779a03f6cfb0589d9a09700045fb3622997d6d5ca59d7d146f7fac8d9",
+      "data/surname_russian_db.py": "061c483fdef8f14598d5de3f6eaa477e20debe7cf9818ee3d4a5e001b789d988",
+      "data/variant_pinyin_map.py": "adefcf95d54035215c19a5c57104adc604d7aa9ceb142e3829a8ea1036523093",
+      "LICENSE": "b5f38292f120a45b977e377cd349c6282e418a18d0858bf5158ed4118b20369a"
+    },
+    "output": "project1_chinese_surname_aliases.tsv",
+    "output_sha256": "e0a0a4b9f17b137392f50fdbe781e73f4f3eddf019532cb5cf96ef7440a7a964",
+    "counts": {
+      "han": 462,
+      "palladius": 348,
+      "pinyin": 353,
+      "romanization_variant": 41,
+      "total": 1204
+    }
+  },
+  "russian_name_roles": {
+    "source": "OpenCorpora via pymorphy3-dicts-ru",
+    "data_license": "CC BY-SA 3.0",
+    "dictionary_metadata": {
+      "language_code": "ru",
+      "format_version": "2.4",
+      "pymorphy2_version": "0.0.1",
+      "compiled_at": "2022-01-08T22:09:24.565962",
+      "source": "opencorpora.org",
+      "source_version": "0.92",
+      "source_revision": "417150",
+      "source_lexemes_count": 391778,
+      "source_links_count": 258607,
+      "gramtab_length": 5532,
+      "gramtab_formats": {
+        "opencorpora-ext": "gramtab-opencorpora-ext.json",
+        "opencorpora-int": "gramtab-opencorpora-int.json"
+      },
+      "paradigms_length": 3456,
+      "suffixes_length": 16311,
+      "words_dawg_length": 5140211,
+      "compile_options": {
+        "min_ending_freq": 2,
+        "min_paradigm_popularity": 3,
+        "max_suffix_length": 5,
+        "paradigm_prefixes": [
+          "",
+          "по",
+          "наи"
+        ]
+      },
+      "prediction_suffixes_dawg_lengths": [
+        375373,
+        1882,
+        21
+      ],
+      "P(t|w)": true,
+      "P(t|w)_unique_words": 45471,
+      "P(t|w)_outcomes": 518367,
+      "P(t|w)_min_word_freq": 1,
+      "corpus_revision": "4580142"
+    },
+    "dictionary_wheel_sha256": "718bac64c73c10c16073a199402657283d9b64c04188b694f6d3e9b0d85440f4",
+    "pymorphy_wheel_sha256": "0254317c02ce3ea17e080b7fc9d675e44662b3a5296bae68605b7a41d25b36c3",
+    "output": "opencorpora_russian_name_lemmas.tsv",
+    "output_sha256": "86357be4eaaeca7fc1ee10ca1dd840ba47fa28dcd8519138590301bba7a0317e",
+    "counts": {
+      "given": 12818,
+      "patronymic": 7493,
+      "surname": 9171,
+      "total": 29482
+    }
+  }
+}

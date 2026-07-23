@@ -11,6 +11,45 @@ The main question is whether candidate ranking, paper-to-profile evidence and
 selective open-set decisions can recover more known authors without exceeding
 a preregistered false-link risk for genuinely new authors.
 
+## Frozen RuZh conditional-expert contract
+
+The research target is now narrower than global SOTA: improve author
+disambiguation for Russian-script and Chinese-name records while preserving
+the frozen official S2AND behavior elsewhere.  `RuZh` denotes a processing
+stratum supported by source script and type-level name evidence; it is not an
+ethnicity or nationality inference.
+
+1. A target-independent router uses only observed structured first, middle and
+   last fields, script inventory and frozen public/type-level lexicons.
+2. Non-target records return the exact official-S2AND decision object.  A
+   non-target disagreement is a machine-gate failure.
+3. Target records may use the Project One Chinese surname--Pinyin--Palladius
+   aliases, Russian given/surname/patronymic morphology, multilingual name
+   views and the open-set gate.  Lexicons are features and risk signals, never
+   hard identity merge rules.
+4. A candidate is promoted only on the identical labelled target queries when
+   (a) correct known links do not decrease, (b) wrong-known links do not
+   increase, (c) false links to genuinely new authors do not increase, and
+   (d) at least one of those three outcomes strictly improves.
+5. A version that trades one error type for another, changes non-target
+   output, or merely retunes parameters without a strict target improvement
+   remains an internal negative result and cannot become the reported method.
+
+The first traceable resources are frozen in
+`disambiguation_engine/resources/ruzh_name_resources.manifest.json`.  Project
+One contributes 462 Han surnames represented by 1,204 Han/Pinyin/Palladius/
+variant aliases.  OpenCorpora contributes 29,482 type-level Russian name
+lemmas: 9,171 surname, 12,818 given-name and 7,493 patronymic lemmas.  Neither
+resource contains person identities or publication labels.
+
+The current 90-paper ISTINA export cannot evaluate this promotion contract.
+After structured-field-only exact de-duplication it contains 279 target
+authorships and 200 labelled target authorships, but only four repeated target
+identities.  With history through 2023, its 101 target test authorships are all
+new and zero are known.  It can diagnose target new-author false links but
+cannot measure target known-author recall or wrong-known links.  No target
+superiority claim may be drawn from it.
+
 ## Frozen S2AND research ladder
 
 Project Two now uses official S2AND `0.51.1` / production bundle `v1.21` as a
@@ -61,10 +100,11 @@ comparison it reduces new-author false links from 265 to 188 and raises
 accepted-link precision from 0.954413 to 0.962675, but loses 40 correct known
 links (known recall 0.962943 to 0.958583).  B³ F1 rises by 0.001350 while
 Pairwise F1 falls by 0.004940.  This is a changed risk--coverage trade-off, not
-overall superiority.  The next algorithmic target is therefore a calibrated
-`S2AND-RuZh-Open` layer that tries to retain stock S2AND recall while reducing
-false links; Russian--Chinese feature claims remain blocked on verified
-target-domain development labels.
+overall superiority.  The next algorithmic target is therefore the conditional
+`S2AND-RuZh-Open` layer above.  It must preserve official S2AND outside the
+target and pass the three-outcome target gate; Russian--Chinese gain claims
+remain blocked on verified target-domain development labels with repeated
+identities.
 
 ## Irreversible data roles
 

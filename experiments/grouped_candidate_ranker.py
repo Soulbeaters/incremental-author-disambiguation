@@ -27,6 +27,10 @@ from disambiguation_engine.multilingual_name_features import (
     StructuredName,
     best_profile_name_features,
 )
+from disambiguation_engine.ruzh_name_evidence import (
+    FEATURE_NAMES as RUZH_LEXICON_FEATURE_NAMES,
+    best_profile_ruzh_features,
+)
 from evaluation.risk_bounds import chernoff_kl_upper_bound
 
 BASE_RANKER_FEATURE_NAMES = FEATURE_NAMES + (
@@ -38,8 +42,11 @@ SEMANTIC_FEATURE_NAMES = (
     "paper_to_profile_available",
 )
 LEGACY_RANKER_FEATURE_NAMES = BASE_RANKER_FEATURE_NAMES + SEMANTIC_FEATURE_NAMES
-RANKER_FEATURE_NAMES = (
+MULTILINGUAL_RANKER_FEATURE_NAMES = (
     LEGACY_RANKER_FEATURE_NAMES + MULTILINGUAL_FEATURE_NAMES
+)
+RANKER_FEATURE_NAMES = (
+    MULTILINGUAL_RANKER_FEATURE_NAMES + RUZH_LEXICON_FEATURE_NAMES
 )
 
 RANKER_FEATURE_GROUPS = {
@@ -54,6 +61,9 @@ RANKER_FEATURE_GROUPS = {
         range(len(LEGACY_RANKER_FEATURE_NAMES))
     ),
     "listwise_multilingual_cross_profile": tuple(
+        range(len(MULTILINGUAL_RANKER_FEATURE_NAMES))
+    ),
+    "listwise_ruzh_cross_profile": tuple(
         range(len(RANKER_FEATURE_NAMES))
     ),
 }
@@ -69,7 +79,11 @@ GATE_FEATURE_NAMES = RANKER_FEATURE_NAMES + GATE_SUMMARY_FEATURE_NAMES
 LEGACY_GATE_FEATURE_NAMES = (
     LEGACY_RANKER_FEATURE_NAMES + GATE_SUMMARY_FEATURE_NAMES
 )
-FROZEN_MODEL_BUNDLE_SCHEMA = "project2_lightgbm_bundle_v2"
+MULTILINGUAL_GATE_FEATURE_NAMES = (
+    MULTILINGUAL_RANKER_FEATURE_NAMES + GATE_SUMMARY_FEATURE_NAMES
+)
+FROZEN_MODEL_BUNDLE_SCHEMA = "project2_lightgbm_bundle_v3"
+MULTILINGUAL_FROZEN_MODEL_BUNDLE_SCHEMA = "project2_lightgbm_bundle_v2"
 LEGACY_FROZEN_MODEL_BUNDLE_SCHEMA = "project2_lightgbm_bundle_v1"
 
 
@@ -198,6 +212,7 @@ def build_candidate_groups(
     replay: Mapping[str, Any],
     *,
     include_multilingual: bool = False,
+    include_ruzh_lexicon: bool = False,
 ) -> list[CandidateGroup]:
     """Build candidate groups without reading query labels into features."""
 
@@ -233,7 +248,7 @@ def build_candidate_groups(
             for name in mention.get("coauthors") or ()
             if str(name).strip()
         )
-        if include_multilingual:
+        if include_multilingual or include_ruzh_lexicon:
             try:
                 profile_names[author_id].add(
                     StructuredName.from_mapping(mention)
@@ -258,7 +273,7 @@ def build_candidate_groups(
         paper_key = str(record.get("article_id") or position)
         query = query_mentions[position] if position < len(query_mentions) else {}
         query_name = None
-        if include_multilingual:
+        if include_multilingual or include_ruzh_lexicon:
             try:
                 query_name = StructuredName.from_mapping(query)
             except ValueError:
@@ -321,6 +336,14 @@ def build_candidate_groups(
                 if include_multilingual and query_name is not None
                 else (0.0,) * len(MULTILINGUAL_FEATURE_NAMES)
             )
+            ruzh_lexicon_features = (
+                best_profile_ruzh_features(
+                    query_name,
+                    profile_names.get(candidate_id, ()),
+                )
+                if include_ruzh_lexicon and query_name is not None
+                else (0.0,) * len(RUZH_LEXICON_FEATURE_NAMES)
+            )
             candidates.append(CandidateExample(
                 author_id=candidate_id,
                 features=base_features + (
@@ -328,7 +351,7 @@ def build_candidate_groups(
                     float(candidate_id == graph_author_id),
                     semantic_cosine,
                     float(semantic_available),
-                ) + multilingual_features,
+                ) + multilingual_features + ruzh_lexicon_features,
                 relevant=bool(
                     record.get("gold_seen_in_history") and candidate_id == truth
                 ),
@@ -861,6 +884,7 @@ def load_frozen_model_bundle(payload: Mapping[str, Any]) -> FrozenModelBundle:
     schema_version = payload.get("schema_version")
     if schema_version not in {
         FROZEN_MODEL_BUNDLE_SCHEMA,
+        MULTILINGUAL_FROZEN_MODEL_BUNDLE_SCHEMA,
         LEGACY_FROZEN_MODEL_BUNDLE_SCHEMA,
     }:
         raise ValueError("unsupported frozen model bundle schema")
@@ -910,19 +934,34 @@ def load_frozen_model_bundle(payload: Mapping[str, Any]) -> FrozenModelBundle:
     if not math.isfinite(threshold) or threshold < 0.0:
         raise ValueError("invalid frozen decision threshold")
     legacy = schema_version == LEGACY_FROZEN_MODEL_BUNDLE_SCHEMA
+    multilingual = (
+        schema_version == MULTILINGUAL_FROZEN_MODEL_BUNDLE_SCHEMA
+    )
     ranker, ranker_indices = load_component(
         "ranker",
         RANKER_FEATURE_NAMES,
         (
             LEGACY_RANKER_FEATURE_NAMES
             if legacy
-            else RANKER_FEATURE_NAMES
+            else (
+                MULTILINGUAL_RANKER_FEATURE_NAMES
+                if multilingual
+                else RANKER_FEATURE_NAMES
+            )
         ),
     )
     nil_gate, nil_gate_indices = load_component(
         "nil_gate",
         GATE_FEATURE_NAMES,
-        LEGACY_GATE_FEATURE_NAMES if legacy else GATE_FEATURE_NAMES,
+        (
+            LEGACY_GATE_FEATURE_NAMES
+            if legacy
+            else (
+                MULTILINGUAL_GATE_FEATURE_NAMES
+                if multilingual
+                else GATE_FEATURE_NAMES
+            )
+        ),
     )
     protocol = payload.get("protocol")
     if not isinstance(protocol, Mapping):
@@ -956,6 +995,9 @@ __all__ = [
     "LEGACY_FROZEN_MODEL_BUNDLE_SCHEMA",
     "LEGACY_GATE_FEATURE_NAMES",
     "LEGACY_RANKER_FEATURE_NAMES",
+    "MULTILINGUAL_FROZEN_MODEL_BUNDLE_SCHEMA",
+    "MULTILINGUAL_GATE_FEATURE_NAMES",
+    "MULTILINGUAL_RANKER_FEATURE_NAMES",
     "RANKER_FEATURE_GROUPS",
     "RANKER_FEATURE_NAMES",
     "RankedDecision",

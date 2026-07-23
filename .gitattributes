@@ -1,0 +1,2 @@
+disambiguation_engine/resources/*.tsv text eol=lf
+disambiguation_engine/resources/*.manifest.json text eol=lf

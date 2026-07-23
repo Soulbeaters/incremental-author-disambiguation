@@ -12,7 +12,7 @@ Promotion remains forbidden until a held-out ISTINA export is evaluated once.
 
 ## Frozen protocol
 
-- Project revision: `504cd87b314abffd1871102ee0f1e06065000e35`
+- Project revision: `40505651aa9a6c8e8414b004e7efe15ab3ca1678`
 - Training: history through 2022; 2023 queries
 - Validation: history through 2023; 2024 queries
 - Final public comparison: history through 2024; 2025+ queries
@@ -29,7 +29,7 @@ Promotion remains forbidden until a held-out ISTINA export is evaluated once.
   generation, ranking features, or the online pipeline.
 
 The temporal boundaries are now command-line parameters with a strict
-non-overlap validator.  The full repository test suite passed: 329 tests.
+non-overlap validator.  The full repository test suite passed: 330 tests.
 
 ## Same-query comparison
 
@@ -77,18 +77,35 @@ false even though the statistical risk checks passed.
 ## Reproducibility
 
 - Current result:
-  `runs/project2_late_public_2024_semantic_fixedseq64/aggregate_result.json`
+  `runs/project2_late_public_2024_semantic_fixedseq64_reloaded/aggregate_result.json`
 - Current result SHA-256:
-  `0057999756021AF66B9B18CE95153183220F2DF4ADDBA5983D26383C5271C541`
+  `4A1ABE659C462F25543AB676208B8636DD802DA179B199FB96181950D7AEC397`
+- Frozen model bundle:
+  `runs/project2_late_public_2024_semantic_fixedseq64_reloaded/frozen_model_bundle.json`
+- Frozen model bundle SHA-256:
+  `2C33DBCB1C6538A63A4BAEE7698EA2711593E1FB95E18F862641939DF17B3EFD`
+- Embedded protocol SHA-256:
+  `e4a17eb9f77c312fb1708fa7b19433bd2ff11d85c859140af22d6976d0e70c17`
+- Ranker/NIL-gate model SHA-256:
+  `f646b4e6f77fa61c925f3e77fe07dd620aad74d3e20a20345ecc734d43c17b24` /
+  `de1555ffa91cdf75138c14748e3efa17a325d49d61db9cb7f9ab9dfb515979ae`
 - Official comparator:
   `runs/s2and_official_python_2024_full/aggregate_result.json`
 - Official comparator SHA-256:
   `F57ECC8212C28D22FDBA281CBDCDA8335E3C387A17860BF79266CBE77D5DAF8E`
 
 Both methods evaluated exactly 15,422 query authorships.  The official S2AND
-run completed 8,027 blocks in about 8.5 minutes; the Project Two comparison
-completed in about 20.2 minutes.  These are observed end-to-end research
+run completed 8,027 blocks in about 8.5 minutes; the final frozen Project Two
+comparison completed in about 13.5 minutes.  These are observed end-to-end research
 runtimes, not service throughput claims.
+
+The bundle was written and hash-validated before the certification bucket was
+opened.  The evaluator then discarded the in-memory estimators, reloaded both
+LightGBM models from the bundle, and used only those reloaded models for
+certification and the 2025+ comparison.  A prior in-memory run and the reloaded
+run have identical thresholds, model component hashes, decision counts, known
+recall, false-link rates, and Pairwise F1.  B3 differs only by one binary64
+rounding unit (`1.11e-16`) in precision/F1.
 
 ## Stop rule and next evidence
 

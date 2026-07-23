@@ -1,3 +1,5 @@
+import math
+
 import pytest
 
 from experiments.grouped_candidate_ranker import (
@@ -6,6 +8,7 @@ from experiments.grouped_candidate_ranker import (
     GATE_FEATURE_NAMES,
     RANKER_FEATURE_GROUPS,
     RANKER_FEATURE_NAMES,
+    RankedDecision,
     build_candidate_groups,
     fit_nil_gate,
     fit_ranker,
@@ -14,6 +17,7 @@ from experiments.grouped_candidate_ranker import (
     rank_groups,
     ranking_metrics,
     select_risk_bounded_threshold,
+    training_score_thresholds,
 )
 
 
@@ -84,6 +88,56 @@ def test_gate_indices_keep_old_ablation_free_of_semantic_features():
     assert "paper_to_profile_cosine" not in selected_names
     assert "paper_to_profile_available" not in selected_names
     assert "ranker_top_score" in selected_names
+
+
+def test_training_fixed_sequence_stops_at_first_unsafe_threshold():
+    decisions = []
+    scores = {}
+    for position in range(100):
+        known = position < 50
+        truth = f"author-{position}"
+        prediction = truth if known else f"candidate-{position}"
+        decisions.append(RankedDecision(
+            position=position,
+            paper_key=f"paper-{position}",
+            known=known,
+            truth=truth,
+            prediction=prediction,
+            features=(),
+        ))
+        scores[position] = 0.9 if known else 0.1
+    thresholds = (math.nextafter(1.0, math.inf), 0.9, 0.5, 0.1)
+
+    selection = select_risk_bounded_threshold(
+        decisions,
+        scores,
+        known_trials=50,
+        new_trials=50,
+        confidence=0.95,
+        max_new_false_rate=0.3,
+        max_wrong_known_rate=0.3,
+        candidate_thresholds=thresholds,
+        testing_method="fixed_sequence",
+    )
+
+    assert selection["threshold"] == 0.5
+    assert selection["accepted"] == 50
+    assert selection["new_false_links"] == 0
+    assert selection["tested_points"] == 4
+    assert selection["operating_points"] == 4
+    assert selection["pointwise_confidence"] == 0.95
+    assert selection["threshold_family_source"] == "training_scores"
+
+
+def test_training_threshold_grid_is_deterministic_and_bounded():
+    thresholds = training_score_thresholds(
+        [0.4, 0.1, 0.3, 0.2],
+        grid_size=3,
+    )
+
+    assert thresholds == tuple(sorted(set(thresholds), reverse=True))
+    assert thresholds[0] > 1.0
+    assert len(thresholds) <= 4
 
 
 def test_small_two_stage_model_ranks_then_rejects_nil_queries():

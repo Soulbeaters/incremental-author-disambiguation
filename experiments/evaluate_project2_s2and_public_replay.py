@@ -55,6 +55,7 @@ from experiments.grouped_candidate_ranker import (  # noqa: E402
     ranking_metrics,
     select_risk_bounded_threshold,
     threshold_predictions,
+    training_score_thresholds,
 )
 from experiments.istina_runtime_replay import (  # noqa: E402
     evaluate,
@@ -540,6 +541,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "max_new_false_rate": args.max_new_false_rate,
         "max_wrong_known_rate": args.max_wrong_known_rate,
         "calibrated_candidate_threshold": args.calibrated_candidate_threshold,
+        "risk_threshold_procedure": args.risk_threshold_procedure,
+        "risk_threshold_grid_size": args.risk_threshold_grid_size,
     }
     checkpoint_signature = hashlib.sha256(
         json.dumps(
@@ -609,6 +612,24 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
     checkpoint.mark_started("train.nil_gate")
     nil_gate = fit_nil_gate(oof_decisions, nil_gate_indices)
+    training_gate_scores = gate_scores(
+        nil_gate,
+        oof_decisions,
+        nil_gate_indices,
+    )
+    candidate_thresholds = None
+    threshold_testing_method = "bonferroni"
+    if args.risk_threshold_procedure != "exhaustive_bonferroni":
+        candidate_thresholds = training_score_thresholds(
+            tuple(training_gate_scores.values()),
+            grid_size=args.risk_threshold_grid_size,
+        )
+        threshold_testing_method = (
+            "fixed_sequence"
+            if args.risk_threshold_procedure
+            == "training_quantile_fixed_sequence"
+            else "bonferroni"
+        )
     checkpoint.mark_completed("train.nil_gate")
     checkpoint.mark_started("train.final_ranker")
     ranker = fit_ranker(train_groups, feature_indices)
@@ -657,6 +678,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         confidence=args.confidence,
         max_new_false_rate=args.max_new_false_rate,
         max_wrong_known_rate=args.max_wrong_known_rate,
+        candidate_thresholds=candidate_thresholds,
+        testing_method=threshold_testing_method,
     )
     threshold = float(threshold_selection["threshold"])
     checkpoint.mark_completed(
@@ -771,6 +794,23 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "ranker": model_summary(ranker, feature_names),
             "nil_gate": model_summary(nil_gate, nil_gate_feature_names),
             "selected_threshold": threshold,
+            "risk_threshold_procedure": args.risk_threshold_procedure,
+            "risk_threshold_grid": {
+                "requested_size": args.risk_threshold_grid_size,
+                "realized_size": (
+                    len(candidate_thresholds)
+                    if candidate_thresholds is not None else None
+                ),
+                "sha256": (
+                    hashlib.sha256(
+                        json.dumps(
+                            candidate_thresholds,
+                            separators=(",", ":"),
+                        ).encode("utf-8")
+                    ).hexdigest()
+                    if candidate_thresholds is not None else None
+                ),
+            },
         },
         "training": {
             "replay": _compact_replay(train),
@@ -888,6 +928,16 @@ def main() -> int:
     parser.add_argument("--max-new-false-rate", type=float, default=0.005)
     parser.add_argument("--max-wrong-known-rate", type=float, default=0.01)
     parser.add_argument("--calibrated-candidate-threshold", type=float, default=0.995)
+    parser.add_argument(
+        "--risk-threshold-procedure",
+        choices=(
+            "exhaustive_bonferroni",
+            "training_quantile_bonferroni",
+            "training_quantile_fixed_sequence",
+        ),
+        default="exhaustive_bonferroni",
+    )
+    parser.add_argument("--risk-threshold-grid-size", type=int, default=64)
     args = parser.parse_args()
     run(args)
     return 0

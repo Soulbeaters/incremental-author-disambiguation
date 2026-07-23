@@ -449,21 +449,61 @@ def gate_scores(
     }
 
 
-def select_risk_bounded_threshold(
+def training_score_thresholds(
+    scores: Sequence[float],
+    *,
+    grid_size: int,
+) -> tuple[float, ...]:
+    """Fix a conservative-to-liberal threshold family from training scores."""
+
+    if grid_size < 2:
+        raise ValueError("training threshold grid needs at least two points")
+    ordered = sorted(float(score) for score in scores)
+    if not ordered:
+        raise ValueError("training threshold grid needs non-empty scores")
+    positions = {
+        round(index * (len(ordered) - 1) / (grid_size - 1))
+        for index in range(grid_size)
+    }
+    thresholds = {ordered[position] for position in positions}
+    thresholds.add(math.nextafter(1.0, math.inf))
+    return tuple(sorted(thresholds, reverse=True))
+
+
+def _threshold_operating_points(
     decisions: Sequence[RankedDecision],
     scores: Mapping[int, float],
-    *,
-    known_trials: int,
-    new_trials: int,
-    confidence: float,
-    max_new_false_rate: float,
-    max_wrong_known_rate: float,
-) -> dict[str, Any]:
-    """Learn-then-test threshold family with Bonferroni risk control."""
-
+    candidate_thresholds: Sequence[float] | None,
+) -> list[tuple[float, int, int, int, int]]:
     ordered = sorted(decisions, key=lambda row: scores[row.position], reverse=True)
+    if candidate_thresholds is not None:
+        thresholds = sorted(
+            {float(threshold) for threshold in candidate_thresholds},
+            reverse=True,
+        )
+        if not thresholds:
+            raise ValueError("candidate threshold family must not be empty")
+        output = []
+        for threshold in thresholds:
+            selected = [
+                decision
+                for decision in ordered
+                if scores[decision.position] >= threshold
+            ]
+            output.append((
+                threshold,
+                len(selected),
+                sum(decision.correct for decision in selected),
+                sum(
+                    decision.known and not decision.correct
+                    for decision in selected
+                ),
+                sum(not decision.known for decision in selected),
+            ))
+        return output
+
     max_score = scores[ordered[0].position] if ordered else 0.0
-    operating_points = [(math.nextafter(max_score, math.inf), 0, 0, 0, 0)]
+    output = [(math.nextafter(max_score, math.inf), 0, 0, 0, 0)]
     accepted = correct = wrong_known = new_false = 0
     cursor = 0
     while cursor < len(ordered):
@@ -475,21 +515,58 @@ def select_risk_bounded_threshold(
             wrong_known += int(decision.known and not decision.correct)
             new_false += int(not decision.known)
             cursor += 1
-        operating_points.append((threshold, accepted, correct, wrong_known, new_false))
+        output.append((threshold, accepted, correct, wrong_known, new_false))
+    return output
 
-    pointwise_confidence = 1.0 - (1.0 - confidence) / len(operating_points)
+
+def select_risk_bounded_threshold(
+    decisions: Sequence[RankedDecision],
+    scores: Mapping[int, float],
+    *,
+    known_trials: int,
+    new_trials: int,
+    confidence: float,
+    max_new_false_rate: float,
+    max_wrong_known_rate: float,
+    candidate_thresholds: Sequence[float] | None = None,
+    testing_method: str = "bonferroni",
+) -> dict[str, Any]:
+    """Select a risk-bounded threshold with a valid learn-then-test procedure."""
+
+    if testing_method not in {"bonferroni", "fixed_sequence"}:
+        raise ValueError("unsupported threshold testing method")
+    operating_points = _threshold_operating_points(
+        decisions,
+        scores,
+        candidate_thresholds,
+    )
+    pointwise_confidence = (
+        confidence
+        if testing_method == "fixed_sequence"
+        else 1.0 - (1.0 - confidence) / len(operating_points)
+    )
     best = None
+    tested_points = 0
     for threshold, accepted, correct, wrong_known, new_false in operating_points:
+        tested_points += 1
         new_upper = chernoff_kl_upper_bound(
             new_false, new_trials, confidence=pointwise_confidence
         )
         wrong_upper = chernoff_kl_upper_bound(
             wrong_known, known_trials, confidence=pointwise_confidence
         )
-        if new_upper > max_new_false_rate or wrong_upper > max_wrong_known_rate:
+        passed = (
+            new_upper <= max_new_false_rate
+            and wrong_upper <= max_wrong_known_rate
+        )
+        if not passed and testing_method == "fixed_sequence":
+            break
+        if not passed:
             continue
         candidate = (correct, -(wrong_known + new_false), -accepted, threshold)
-        if best is None or candidate > best:
+        if testing_method == "fixed_sequence":
+            best = candidate
+        elif best is None or candidate > best:
             best = candidate
     if best is None:
         raise ValueError("no ranker/NIL threshold satisfies the familywise risk budget")
@@ -504,8 +581,14 @@ def select_risk_bounded_threshold(
         "wrong_known": selected_wrong,
         "new_false_links": selected_new,
         "coverage": len(selected) / (known_trials + new_trials) if known_trials + new_trials else 0.0,
+        "testing_method": testing_method,
+        "threshold_family_source": (
+            "training_scores" if candidate_thresholds is not None
+            else "selection_scores"
+        ),
         "familywise_confidence": confidence,
         "operating_points": len(operating_points),
+        "tested_points": tested_points,
         "pointwise_confidence": pointwise_confidence,
         "new_false_link_upper_bound": chernoff_kl_upper_bound(
             selected_new, new_trials, confidence=pointwise_confidence
@@ -607,4 +690,5 @@ __all__ = [
     "ranking_metrics",
     "select_risk_bounded_threshold",
     "threshold_predictions",
+    "training_score_thresholds",
 ]

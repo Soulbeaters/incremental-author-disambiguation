@@ -2,12 +2,14 @@ import pytest
 
 from experiments.run_s2and_official_public_baseline import (
     Checkpoint,
+    _filter_query_years,
     aggregate_block_payloads,
     evaluate_block,
 )
 from experiments.s2and_public_replay import (
     ObservedPaperAuthor,
     PaperContext,
+    ReplayCorpus,
     ReplayMention,
 )
 from array import array
@@ -62,6 +64,70 @@ def test_block_evaluation_counts_open_set_links_and_contingencies():
     assert aggregate["linking"]["new_author_false_link_rate"] == 0.5
     assert aggregate["linking"]["accepted_link_precision"] == pytest.approx(2 / 3)
     assert aggregate["clustering"]["b3"]["f1"] < 1.0
+
+
+def test_block_evaluation_can_store_record_free_query_outcomes():
+    history = [_mention("known-1", 2020)]
+    queries = [_mention("known-1", 2023), _mention("new-1", 2023)]
+    payload = evaluate_block(
+        block_ordinal=0,
+        history_signature_ids=["h0"],
+        query_signature_ids=["q0", "q1"],
+        history_mentions=history,
+        query_mentions=queries,
+        identity_index={"known-1": 0, "new-1": 1},
+        global_history_identity_indices={0},
+        clusters={"c0": ["h0", "q0"], "c1": ["q1"]},
+        phase_b_mode="exact",
+        elapsed_seconds=0.1,
+        include_query_outcomes=True,
+    )
+
+    assert payload["query_outcomes"] == [
+        {
+            "query_key": payload["query_outcomes"][0]["query_key"],
+            "gold_identity_index": 0,
+            "known": True,
+            "predicted_identity_indices": [0],
+        },
+        {
+            "query_key": payload["query_outcomes"][1]["query_key"],
+            "gold_identity_index": 1,
+            "known": False,
+            "predicted_identity_indices": [],
+        },
+    ]
+    assert len(payload["query_outcomes"][0]["query_key"]) == 64
+
+
+def test_query_year_filter_preserves_history_and_selects_exact_window():
+    history = (_mention("known-1", 2022),)
+    corpus = ReplayCorpus(
+        blocks={
+            "block": (
+                history,
+                (
+                    _mention("known-1", 2023),
+                    _mention("known-1", 2024),
+                    _mention("known-1", 2025),
+                ),
+            )
+        },
+        global_history_identities=frozenset({"known-1"}),
+        coverage={},
+    )
+
+    filtered = _filter_query_years(
+        corpus,
+        query_year_from=2024,
+        query_year_through=2024,
+    )
+
+    assert filtered.blocks["block"][0] is history
+    assert [mention.year for mention in filtered.blocks["block"][1]] == [2024]
+    assert filtered.global_history_identities == corpus.global_history_identities
+    assert filtered.coverage["query_mentions_before_year_filter"] == 3
+    assert filtered.coverage["query_mentions"] == 1
 
 
 def test_checkpoint_is_resumable_and_rejects_changed_manifest(tmp_path):

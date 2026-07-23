@@ -54,6 +54,13 @@ Current literature-guided model change and frozen public ablation:
 docs\research\ruzh_profile_hard_negative_method_20260723.md
 ```
 
+Completed profile-consensus/hard-negative ablation and non-promotion decision:
+
+```text
+docs\research\ruzh_profile_hard_negative_result_20260723.md
+evidence\ruzh_profile_hard_negative_20260723.json
+```
+
 Paper-grade public S2AND dataset audit and temporal split sizes:
 
 ```text
@@ -140,6 +147,12 @@ Russian/Chinese expert.  Non-target output must be exactly unchanged.  The
 expert can be promoted only if correct known links do not decrease,
 wrong-known links do not increase, new-author false links do not increase, and
 at least one outcome strictly improves.
+
+The first profile-consensus/hard-negative implementation improved the previous
+Project Two selective model but increased two error counts and remained far
+below official S2AND recall, so it was not promoted.  The active experiment is
+now a residual expert: official S2AND remains the exact default and the RuZh
+layer is allowed to correct only errors learned from earlier temporal splits.
 
 Project One's Chinese surname/Pinyin/Palladius resources and an attributed
 OpenCorpora Russian name-role lexicon are integrated as feature evidence, not

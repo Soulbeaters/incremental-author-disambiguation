@@ -1,0 +1,71 @@
+{
+  "schema_version": "project2_ruzh_profile_hard_negative_result_v1",
+  "development_only": true,
+  "contains_record_values": false,
+  "decision": "not_promoted",
+  "project_revision": "cff5ccb",
+  "protocol": {
+    "train_history_through": 2022,
+    "train_query_year": 2023,
+    "validation_history_through": 2023,
+    "validation_query_year": 2024,
+    "comparison_history_through": 2024,
+    "comparison_query_from": 2025,
+    "feature_group": "listwise_ruzh_profile_hard_negative",
+    "threshold_procedure": "training_quantile_fixed_sequence"
+  },
+  "comparison_queries": {
+    "total": 15422,
+    "known": 9175,
+    "new": 6247
+  },
+  "old_multilingual_selective": {
+    "correct_known": 6274,
+    "wrong_known": 3,
+    "false_links_new": 13,
+    "known_recall": 0.683814714,
+    "known_prediction_precision": 0.999522065,
+    "new_author_false_link_rate": 0.002080999,
+    "b3_f1": 0.926286213,
+    "pairwise_f1": 0.77904957
+  },
+  "profile_hard_negative_selective": {
+    "correct_known": 6369,
+    "wrong_known": 5,
+    "false_links_new": 20,
+    "known_recall": 0.694168937,
+    "known_prediction_precision": 0.999215563,
+    "new_author_false_link_rate": 0.003201537,
+    "b3_f1": 0.929507372,
+    "pairwise_f1": 0.792620641
+  },
+  "official_s2and": {
+    "known_recall": 0.962942779,
+    "known_prediction_precision": 0.982540036,
+    "new_author_false_link_rate": 0.042420362,
+    "b3_f1": 0.990210083,
+    "pairwise_f1": 0.973473654
+  },
+  "opened_project2_target_stratum": {
+    "target_queries": 5574,
+    "known": 3441,
+    "new": 2133,
+    "correct_known": 1723,
+    "wrong_known": 3,
+    "false_links_new": 8,
+    "known_recall": 0.500726533,
+    "known_prediction_precision": 0.998261877,
+    "new_author_false_link_rate": 0.003750586,
+    "b3_f1": 0.884048193,
+    "pairwise_f1": 0.649933066
+  },
+  "runtime": {
+    "wall_seconds": 1131.982371,
+    "cpu_seconds": 1179.734375,
+    "peak_working_set_bytes": 5324255232
+  },
+  "artifacts": {
+    "aggregate_sha256": "080F99B9C483F1431B7183E68817839D1B5FEBB7609F6A460612C3BC592E1052",
+    "frozen_model_sha256": "43122A8382FFF9C8FE7F82AF2FA37C1E3E17F0333DF0112B97200E92C748FE52"
+  }
+}

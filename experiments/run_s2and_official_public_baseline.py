@@ -81,6 +81,58 @@ def _identity_index(corpus: ReplayCorpus) -> tuple[dict[str, int], str]:
     return {identity: index for index, identity in enumerate(ordered)}, partition_digest
 
 
+def _query_key(mention: ReplayMention) -> str:
+    """Return a record-free key shared by the official and Project Two replays."""
+
+    return hashlib.sha256(
+        f"{mention.doi.casefold()}\0{mention.author_position}".encode("utf-8")
+    ).hexdigest()
+
+
+def _filter_query_years(
+    corpus: ReplayCorpus,
+    *,
+    query_year_from: int | None,
+    query_year_through: int | None,
+) -> ReplayCorpus:
+    """Restrict query years without changing the frozen history partition."""
+
+    if (
+        query_year_from is not None
+        and query_year_through is not None
+        and query_year_from > query_year_through
+    ):
+        raise ValueError("query-year-from must not exceed query-year-through")
+    if query_year_from is None and query_year_through is None:
+        return corpus
+    blocks = {}
+    for block, (history, query) in corpus.blocks.items():
+        selected = tuple(
+            mention
+            for mention in query
+            if (
+                query_year_from is None or mention.year >= query_year_from
+            )
+            and (
+                query_year_through is None or mention.year <= query_year_through
+            )
+        )
+        blocks[block] = (history, selected)
+    coverage = dict(corpus.coverage)
+    coverage["query_mentions_before_year_filter"] = corpus.query_count
+    coverage["query_mentions"] = sum(
+        len(query) for _history, query in blocks.values()
+    )
+    coverage["query_blocks"] = sum(
+        bool(query) for _history, query in blocks.values()
+    )
+    return ReplayCorpus(
+        blocks=blocks,
+        global_history_identities=corpus.global_history_identities,
+        coverage=coverage,
+    )
+
+
 def evaluate_block(
     *,
     block_ordinal: int,
@@ -93,6 +145,7 @@ def evaluate_block(
     clusters: Mapping[Any, Sequence[str]],
     phase_b_mode: str,
     elapsed_seconds: float,
+    include_query_outcomes: bool = False,
 ) -> dict[str, Any]:
     if len(history_signature_ids) != len(history_mentions):
         raise ValueError("history signature/label cardinality mismatch")
@@ -136,6 +189,7 @@ def evaluate_block(
 
     counts: Counter[str] = Counter()
     contingency: Counter[tuple[int, str]] = Counter()
+    query_outcomes = []
     block_history_identities = set(history_identity_by_signature.values())
     for signature_id, mention in zip(query_signature_ids, query_mentions, strict=True):
         gold = int(identity_index[mention.identity])
@@ -164,10 +218,17 @@ def evaluate_block(
         else:
             predicted_token = f"new:{block_ordinal}:{local_cluster_index[cluster_key]}"
         contingency[(gold, predicted_token)] += 1
+        if include_query_outcomes:
+            query_outcomes.append({
+                "query_key": _query_key(mention),
+                "gold_identity_index": gold,
+                "known": known,
+                "predicted_identity_indices": sorted(predicted_history),
+            })
 
     query_count = len(query_signature_ids)
     history_count = len(history_signature_ids)
-    return {
+    result = {
         "counts": dict(counts),
         "contingency": [
             [gold, predicted, count]
@@ -183,6 +244,9 @@ def evaluate_block(
         "phase_b_mode": str(phase_b_mode),
         "elapsed_seconds": float(elapsed_seconds),
     }
+    if include_query_outcomes:
+        result["query_outcomes"] = query_outcomes
+    return result
 
 
 def aggregate_block_payloads(payloads: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
@@ -351,6 +415,9 @@ def _run_manifest(
     selected_blocks: Sequence[str],
     corpus: ReplayCorpus,
     identity_partition_sha256: str,
+    query_year_from: int | None,
+    query_year_through: int | None,
+    store_query_outcomes: bool,
 ) -> dict[str, Any]:
     dirty = _git_output(["status", "--porcelain", "--untracked-files=all"], PROJECT_ROOT)
     if dirty:
@@ -385,6 +452,9 @@ def _run_manifest(
         "enrichment_manifest_sha256": sha256_file(enrichment_manifest),
         "identity_partition_sha256": identity_partition_sha256,
         "cutoff_year": int(cutoff_year),
+        "query_year_from": query_year_from,
+        "query_year_through": query_year_through,
+        "store_query_outcomes": bool(store_query_outcomes),
         "batch_blocks": int(batch_blocks),
         "selected_blocks": len(selected_blocks),
         "selected_history_authorships": sum(
@@ -429,6 +499,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         args.enrichment_dir,
         cutoff_year=args.cutoff_year,
     )
+    corpus = _filter_query_years(
+        corpus,
+        query_year_from=args.query_year_from,
+        query_year_through=args.query_year_through,
+    )
     query_blocks = deterministic_query_blocks(corpus)
     if args.max_blocks > 0:
         query_blocks = query_blocks[:args.max_blocks]
@@ -448,6 +523,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         selected_blocks=query_blocks,
         corpus=corpus,
         identity_partition_sha256=identity_partition_sha256,
+        query_year_from=args.query_year_from,
+        query_year_through=args.query_year_through,
+        store_query_outcomes=args.store_query_outcomes,
     )
     args.run_dir.mkdir(parents=True, exist_ok=True)
     checkpoint = Checkpoint(args.run_dir / "checkpoint.sqlite3", manifest)
@@ -560,6 +638,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                     clusters=prediction["clusters"],
                     phase_b_mode=str(prediction.get("phase_b_mode", "unknown")),
                     elapsed_seconds=time.perf_counter() - block_started,
+                    include_query_outcomes=args.store_query_outcomes,
                 )
                 checkpoint.put(block_to_ordinal[block], payload)
                 completed.add(block_to_ordinal[block])
@@ -615,6 +694,9 @@ def main() -> int:
     parser.add_argument("--s2and-cache", type=Path, required=True)
     parser.add_argument("--run-dir", type=Path, required=True)
     parser.add_argument("--cutoff-year", type=int, default=2021)
+    parser.add_argument("--query-year-from", type=int)
+    parser.add_argument("--query-year-through", type=int)
+    parser.add_argument("--store-query-outcomes", action="store_true")
     parser.add_argument("--batch-blocks", type=int, default=64)
     parser.add_argument("--progress-every", type=int, default=250)
     parser.add_argument("--max-blocks", type=int, default=0)

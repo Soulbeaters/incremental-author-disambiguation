@@ -67,6 +67,16 @@ large enough public development diagnostic for the Pinyin/common-name
 collision problem, but it is not the final ISTINA test and contains very few
 genuine Cyrillic/Palladius cases.
 
+The registered profile-consensus/collision-hard-negative ablation completed at
+revision `cff5ccb`.  Relative to the previous Project Two multilingual
+selective model it increased correct known links from 6,274 to 6,369 and
+Pairwise F1 from 0.779050 to 0.792621, but wrong-known links increased from
+3 to 5 and new-author false links from 13 to 20.  Its known recall
+(`0.694169`) remains far below official S2AND (`0.962943`).  It is therefore
+frozen as a non-promoted ablation, not a breakthrough.  The next registered
+method uses official S2AND as the exact default and learns only a temporally
+separated RuZh residual correction policy.
+
 ## Frozen S2AND research ladder
 
 Project Two now uses official S2AND `0.51.1` / production bundle `v1.21` as a
@@ -179,7 +189,10 @@ surnames and dense same-name blocks are preregistered challenge strata.
 3. Improve hard-negative learning, paper-to-profile cross features, relation
    quality and cross-year calibration before increasing model depth.
    The current registered instance is profile-wide multilingual
-   support/conflict aggregation plus collision-aware negative weighting.
+   support/conflict aggregation plus collision-aware negative weighting; its
+   first ablation did not pass the joint promotion gate.  The active follow-up
+   is a residual mixture-of-experts policy that preserves official S2AND by
+   default and may change only prespecified target decisions.
 4. Keep candidate retrieval separate from the MERGE/NEW/UNKNOWN decision and
    certify the final combined system, not only the added rescue gate.
 5. Admit a GNN only when verified repeated identities and relations are large

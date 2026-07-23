@@ -172,3 +172,9 @@ new-author false links, B-cubed, pairwise metrics, runtime and peak memory.
 Run Project Two on exactly the same accepted records and paper split.  These
 results are public-development evidence only; the final superiority claim
 still requires the independently verified ISTINA blind split from the advisor.
+
+The official Python run is now complete. Its frozen aggregate result and
+interpretation are recorded in
+[s2and_official_public_baseline_result_20260723.md](s2and_official_public_baseline_result_20260723.md).
+Project Two has not yet been scored on the identical executable join, so no
+comparative superiority statement is currently valid.

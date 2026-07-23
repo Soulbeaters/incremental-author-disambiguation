@@ -54,7 +54,10 @@ from experiments.grouped_candidate_ranker import (  # noqa: E402
     select_risk_bounded_threshold,
     threshold_predictions,
 )
-from experiments.istina_runtime_replay import evaluate  # noqa: E402
+from experiments.istina_runtime_replay import (  # noqa: E402
+    evaluate,
+    merge_evaluation_results,
+)
 from experiments.s2and_public_replay import (  # noqa: E402
     ReplayCorpus,
     ReplayMention,
@@ -63,7 +66,8 @@ from experiments.s2and_public_replay import (  # noqa: E402
 from integrations.istina_pipeline import IstinaDisambiguationPipeline  # noqa: E402
 
 
-SCHEMA_VERSION = "project2_same_s2and_public_replay_v1"
+SCHEMA_VERSION = "project2_same_s2and_public_replay_v2"
+CHECKPOINT_SCHEMA_VERSION = "project2_replay_checkpoint_v1"
 
 
 def _stable_key(mention: ReplayMention) -> tuple[int, bytes, int]:
@@ -137,11 +141,224 @@ def _filter_mentions(
     return output
 
 
+def _mention_fingerprint(mentions: Sequence[ReplayMention]) -> str:
+    digest = hashlib.sha256()
+    for mention in mentions:
+        digest.update(
+            (
+                f"{mention.doi}\0{mention.identity}\0{mention.author_position}"
+                f"\0{mention.year}\n"
+            ).encode("utf-8")
+        )
+    return digest.hexdigest()
+
+
+class ReplayCheckpoint:
+    """Local ignored checkpoints for bounded, resumable formal replay."""
+
+    def __init__(
+        self,
+        root: Path,
+        *,
+        signature: str,
+        manifest: Mapping[str, Any],
+        batch_size: int,
+    ) -> None:
+        if batch_size <= 0:
+            raise ValueError("checkpoint batch size must be positive")
+        self.root = root
+        self.signature = signature
+        self.batch_size = batch_size
+        self.root.mkdir(parents=True, exist_ok=True)
+        expected_manifest = {
+            "schema_version": CHECKPOINT_SCHEMA_VERSION,
+            "signature": signature,
+            "batch_size": batch_size,
+            "contains_record_values": False,
+            "protocol": dict(manifest),
+        }
+        manifest_path = self.root / "manifest.json"
+        if manifest_path.exists():
+            existing = json.loads(manifest_path.read_text(encoding="utf-8"))
+            if existing != expected_manifest:
+                raise RuntimeError(
+                    "checkpoint manifest differs from the current code, data, or protocol"
+                )
+        else:
+            _atomic_json(manifest_path, expected_manifest)
+
+        self.progress_path = self.root / "progress.json"
+        if self.progress_path.exists():
+            self.progress = json.loads(
+                self.progress_path.read_text(encoding="utf-8")
+            )
+            if self.progress.get("signature") != signature:
+                raise RuntimeError("checkpoint progress signature mismatch")
+        else:
+            self.progress = {
+                "schema_version": CHECKPOINT_SCHEMA_VERSION,
+                "signature": signature,
+                "contains_record_values": False,
+                "status": "running",
+                "phases": {},
+            }
+            self._save_progress()
+
+    def _save_progress(self) -> None:
+        _atomic_json(self.progress_path, self.progress)
+
+    def mark_started(
+        self,
+        phase: str,
+        details: Mapping[str, Any] | None = None,
+    ) -> None:
+        state = self.progress["phases"].setdefault(phase, {})
+        state["status"] = "running"
+        state["attempts"] = int(state.get("attempts") or 0) + 1
+        state["last_started_unix"] = time.time()
+        if details:
+            state.update(dict(details))
+        self._save_progress()
+
+    def mark_completed(
+        self,
+        phase: str,
+        details: Mapping[str, Any] | None = None,
+    ) -> None:
+        state = self.progress["phases"].setdefault(phase, {})
+        started = float(state.get("last_started_unix") or time.time())
+        state["status"] = "complete"
+        state["last_completed_unix"] = time.time()
+        state["last_wall_seconds"] = max(0.0, time.time() - started)
+        if details:
+            state.update(dict(details))
+        self._save_progress()
+
+    def evaluate_batches(
+        self,
+        phase: str,
+        pipeline: IstinaDisambiguationPipeline,
+        test_mentions: Sequence[Mapping[str, Any]],
+    ) -> dict[str, Any]:
+        total_batches = (
+            (len(test_mentions) + self.batch_size - 1) // self.batch_size
+            if test_mentions else 0
+        )
+        self.mark_started(
+            phase,
+            {
+                "total_mentions": len(test_mentions),
+                "total_batches": total_batches,
+                "batch_size": self.batch_size,
+            },
+        )
+        phase_dir = self.root / phase
+        phase_dir.mkdir(parents=True, exist_ok=True)
+        results: list[Mapping[str, Any]] = []
+        reused_batches = 0
+        completed_mentions = 0
+        evaluation_seconds = 0.0
+
+        for start in range(0, len(test_mentions), self.batch_size):
+            end = min(len(test_mentions), start + self.batch_size)
+            batch_mentions = test_mentions[start:end]
+            mention_hash = _mapping_mention_fingerprint(batch_mentions)
+            batch_path = phase_dir / f"batch_{start:08d}_{end:08d}.json"
+            if batch_path.exists():
+                payload = json.loads(batch_path.read_text(encoding="utf-8"))
+                expected = {
+                    "schema_version": CHECKPOINT_SCHEMA_VERSION,
+                    "signature": self.signature,
+                    "phase": phase,
+                    "start": start,
+                    "end": end,
+                    "mention_sha256": mention_hash,
+                }
+                observed = {key: payload.get(key) for key in expected}
+                if observed != expected:
+                    raise RuntimeError(f"invalid replay checkpoint batch: {batch_path}")
+                result = payload["result"]
+                reused_batches += 1
+            else:
+                result = evaluate(pipeline, list(batch_mentions), {})
+                _atomic_compact_json(
+                    batch_path,
+                    {
+                        "schema_version": CHECKPOINT_SCHEMA_VERSION,
+                        "signature": self.signature,
+                        "phase": phase,
+                        "start": start,
+                        "end": end,
+                        "mention_sha256": mention_hash,
+                        "contains_record_values": True,
+                        "result": result,
+                    },
+                )
+            results.append(result)
+            completed_mentions += end - start
+            evaluation_seconds += float(result.get("elapsed_seconds") or 0.0)
+            state = self.progress["phases"][phase]
+            state.update({
+                "completed_batches": len(results),
+                "completed_mentions": completed_mentions,
+                "reused_batches": reused_batches,
+                "evaluation_seconds": evaluation_seconds,
+            })
+            self._save_progress()
+
+        merged = merge_evaluation_results(results)
+        self.mark_completed(
+            phase,
+            {
+                "completed_batches": len(results),
+                "completed_mentions": completed_mentions,
+                "reused_batches": reused_batches,
+                "evaluation_seconds": evaluation_seconds,
+            },
+        )
+        return merged
+
+    def public_summary(self) -> dict[str, Any]:
+        phases = {}
+        for name, state in self.progress["phases"].items():
+            phases[name] = {
+                key: value
+                for key, value in state.items()
+                if key not in {"last_started_unix", "last_completed_unix"}
+            }
+        return {
+            "schema_version": CHECKPOINT_SCHEMA_VERSION,
+            "signature": self.signature,
+            "batch_size": self.batch_size,
+            "phases": phases,
+        }
+
+    def mark_run_complete(self) -> None:
+        self.progress["status"] = "complete"
+        self._save_progress()
+
+
+def _mapping_mention_fingerprint(
+    mentions: Sequence[Mapping[str, Any]],
+) -> str:
+    digest = hashlib.sha256()
+    for mention in mentions:
+        digest.update(
+            (
+                f"{mention.get('article_id')}\0{mention.get('gold_author_id')}"
+                f"\0{mention.get('position')}\0{mention.get('year')}\n"
+            ).encode("utf-8")
+        )
+    return digest.hexdigest()
+
+
 def build_project2_replay(
     history_mentions: Sequence[ReplayMention],
     query_mentions: Sequence[ReplayMention],
     *,
     calibrated_candidate_threshold: float,
+    checkpoint: ReplayCheckpoint | None = None,
+    phase: str | None = None,
 ) -> dict[str, Any]:
     history = [
         _project2_mention(mention, index + 1)
@@ -155,6 +372,12 @@ def build_project2_replay(
     query_papers = {row["article_id"] for row in test}
     if history_papers.intersection(query_papers):
         raise ValueError("Project Two replay contains cross-role paper leakage")
+    pipeline_phase = f"{phase}.pipeline" if phase else ""
+    if checkpoint:
+        checkpoint.mark_started(
+            pipeline_phase,
+            {"history_mentions": len(history)},
+        )
     pipeline = IstinaDisambiguationPipeline.from_history_mentions(
         history,
         config=project2_config(
@@ -163,21 +386,40 @@ def build_project2_replay(
         ),
         index_aliases=True,
     )
-    project2 = evaluate(pipeline, test, {})
+    if checkpoint:
+        checkpoint.mark_completed(pipeline_phase)
+        project2 = checkpoint.evaluate_batches(
+            f"{phase}.evaluate",
+            pipeline,
+            test,
+        )
+        checkpoint.mark_started(
+            f"{phase}.graph",
+            {
+                "history_mentions": len(history),
+                "query_mentions": len(test),
+            },
+        )
+    else:
+        project2 = evaluate(pipeline, test, {})
     test_positions = list(range(len(test)))
+    historical_graph = HistoricalCoauthorGraph.from_mentions(history)
     native = native_graph_records(
         history,
         project2["records"],
         test,
         test_positions,
         pipeline.history_state.repair_profiles,
+        historical_graph=historical_graph,
     )
+    if checkpoint:
+        checkpoint.mark_completed(f"{phase}.graph")
     return {
         "history_mentions": len(history),
         "test_mentions": len(test),
         "project2": project2,
         "native": native,
-        "profile_sizes": HistoricalCoauthorGraph.from_mentions(history).profile_sizes,
+        "profile_sizes": historical_graph.profile_sizes,
         "history_mentions_raw": history,
         "test_mentions_raw": test,
     }
@@ -232,6 +474,21 @@ def _atomic_json(path: Path, payload: Mapping[str, Any]) -> None:
     os.replace(temporary, path)
 
 
+def _atomic_compact_json(path: Path, payload: Mapping[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    with temporary.open("w", encoding="utf-8") as handle:
+        json.dump(
+            payload,
+            handle,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        handle.write("\n")
+    os.replace(temporary, path)
+
+
 def _compact_replay(replay: Mapping[str, Any]) -> dict[str, Any]:
     project2 = replay["project2"]
     return {
@@ -249,6 +506,44 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         raise RuntimeError("formal Project Two comparison requires a clean worktree")
     wall_started = time.perf_counter()
     cpu_started = time.process_time()
+    project_revision = _git_output(["rev-parse", "HEAD"])
+    input_hashes = {
+        "authors_sha256": sha256_file(args.authors),
+        "article_authors_sha256": sha256_file(args.article_authors),
+        "enrichment_manifest_sha256": sha256_file(
+            args.enrichment_dir / "aggregate_manifest.json"
+        ),
+        "s2and_aggregate_sha256": sha256_file(args.s2and_result),
+    }
+    checkpoint_protocol = {
+        "project_revision": project_revision,
+        **input_hashes,
+        "cutoff_year": 2021,
+        "oof_folds": args.oof_folds,
+        "validation_modulus": args.validation_modulus,
+        "ranker_feature_group": args.ranker_feature_group,
+        "confidence": args.confidence,
+        "max_new_false_rate": args.max_new_false_rate,
+        "max_wrong_known_rate": args.max_wrong_known_rate,
+        "calibrated_candidate_threshold": args.calibrated_candidate_threshold,
+    }
+    checkpoint_signature = hashlib.sha256(
+        json.dumps(
+            checkpoint_protocol,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
+    checkpoint_root = args.checkpoint_dir or (
+        args.output.parent / f"{args.output.stem}.checkpoints"
+    )
+    checkpoint = ReplayCheckpoint(
+        checkpoint_root,
+        signature=checkpoint_signature,
+        manifest=checkpoint_protocol,
+        batch_size=args.checkpoint_batch_size,
+    )
+    checkpoint.mark_started("corpus.load")
     corpus = load_replay_corpus(
         args.authors,
         args.article_authors,
@@ -257,6 +552,14 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
     mentions = all_mentions(corpus)
     year_counts = Counter(mention.year for mention in mentions)
+    checkpoint.mark_completed(
+        "corpus.load",
+        {
+            "mentions": len(mentions),
+            "blocks": len(corpus.blocks),
+            "mentions_sha256": _mention_fingerprint(mentions),
+        },
+    )
 
     train_history = _filter_mentions(mentions, through_year=2019)
     train_query = _filter_mentions(mentions, exact_year=2020)
@@ -264,18 +567,34 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         train_history,
         train_query,
         calibrated_candidate_threshold=args.calibrated_candidate_threshold,
+        checkpoint=checkpoint,
+        phase="train",
     )
     feature_indices = RANKER_FEATURE_GROUPS[args.ranker_feature_group]
     feature_names = [RANKER_FEATURE_NAMES[index] for index in feature_indices]
+    checkpoint.mark_started("train.candidate_groups")
     train_groups = build_candidate_groups(train)
+    checkpoint.mark_completed(
+        "train.candidate_groups",
+        {"groups": len(train_groups)},
+    )
     train_known, train_new = _trial_counts(train)
+    checkpoint.mark_started("train.out_of_fold_ranker")
     oof_decisions = out_of_fold_ranked_decisions(
         train_groups,
         feature_indices,
         folds=args.oof_folds,
     )
+    checkpoint.mark_completed(
+        "train.out_of_fold_ranker",
+        {"decisions": len(oof_decisions)},
+    )
+    checkpoint.mark_started("train.nil_gate")
     nil_gate = fit_nil_gate(oof_decisions)
+    checkpoint.mark_completed("train.nil_gate")
+    checkpoint.mark_started("train.final_ranker")
     ranker = fit_ranker(train_groups, feature_indices)
+    checkpoint.mark_completed("train.final_ranker")
 
     validation_history = _filter_mentions(mentions, through_year=2020)
     validation_selection_query = _filter_mentions(
@@ -295,11 +614,19 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         validation_history,
         validation_selection_query,
         calibrated_candidate_threshold=args.calibrated_candidate_threshold,
+        checkpoint=checkpoint,
+        phase="validation_selection",
     )
+    checkpoint.mark_started("validation_selection.rank")
     selection_groups = build_candidate_groups(selection_replay)
     selection_decisions = rank_groups(ranker, selection_groups, feature_indices)
     selection_scores = gate_scores(nil_gate, selection_decisions)
+    checkpoint.mark_completed(
+        "validation_selection.rank",
+        {"groups": len(selection_groups)},
+    )
     selection_known, selection_new = _trial_counts(selection_replay)
+    checkpoint.mark_started("validation_selection.threshold")
     threshold_selection = select_risk_bounded_threshold(
         selection_decisions,
         selection_scores,
@@ -310,12 +637,19 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         max_wrong_known_rate=args.max_wrong_known_rate,
     )
     threshold = float(threshold_selection["threshold"])
+    checkpoint.mark_completed(
+        "validation_selection.threshold",
+        {"selected_threshold": threshold},
+    )
 
     certification_replay = build_project2_replay(
         validation_history,
         validation_certification_query,
         calibrated_candidate_threshold=args.calibrated_candidate_threshold,
+        checkpoint=checkpoint,
+        phase="validation_certification",
     )
+    checkpoint.mark_started("validation_certification.rank")
     certification_groups = build_candidate_groups(certification_replay)
     certification_decisions = rank_groups(
         ranker, certification_groups, feature_indices
@@ -327,6 +661,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         certification_scores,
         threshold,
     )
+    checkpoint.mark_completed(
+        "validation_certification.rank",
+        {"groups": len(certification_groups)},
+    )
+    checkpoint.mark_started("validation_certification.risk")
     certification_risk = _risk_certificate(
         certification_replay,
         certification_predictions,
@@ -334,6 +673,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         max_new_false_rate=args.max_new_false_rate,
         max_wrong_known_rate=args.max_wrong_known_rate,
     )
+    checkpoint.mark_completed("validation_certification.risk")
 
     evaluation_history = _filter_mentions(mentions, through_year=2021)
     evaluation_query = _filter_mentions(mentions, from_year=2022)
@@ -341,7 +681,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         evaluation_history,
         evaluation_query,
         calibrated_candidate_threshold=args.calibrated_candidate_threshold,
+        checkpoint=checkpoint,
+        phase="comparison",
     )
+    checkpoint.mark_started("comparison.rank")
     evaluation_groups = build_candidate_groups(evaluation)
     evaluation_decisions = rank_groups(ranker, evaluation_groups, feature_indices)
     evaluation_scores = gate_scores(nil_gate, evaluation_decisions)
@@ -353,6 +696,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
     base = base_predictions(evaluation)
     native = native_predictions(evaluation)
+    checkpoint.mark_completed(
+        "comparison.rank",
+        {"groups": len(evaluation_groups)},
+    )
     records = evaluation["project2"]["records"]
     official_result = json.loads(args.s2and_result.read_text(encoding="utf-8"))
     if not official_result.get("complete"):
@@ -368,13 +715,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "contains_record_values": False,
         "development_only": True,
         "protocol": {
-            "project_revision": _git_output(["rev-parse", "HEAD"]),
-            "authors_sha256": sha256_file(args.authors),
-            "article_authors_sha256": sha256_file(args.article_authors),
-            "enrichment_manifest_sha256": sha256_file(
-                args.enrichment_dir / "aggregate_manifest.json"
-            ),
-            "s2and_aggregate_sha256": sha256_file(args.s2and_result),
+            "project_revision": project_revision,
+            **input_hashes,
             "query_labels_used_as_features": False,
             "original_name_used": False,
             "train": {"history_through": 2019, "query_year": 2020},
@@ -458,9 +800,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "cpu_seconds": time.process_time() - cpu_started,
             "peak_working_set_bytes": peak_working_set_bytes(),
             "evaluation_candidate_groups": len(evaluation_groups),
+            "checkpoint": checkpoint.public_summary(),
         },
     }
     _atomic_json(args.output, report)
+    checkpoint.mark_run_complete()
     comparison = report["comparison"]["project2_grouped_selective"]
     print(
         "project2_same_replay_complete "
@@ -478,6 +822,8 @@ def main() -> int:
     parser.add_argument("--enrichment-dir", type=Path, required=True)
     parser.add_argument("--s2and-result", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--checkpoint-dir", type=Path)
+    parser.add_argument("--checkpoint-batch-size", type=int, default=5000)
     parser.add_argument("--oof-folds", type=int, default=5)
     parser.add_argument("--validation-modulus", type=int, default=5)
     parser.add_argument(

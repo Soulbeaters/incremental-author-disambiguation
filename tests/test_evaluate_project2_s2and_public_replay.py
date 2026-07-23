@@ -1,6 +1,7 @@
 from array import array
 
 from experiments.evaluate_project2_s2and_public_replay import (
+    ReplayCheckpoint,
     _filter_mentions,
     _project2_mention,
 )
@@ -64,3 +65,91 @@ def test_temporal_and_paper_bucket_filters_keep_roles_disjoint():
     assert [row.year for row in train] == [2020]
     assert [row.year for row in evaluation] == [2022]
     assert not ({row.doi for row in history} & {row.doi for row in evaluation})
+
+
+def test_replay_checkpoint_resumes_validated_batches_without_raw_progress(
+    tmp_path,
+    monkeypatch,
+):
+    calls = []
+
+    def fake_evaluate(_pipeline, mentions, _service_records):
+        calls.append(len(mentions))
+        records = [
+            {
+                **mention,
+                "decision": "new",
+                "author_id": None,
+                "stage": "test",
+                "correct": True,
+                "gold_seen_in_history": False,
+                "latency_ms": 1.0,
+            }
+            for mention in mentions
+        ]
+        return {
+            "stats": {
+                "total": len(records),
+                "new_gold": len(records),
+                "new": len(records),
+                "correct_new": len(records),
+            },
+            "stage_counts": {"test": len(records)},
+            "candidate_retrieval": {
+                "truncated_mentions": 0,
+                "candidate_pool_total": 0,
+                "scored_candidate_total": 0,
+            },
+            "legacy_shadow": {"paired_table": {}},
+            "elapsed_seconds": float(len(records)),
+            "error_samples": [],
+            "records": records,
+        }
+
+    monkeypatch.setattr(
+        "experiments.evaluate_project2_s2and_public_replay.evaluate",
+        fake_evaluate,
+    )
+    mentions = [
+        {
+            "article_id": f"10.test/{index}",
+            "gold_author_id": f"id-{index}",
+            "position": 0,
+            "year": 2022,
+        }
+        for index in range(5)
+    ]
+    manifest = {"project_revision": "test", "data_sha256": "abc"}
+    first = ReplayCheckpoint(
+        tmp_path,
+        signature="signature",
+        manifest=manifest,
+        batch_size=2,
+    )
+
+    result = first.evaluate_batches("comparison.evaluate", object(), mentions)
+
+    assert calls == [2, 2, 1]
+    assert len(result["records"]) == 5
+    assert first.progress["contains_record_values"] is False
+    assert "gold_author_id" not in first.progress_path.read_text(encoding="utf-8")
+
+    calls.clear()
+    resumed = ReplayCheckpoint(
+        tmp_path,
+        signature="signature",
+        manifest=manifest,
+        batch_size=2,
+    )
+    resumed_result = resumed.evaluate_batches(
+        "comparison.evaluate",
+        object(),
+        mentions,
+    )
+
+    assert calls == []
+    assert resumed_result["records"] == result["records"]
+    assert (
+        resumed.progress["phases"]["comparison.evaluate"]["reused_batches"]
+        == 3
+    )

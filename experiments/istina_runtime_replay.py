@@ -80,6 +80,163 @@ def exact_mcnemar_two_sided(new_only: int, old_only: int) -> float:
     return min(1.0, 2.0 * tail)
 
 
+def _evaluation_report(
+    stats: Mapping[str, int],
+    stage_counts: Mapping[str, int],
+    retrieval: Mapping[str, int],
+    latencies: List[float],
+    records: List[Dict[str, Any]],
+    error_samples: List[Dict[str, Any]],
+    paired: Mapping[str, int],
+    elapsed: float,
+) -> Dict[str, Any]:
+    precision = stats["correct_merge"] / stats["merge"] if stats["merge"] else 0.0
+    recall = (
+        stats["correct_merge"] / stats["existing_gold"]
+        if stats["existing_gold"]
+        else 0.0
+    )
+    f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
+    discordant_new = paired["runtime_only_correct"]
+    discordant_old = paired["legacy_only_correct"]
+    shadow_total = sum(paired.values())
+    return {
+        "stats": dict(stats),
+        "metrics": {
+            "precision": precision,
+            "existing_recall": recall,
+            "f1_existing": f1,
+            "auto_accuracy": (
+                (stats["correct_merge"] + stats["correct_new"]) / stats["total"]
+                if stats["total"] else 0.0
+            ),
+            "unknown_rate": (
+                stats["unknown"] / stats["total"] if stats["total"] else 0.0
+            ),
+            "wrong_merge_rate": (
+                stats["wrong_merge"] / stats["total"] if stats["total"] else 0.0
+            ),
+            "throughput_mentions_per_second": (
+                stats["total"] / elapsed if elapsed else None
+            ),
+            "latency_ms_p50": percentile(latencies, 0.50),
+            "latency_ms_p95": percentile(latencies, 0.95),
+            "latency_ms_p99": percentile(latencies, 0.99),
+            "latency_ms_max": max(latencies) if latencies else None,
+        },
+        "stage_counts": dict(sorted(stage_counts.items())),
+        "candidate_retrieval": {
+            **retrieval,
+            "average_candidate_pool_size": (
+                retrieval["candidate_pool_total"] / stats["total"]
+                if stats["total"] else 0.0
+            ),
+            "average_scored_candidate_count": (
+                retrieval["scored_candidate_total"] / stats["total"]
+                if stats["total"] else 0.0
+            ),
+        },
+        "legacy_shadow": {
+            "n": shadow_total,
+            "paired_table": dict(paired),
+            "runtime_correct": paired["both_correct"] + paired["runtime_only_correct"],
+            "legacy_correct": paired["both_correct"] + paired["legacy_only_correct"],
+            "mcnemar_exact_two_sided_p": (
+                exact_mcnemar_two_sided(discordant_new, discordant_old)
+                if shadow_total else None
+            ),
+        },
+        "elapsed_seconds": elapsed,
+        "error_samples": error_samples,
+        "records": records,
+    }
+
+
+def merge_evaluation_results(
+    results: Iterable[Mapping[str, Any]],
+) -> Dict[str, Any]:
+    """Merge ordered replay batches without changing aggregate semantics."""
+
+    stats: Counter[str] = Counter()
+    stage_counts: Counter[str] = Counter()
+    retrieval: Counter[str] = Counter()
+    paired: Counter[str] = Counter()
+    latencies: List[float] = []
+    records: List[Dict[str, Any]] = []
+    error_samples: List[Dict[str, Any]] = []
+    elapsed = 0.0
+
+    for result in results:
+        stats.update({
+            str(key): int(value)
+            for key, value in (result.get("stats") or {}).items()
+        })
+        stage_counts.update({
+            str(key): int(value)
+            for key, value in (result.get("stage_counts") or {}).items()
+        })
+        candidate_retrieval = result.get("candidate_retrieval") or {}
+        retrieval.update({
+            key: int(candidate_retrieval.get(key) or 0)
+            for key in (
+                "truncated_mentions",
+                "candidate_pool_total",
+                "scored_candidate_total",
+            )
+        })
+        legacy = result.get("legacy_shadow") or {}
+        paired.update({
+            str(key): int(value)
+            for key, value in (legacy.get("paired_table") or {}).items()
+        })
+        batch_records = [dict(record) for record in result.get("records") or ()]
+        records.extend(batch_records)
+        latencies.extend(
+            float(record.get("latency_ms") or 0.0)
+            for record in batch_records
+        )
+        if len(error_samples) < 50:
+            remaining = 50 - len(error_samples)
+            error_samples.extend(
+                dict(record)
+                for record in (result.get("error_samples") or ())[:remaining]
+            )
+        elapsed += float(result.get("elapsed_seconds") or 0.0)
+
+    for key in (
+        "total",
+        "existing_gold",
+        "new_gold",
+        "merge",
+        "new",
+        "unknown",
+        "correct_merge",
+        "wrong_merge",
+        "correct_new",
+        "false_new_for_existing",
+        "merge_for_new_gold",
+    ):
+        stats.setdefault(key, 0)
+    for key in (
+        "both_correct",
+        "runtime_only_correct",
+        "legacy_only_correct",
+        "both_incorrect",
+    ):
+        paired.setdefault(key, 0)
+
+    return _evaluation_report(
+        stats,
+        stage_counts,
+        retrieval,
+        latencies,
+        records,
+        error_samples,
+        paired,
+        elapsed,
+    )
+
+
 def evaluate(
     pipeline: IstinaDisambiguationPipeline,
     test_mentions: List[Dict[str, Any]],
@@ -179,56 +336,16 @@ def evaluate(
             error_samples.append(record)
 
     elapsed = time.perf_counter() - started
-    precision = stats["correct_merge"] / stats["merge"] if stats["merge"] else 0.0
-    recall = stats["correct_merge"] / stats["existing_gold"] if stats["existing_gold"] else 0.0
-    f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
-    discordant_new = paired["runtime_only_correct"]
-    discordant_old = paired["legacy_only_correct"]
-    shadow_total = sum(paired.values())
-    return {
-        "stats": stats,
-        "metrics": {
-            "precision": precision,
-            "existing_recall": recall,
-            "f1_existing": f1,
-            "auto_accuracy": (
-                (stats["correct_merge"] + stats["correct_new"]) / stats["total"]
-                if stats["total"] else 0.0
-            ),
-            "unknown_rate": stats["unknown"] / stats["total"] if stats["total"] else 0.0,
-            "wrong_merge_rate": stats["wrong_merge"] / stats["total"] if stats["total"] else 0.0,
-            "throughput_mentions_per_second": stats["total"] / elapsed if elapsed else None,
-            "latency_ms_p50": percentile(latencies, 0.50),
-            "latency_ms_p95": percentile(latencies, 0.95),
-            "latency_ms_p99": percentile(latencies, 0.99),
-            "latency_ms_max": max(latencies) if latencies else None,
-        },
-        "stage_counts": dict(sorted(stage_counts.items())),
-        "candidate_retrieval": {
-            **retrieval,
-            "average_candidate_pool_size": (
-                retrieval["candidate_pool_total"] / stats["total"]
-                if stats["total"] else 0.0
-            ),
-            "average_scored_candidate_count": (
-                retrieval["scored_candidate_total"] / stats["total"]
-                if stats["total"] else 0.0
-            ),
-        },
-        "legacy_shadow": {
-            "n": shadow_total,
-            "paired_table": paired,
-            "runtime_correct": paired["both_correct"] + paired["runtime_only_correct"],
-            "legacy_correct": paired["both_correct"] + paired["legacy_only_correct"],
-            "mcnemar_exact_two_sided_p": (
-                exact_mcnemar_two_sided(discordant_new, discordant_old)
-                if shadow_total else None
-            ),
-        },
-        "elapsed_seconds": elapsed,
-        "error_samples": error_samples,
-        "records": records,
-    }
+    return _evaluation_report(
+        stats,
+        stage_counts,
+        retrieval,
+        latencies,
+        records,
+        error_samples,
+        paired,
+        elapsed,
+    )
 
 
 def main() -> None:

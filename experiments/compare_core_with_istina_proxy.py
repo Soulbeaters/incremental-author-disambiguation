@@ -21,7 +21,10 @@ PROJECT2_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT2_ROOT))
 
 from experiments.istina_runtime_replay import evaluate, exact_mcnemar_two_sided  # noqa: E402
-from disambiguation_engine.paper_graph_rescue import predict_graph_by_paper  # noqa: E402
+from disambiguation_engine.paper_graph_rescue import (  # noqa: E402
+    HistoricalCoauthorGraph,
+    predict_graph_by_paper,
+)
 from disambiguation_engine.structured_name_repair import compatible_structured_author_ids  # noqa: E402
 from evaluation.cluster_metrics import evaluate_all_metrics  # noqa: E402
 from integrations.istina_pipeline import IstinaDisambiguationPipeline, IstinaPipelineConfig  # noqa: E402
@@ -657,6 +660,7 @@ def native_graph_records(
     test_positions: list[int],
     repair_profiles: Any,
     time_decay_half_life_years: float | None = None,
+    historical_graph: HistoricalCoauthorGraph | None = None,
 ) -> list[dict[str, Any]]:
     """Adapt native Project Two graph proposals to the paired evaluator."""
 
@@ -672,6 +676,7 @@ def native_graph_records(
         history_mentions,
         graph_records,
         time_decay_half_life_years=time_decay_half_life_years,
+        historical_graph=historical_graph,
     )
     output: list[dict[str, Any]] = []
     for local_position, (source_position, record) in enumerate(

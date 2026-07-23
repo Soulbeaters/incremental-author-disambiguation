@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 from disambiguation_engine.decision_types import Decision
 from experiments.istina_export_temporal_evaluation import mention_identity
-from experiments.istina_runtime_replay import evaluate
+from experiments.istina_runtime_replay import evaluate, merge_evaluation_results
 from experiments.istina_operational_validation import drift_fault_injection
 from integrations.istina_pipeline import IstinaPipelineDecision
 
@@ -67,6 +67,51 @@ class IstinaRuntimeReplayTests(unittest.TestCase):
         self.assertEqual(result["legacy_shadow"]["n"], 1)
         self.assertEqual(result["legacy_shadow"]["runtime_correct"], 1)
         self.assertEqual(result["legacy_shadow"]["legacy_correct"], 1)
+
+    def test_ordered_batch_merge_preserves_replay_semantics(self):
+        mentions = [
+            {
+                "article_index": index,
+                "article_id": f"P{index}",
+                "position": 1,
+                "gold_author_id": "known" if index % 2 else f"new-{index}",
+                "name": f"Author {index}",
+            }
+            for index in range(1, 7)
+        ]
+        service_records = {
+            mention_identity(mention): {"result_id": mention["gold_author_id"]}
+            for mention in mentions
+        }
+
+        full = evaluate(_Pipeline(), mentions, service_records)
+        merged = merge_evaluation_results([
+            evaluate(_Pipeline(), mentions[:2], service_records),
+            evaluate(_Pipeline(), mentions[2:5], service_records),
+            evaluate(_Pipeline(), mentions[5:], service_records),
+        ])
+
+        self.assertEqual(merged["stats"], full["stats"])
+        self.assertEqual(merged["stage_counts"], full["stage_counts"])
+        self.assertEqual(
+            merged["candidate_retrieval"],
+            full["candidate_retrieval"],
+        )
+        self.assertEqual(merged["legacy_shadow"], full["legacy_shadow"])
+        self.assertEqual(merged["records"], full["records"])
+        for key in (
+            "precision",
+            "existing_recall",
+            "f1_existing",
+            "auto_accuracy",
+            "unknown_rate",
+            "wrong_merge_rate",
+            "latency_ms_p50",
+            "latency_ms_p95",
+            "latency_ms_p99",
+            "latency_ms_max",
+        ):
+            self.assertEqual(merged["metrics"][key], full["metrics"][key])
 
     def test_drift_fault_injection_triggers_all_expected_alerts(self):
         decisions = [

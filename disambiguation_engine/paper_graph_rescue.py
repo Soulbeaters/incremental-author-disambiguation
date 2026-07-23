@@ -227,10 +227,14 @@ def predict_graph_by_paper(
     records: Sequence[Mapping[str, Any]],
     min_name_similarity: float = 0.0,
     time_decay_half_life_years: float | None = None,
+    historical_graph: HistoricalCoauthorGraph | None = None,
 ) -> dict[int, PaperGraphPrediction]:
     """Return graph proposals indexed by global record position."""
 
-    graph = HistoricalCoauthorGraph.from_mentions(history_mentions)
+    graph = (
+        historical_graph
+        or HistoricalCoauthorGraph.from_mentions(history_mentions)
+    )
     positions_by_paper: dict[str, list[int]] = defaultdict(list)
     for position, record in enumerate(records):
         positions_by_paper[str(record.get("article_id") or position)].append(position)

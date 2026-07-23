@@ -106,8 +106,18 @@ def _observed_rss_bytes() -> int:
 
         counters = ProcessMemoryCountersEx()
         counters.cb = ctypes.sizeof(counters)
-        handle = ctypes.windll.kernel32.GetCurrentProcess()
-        succeeded = ctypes.windll.psapi.GetProcessMemoryInfo(
+        get_current_process = ctypes.windll.kernel32.GetCurrentProcess
+        get_current_process.argtypes = []
+        get_current_process.restype = wintypes.HANDLE
+        get_process_memory_info = ctypes.windll.psapi.GetProcessMemoryInfo
+        get_process_memory_info.argtypes = [
+            wintypes.HANDLE,
+            ctypes.POINTER(ProcessMemoryCountersEx),
+            wintypes.DWORD,
+        ]
+        get_process_memory_info.restype = wintypes.BOOL
+        handle = get_current_process()
+        succeeded = get_process_memory_info(
             handle,
             ctypes.byref(counters),
             counters.cb,

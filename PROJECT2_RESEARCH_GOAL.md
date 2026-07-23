@@ -56,6 +56,16 @@ the registered 100,000/10,000/10,000 pairs.  The public data's near-total
 Latin-script coverage remains insufficient for a Russian--Chinese subgroup
 claim.
 
+The stock control has now completed.  On the full 2025--2026 public
+comparison it reduces new-author false links from 265 to 188 and raises
+accepted-link precision from 0.954413 to 0.962675, but loses 40 correct known
+links (known recall 0.962943 to 0.958583).  B³ F1 rises by 0.001350 while
+Pairwise F1 falls by 0.004940.  This is a changed risk--coverage trade-off, not
+overall superiority.  The next algorithmic target is therefore a calibrated
+`S2AND-RuZh-Open` layer that tries to retain stock S2AND recall while reducing
+false links; Russian--Chinese feature claims remain blocked on verified
+target-domain development labels.
+
 ## Irreversible data roles
 
 | Partition | Permitted use | Prohibited use |

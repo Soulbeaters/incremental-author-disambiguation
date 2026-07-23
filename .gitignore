@@ -91,6 +91,7 @@ docs/research/*
 !docs/research/s2and_multilingual_extension_20260723.md
 !docs/research/s2and_multilingual_ablation_result_20260723.md
 !docs/research/s2and_stock_retraining_protocol_20260723.md
+!docs/research/s2and_stock_retraining_result_20260723.md
 *.pdf
 *.tex
 *.aux

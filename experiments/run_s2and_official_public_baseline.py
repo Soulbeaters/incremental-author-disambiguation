@@ -326,7 +326,7 @@ class Checkpoint:
 
 def _git_output(arguments: Sequence[str], cwd: Path) -> str:
     result = subprocess.run(
-        ["git", *arguments],
+        ["git", "-c", f"safe.directory={cwd.as_posix()}", *arguments],
         cwd=cwd,
         check=True,
         capture_output=True,

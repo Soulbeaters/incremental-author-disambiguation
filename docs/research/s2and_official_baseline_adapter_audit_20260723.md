@@ -113,39 +113,62 @@ sample size.  A method is not superior merely because it raises aggregate F1:
 it must improve the agreed primary endpoint without violating either risk
 bound.
 
-## Next executable step
+## Reproduced environment and executable boundary
 
-The leakage-safe intermediate payload builder and its in-memory tests are
-implemented in `experiments/s2and_official_adapter.py`.  It requires complete
-paper authors, source positions and 768-dimensional SPECTER2 vectors; it
-rejects paper overlap and `original_name`, hashes history seed identifiers,
-and never reads query labels.  A two-record parse through official `ANDData`
-was attempted but stopped before construction because the current Python
-environment lacks S2AND's `fasttext` dependency.  No package was installed in
-the unattended session.  Reproduce the official environment from its locked
-dependencies before the converter smoke test; do not monkeypatch preprocessing
-or weaken the adapter to bypass this check.
+The official reference is S2AND `0.51.1` at commit
+`cb99b97c23a7c1bdbcb98cfe68abc6fec060c402`, using production bundle `v1.21`.
+An isolated Python 3.11.13 environment now loads the bundle with NumPy 1.26.4,
+scikit-learn 1.7.1, LightGBM 4.6.0, fasttext-wheel 0.9.2 and PyArrow 18.1.0.
+The official `ANDData` preprocessing and `Clusterer.predict_incremental`
+Python path completed an integration check with `phase_b_mode=exact`.
 
-After reproducing that environment, convert a tiny deterministic payload with
-S2AND's official `convert_service_json_to_arrow` route, then run the same
-streaming enrichment on the public development split with bounded logs.  Do
-not score the baseline until SPECTER2 and DOI-join coverage are recorded and
-all invariants pass.  The final comparison still waits for the independently
-verified ISTINA split from the advisor.
+The optional `s2and-rust` wheel is not installed.  Therefore the reproducible
+comparison is explicitly the official Python pairwise-feature plus exact
+incremental-clustering path, not the promoted Rust/Arrow v1.21 linker.  This
+distinction must remain in every result table and paper claim.
 
-`experiments/audit_crossref_s2and_coverage.py` provides an aggregate-only,
-standard-library scanner.  It never emits record values and keeps only
-counters plus join keys.  The first implementation reparsed incomplete large
-array items and hit the 192-second unattended limit; it produced no artifact.
-The parser was replaced by a linear boundary scanner and the completed audit
-showed that `crossref.json` is an author-collection wrapper, not a works file.
+The leakage-safe adapter in `experiments/s2and_official_adapter.py` rejects
+paper overlap and `original_name`, hashes history seed identifiers, and never
+reads query labels.  The real public loader in
+`experiments/s2and_public_replay.py` goes further: it reconstructs model rows
+from a strict whitelist, never reads the article-map ORCID, resolves target
+position using structured names only, and physically omits identity from every
+query row.
 
-The author export has 301,586 rows over 29,360 DOI/article ids.  Its separate
-article-author map covers all 301,586 rows and supplies 410,724 complete paper
-author entries with source order, but the local files contain no title,
-abstract, venue, journal, or embedding fields.  A resume-safe Semantic Scholar
-batch enrichment subsequently matched 25,344 DOI records and supplied 22,549
-SPECTER2 vectors.  After requiring structured name, label-only ORCID, year,
-complete paper context and SPECTER2, 108,905 authorships over 20,329 papers are
-available for public development.  See
-[public_s2and_dataset_result_20260723.md](public_s2and_dataset_result_20260723.md).
+## Real replay join result
+
+The theoretical SPECTER2-ready subset contains 108,905 authorships.  Applying
+the stricter executable join produces 91,748 unique authorships:
+
+- 32,761 history and 58,987 query authorships at the 2021 cutoff;
+- 25,482 known-author and 33,505 genuinely new-author queries;
+- 91,770 exact structured-name position matches before removing 22 duplicate
+  mentions; and
+- 128 ambiguous same-paper matches rejected rather than repaired with ORCID.
+
+The sequential losses from the 301,586-row export are 180,753 rows lacking a
+required structured label/year/DOI field, 11,928 without SPECTER2, 17,007
+without a complete structured article-author list, 128 ambiguous positions,
+and 22 exact duplicate mentions.  These exclusions are fixed data-availability
+rules, not model-dependent filtering.
+
+Exact adapter blocking covers 25,229 of 25,482 known queries.  The remaining
+253 are candidate-generation failures and must remain errors in end-to-end
+metrics.  Aggregate-only audits are implemented by
+`experiments/audit_s2and_public_replay.py` and
+`experiments/audit_s2and_replay_complexity.py`.
+
+The official Python exact path is computationally feasible on this replay:
+73,129 theoretical pre-position queries implied 1,609,155 comparisons, a
+maximum block size of 404 and a maximum single-block cost of 68,845 pairs.
+No block exceeds 100,000 pairs.  The executable 91,748-row join is smaller.
+
+## Next formal experiment
+
+Run the official Python baseline blockwise with checkpointed aggregate state,
+bounded logs and the frozen 2021 replay.  Report candidate coverage separately
+from linking, then compute known recall, accepted-link precision, wrong-known,
+new-author false links, B-cubed, pairwise metrics, runtime and peak memory.
+Run Project Two on exactly the same accepted records and paper split.  These
+results are public-development evidence only; the final superiority claim
+still requires the independently verified ISTINA blind split from the advisor.

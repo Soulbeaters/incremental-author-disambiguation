@@ -95,11 +95,14 @@ Proceed with the official S2AND `0.51.1` / production-model `v1.21` adapter on
 the 108,905-authorship subset, using the same history, query papers and hidden
 labels as Project Two.  Report missing-data coverage before metrics.
 
-Remaining gates are:
+The Python 3.11 environment and official production model are now reproduced,
+and the stricter executable join leaves 91,748 authorships after rejecting
+incomplete paper-author lists, ambiguous positions and duplicates.  The
+remaining gates are:
 
-1. reproduce S2AND's required Python 3.11 environment and converter smoke test;
-2. generate validated S2AND service-shaped JSON/Arrow artifacts without query
-   ORCID or test labels in seeds;
-3. run the paired public baseline and complexity audit; and
-4. keep every result development-only until the separate verified ISTINA
+1. run the checkpointed official Python baseline on the frozen executable
+   join without query ORCID or query labels in seeds;
+2. run Project Two on the identical accepted records and report the paired
+   public-development comparison; and
+3. keep every result development-only until the separate verified ISTINA
    blind test is available.

@@ -149,6 +149,7 @@ def _input_manifest(
             "cluster_eps": int(args.cluster_iterations),
         },
         "random_seed": int(args.random_seed),
+        "n_jobs": int(args.n_jobs),
     }
 
 
@@ -205,7 +206,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     peak_rss = _observed_rss_bytes()
     print(
         "stock_s2and_training_start "
-        f"revision={project_revision[:12]} run={run_signature[:12]}"
+        f"revision={project_revision[:12]} run={run_signature[:12]}",
+        flush=True,
     )
 
     stage_started = time.perf_counter()
@@ -234,7 +236,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "stock_s2and_training_data "
         f"train={len(training_data.train_signature_ids)} "
         f"validation={len(training_data.validation_signature_ids)} "
-        f"test={len(training_data.test_signature_ids)}"
+        f"test={len(training_data.test_signature_ids)}",
+        flush=True,
     )
 
     train_ratio, validation_ratio, test_ratio = exact_time_split_ratios(
@@ -276,6 +279,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 compute_reference_features=False,
             )
             split_counts = verify_official_time_split(dataset, training_data)
+            training_audit = training_data.audit
+            del training_data
+            gc.collect()
             stages["anddata_seconds"] = time.perf_counter() - stage_started
 
             stage_started = time.perf_counter()
@@ -347,7 +353,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         **manifest,
         "contains_record_values": False,
         "complete": True,
-        "audit": training_data.audit,
+        "audit": training_audit,
         "official_split_counts": split_counts,
         "pairwise_metrics": pairwise_metrics,
         "model": {
@@ -376,7 +382,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         f"model_sha256={model_sha256[:12]} "
         f"validation_auc={pairwise_metrics['validation']['roc_auc']:.6f} "
         f"test_auc={pairwise_metrics['test']['roc_auc']:.6f} "
-        f"seconds={stages['total_seconds']:.1f}"
+        f"seconds={stages['total_seconds']:.1f}",
+        flush=True,
     )
     return result
 
@@ -398,7 +405,7 @@ def main() -> int:
     parser.add_argument("--pairwise-iterations", type=int, default=25)
     parser.add_argument("--cluster-iterations", type=int, default=25)
     parser.add_argument("--random-seed", type=int, default=1111)
-    parser.add_argument("--n-jobs", type=int, default=6)
+    parser.add_argument("--n-jobs", type=int, default=1)
     args = parser.parse_args()
     run(args)
     return 0

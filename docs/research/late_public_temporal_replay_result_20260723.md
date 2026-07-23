@@ -2,13 +2,16 @@
 
 ## Decision
 
-Freeze the current semantic-cross-feature, fixed-sequence selective model.  Do
-not continue threshold tuning or add stage-specific vetoes on the public replay.
-The model is supported as a **risk-controlled high-precision operating mode**,
-not as a generally superior replacement for S2AND or the Project Two native
-graph pipeline.
+Freeze the current semantic-cross-feature, fixed-sequence selective model as a
+**public-transfer checkpoint**.  Do not continue threshold tuning or add
+stage-specific vetoes on the public replay.  The model is supported as a
+**risk-controlled high-precision operating mode**, not as a generally superior
+replacement for S2AND or the Project Two native graph pipeline.
 
-Promotion remains forbidden until a held-out ISTINA export is evaluated once.
+This is not the final ISTINA blind-test model.  Promotion remains forbidden
+until ISTINA development labels have been used only inside their registered
+train/validation/certification roles, a new final model has been frozen, and
+the separately held blind test has then been evaluated once.
 
 ## Frozen protocol
 
@@ -116,8 +119,19 @@ No more public-replay parameter tuning is justified.  In particular:
 - do not claim overall superiority from the precision/risk result;
 - do not promote the model based on public development data.
 
-The next valid experiment is a single frozen evaluation on the independent
-ISTINA export, reported both at the same operating threshold and at comparable
-coverage/risk operating points.  If the ISTINA blind result fails either risk
-limit or does not preserve the precision advantage, stop this model family and
-redesign the NIL/open-set model rather than resume parameter search.
+The next valid phase requires two physically separated ISTINA deliveries:
+
+1. an accessible development set whose labels may be used only for registered
+   train/validation/certification roles; and
+2. a blind-test input set whose `person_id` labels remain with the advisor or
+   another custodian until the ISTINA-trained code, model and protocol hashes
+   are frozen.
+
+First evaluate this public-transfer checkpoint on ISTINA development data, then
+perform any domain adaptation using development partitions only.  Freeze a new
+final ISTINA model before requesting blind outcomes.  Report the blind result
+at its frozen operating threshold and at preregistered comparable
+coverage/risk operating points.  If that blind result fails either risk limit
+or does not preserve the claimed advantage, stop this model family and
+redesign the NIL/open-set model rather than resume parameter search on the
+opened blind set.
